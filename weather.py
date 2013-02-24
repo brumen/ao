@@ -1,9 +1,6 @@
 #
-# File defines:
-#   mrd skew model for commodities (state reference)
-#   a general diffusion model
+# weather model, as described in 
 
-# import config 
 
 import numpy as np
 import openopt # optimization solver
