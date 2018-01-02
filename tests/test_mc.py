@@ -13,29 +13,52 @@ if config.CUDA_PRESENT:
 class TestMC(unittest.TestCase):
 
     def test_0(self, nb_sim=100):
+        """
+        tests whether the mc_mult_steps function works
+
+        """
+
         F_d = np.zeros(5) + 100.
         s_d = np.zeros(5) + 0.2
+        s_d_fct = [lambda t: s_d[0], lambda t: s_d[1]]
+        d_v_fct = [lambda t: 0.01, lambda t: 0.02]
         rho_m = corr_hyp_sec_mat(0.99, range(5)).astype(np.float32)
-        v1 = mc.mc_mult_steps(F_d, s_d, [0.2, 0.3], rho_m, nb_sim=nb_sim)
-        return v1
+        v1 = mc.mc_mult_steps(F_d, s_d_fct, [0.2, 0.3], rho_m, nb_sim, [0.21, 0.31]
+                             , d_v=d_v_fct)
+        print "V1:", v1
+        self.assertTrue(True)
 
     def test_2(self):
-        F = np.array([100.])
-        T_end = 2.
-        nb_sim = 1048575 # 2**20 - 1
-        T = np.array ([T_end - 9./12., T_end - 6./12., T_end - 5./12.])
-        s = np.array([0.25])
-        rho_m = np.array([[1.]])
-        T_l = np.linspace (0.1,1., 10)
-        F_sim_l = mc.mc_mult_steps(F, s, T_l, rho_m, nb_sim)
+        """
+        Martingale test for 1 single underlyer - the average of this should be very close to the
+        of the underlyer
 
-        print np.average (F_sim_l[-1,:,0])
+        """
+        # TODO: TO FINISH THIS TEST
+
+        F = np.array([100.])
+        s = np.array([0.25])
+        s_d_fct = [lambda t: s[[0]]]
+        d_v_fct = [lambda t: 0.01]
+        nb_sim = 1048575  # 2**20 - 1
+        rho_m = np.array([[1.]])
+        T_l = np.linspace(0.1, 1., 10)
+        F_sim_l = mc.mc_mult_steps(F, s_d_fct, T_l, rho_m, nb_sim, T_l+0.01,
+                                   d_v=d_v_fct)
+
+        print np.average(F_sim_l[-1, :, 0])
 
         self.assertTrue(True)
 
     def test_3(self):
+        """
+        tests the mc_mult_steps_cpu_ret function for return flights
+
+        """
+
         F_v = (np.array([100., 105., 106.]), np.array([200., 205.]))
         s_v = (np.array([0.2, 0.2, 0.2]), np.array([0.2, 0.3]))
+        s_v_fct =
         T_l = ([0.1, 0.2, 0.3, 0.4, 0.5], [0.15, 0.25, 0.35, 0.45, 0.55])
         rho_m = (corr_hyp_sec_mat(0.95, range(3)), corr_hyp_sec_mat(0.95, range(2)))
         nb_sim = 1000
@@ -50,6 +73,7 @@ class TestMC(unittest.TestCase):
                                        ao_p=ao_p,
                                        d_v=None, cva_vals=None, model='ln')
         print "r", res['F_max_prev']
+
         self.assertTrue(True)
 
     def test_4(self, cuda_ind=False):
