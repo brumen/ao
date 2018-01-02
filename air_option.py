@@ -19,6 +19,11 @@ import air_search
 import ao_params
 
 
+DB_HOST  = 'odroid.local'
+DATABASE = 'ao'
+DB_USER  = 'brumen'
+
+
 def air_option( F_v
               , s_v
               , T_l
@@ -206,7 +211,7 @@ def ao_f( F_sims
 
 def ao_f_arb( F_sims
             , ao_p
-            , cuda_ind=False):
+            , cuda_ind = False):
     """
     air_option in-between function avoiding the arbitrage condition 
 
@@ -380,267 +385,117 @@ def d_v_fct(d, t):
 
     return d
 
-    
-def get_flight_data(flights_include=None,
-                    origin_place='SFO', dest_place='EWR',
-                    # next 4 - when do the (changed) flights occur
-                    outbound_date_start='2017-02-25',
-                    outbound_date_end='2017-02-26',
-                    inbound_date_start='2017-03-12',
-                    inbound_date_end='2017-03-13',
-                    carrier='UA',
-                    country='US', currency='USD', locale='en-US',
-                    cabinclass='Economy',
-                    adults=1,
-                    errors='graceful',
-                    mt_ind=True,
-                    return_flight=False,
-                    recompute_ind=False,
-                    correct_drift=True,
-                    insert_into_livedb=True,
-                    write_data_progress=None):
-    """
-    get flight data, no computing 
-    :param flights_include: if None - include all, otherwise remove the flights 
-                            not in flights_include 
-    :param write_data_progress: write progress of fetching data into the filename given 
-    """
-    # constuct simulation times
-    lt = time.localtime()
-    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    date_today_dt = ds.convert_str_date(date_today)
 
-    # constructing the interval for option extension
-    def construct_dr(date_s, date_e):
-        y_b, m_b, d_b = date_s.split('-')
-        outbound_date_start_nf = y_b + m_b + d_b
-        y_e, m_e, d_e = date_e.split('-')
-        outbound_date_end_nf = y_e + m_e + d_e
-        outbound_date_range = ds.construct_date_range(outbound_date_start_nf, outbound_date_end_nf)
-        outbound_date_range_minus = [ds.convert_dt_minus(x) for x in outbound_date_range]
-        return outbound_date_range_minus
-    
-    out_dr_minus = construct_dr(outbound_date_start, outbound_date_end)
-    if return_flight:
-        in_dr_minus = construct_dr(inbound_date_start, inbound_date_end)
+def construct_dr(date_s, date_e):
+    """
+    constructs the interval for option extension
 
-    def obtain_flights_mat(flights, flights_include):
-        # constucting the flight maturity
-        # flights in the form [(id, dep, arr, price, flight_nb)...]
-        # flights include: dict of flights as in reorg_flights, 
-        # censor flights that dont belong 
-        flights_mat = []
-        for dd in flights:
-            dd_day, dd_time = dd[1].split('T')
-            flight_nb = dd[4]
-            dd_tod = ao_codes.get_tod(dd_time)
-            flight_mat_res = (ds.convert_datedash_date(dd_day) - date_today_dt).days/365.
-            if flights_include is None: 
+    :param date_s:  start date
+    :type date_s:   string in the format '2017-02-05'
+    :param date_e:  end date
+    :type date_e:   string in the format '2017-02-05
+    :returns:
+    """
+    y_b, m_b, d_b = date_s.split('-')
+    outbound_date_start_nf = y_b + m_b + d_b
+    y_e, m_e, d_e = date_e.split('-')
+    outbound_date_end_nf = y_e + m_e + d_e
+    outbound_date_range = ds.construct_date_range(outbound_date_start_nf, outbound_date_end_nf)
+    outbound_date_range_minus = [ds.convert_dt_minus(x) for x in outbound_date_range]
+
+    return outbound_date_range_minus
+
+
+def obtain_flights_mat( flights
+                      , flights_include
+                      , date_today_dt):
+    """
+    # constucting the flight maturity
+    # flights in the form [(id, dep, arr, price, flight_nb)...]
+    # flights include: dict of flights as in reorg_flights,
+    # censor flights that dont belong
+
+    """
+    flights_mat = []
+    for dd in flights:
+        dd_day, dd_time = dd[1].split('T')
+        dd_tod = ao_codes.get_tod(dd_time)
+        flight_mat_res = (ds.convert_datedash_date(dd_day) - date_today_dt).days / 365.
+        if flights_include is None:
+            flights_mat.append(flight_mat_res)
+        else:
+            if flights_include[dd_day][dd_tod][dd_time][-1]:
                 flights_mat.append(flight_mat_res)
-            else:
-                if flights_include[dd_day][dd_tod][dd_time][-1]:
-                    flights_mat.append(flight_mat_res)
-        return flights_mat
+    return flights_mat
 
-    def filter_prices_and_flights(price_l, flights_l, reorg_flights_l, flights_include):
-        # fliter prices from flights_include  
-        F_v, flight_v = [], []
-        reorg_flight_v = {}
-        for flight_p, flight_info in zip(price_l, flights_l):
-            if flights_include is None:  # include all flights 
-                F_v.append(flight_p)
-                flight_v.append(flight_info)
-            else:  # include only selected flights
-                flight_date, flight_hour = flight_info[1].split('T')
-                flight_tod = ao_codes.get_tod(flight_hour)
-                flight_nb = flight_info[4]
-                # check if the flight in flights_include exists in flights_l (no shananigans)
-                fcc = (flight_date in flights_include.keys() ) and (flight_tod in flights_include[flight_date]) \
-                      and (flight_hour in flights_include[flight_date][flight_tod])
-                           
-                if fcc:
-                    if flights_include[flight_date][flight_tod][flight_hour][-1]:
-                        F_v.append(flight_p)
-                        flight_v.append(flight_info)
-                else:  # shananigan happening 
-                    return [], [], [], 'Invalid'
-                    
-        # reconstructed reorg_flights_v ??? WHY IS THIS NECESSARY 
-        for time_of_day in reorg_flights_l:
-            reorg_flight_v[time_of_day] = {}
-            tod_flights = reorg_flights_l[time_of_day]
-            for dep_time in tod_flights:
-                if flights_include is None:
-                    reorg_flight_v[time_of_day][dep_time] = reorg_flights_l[time_of_day][dep_time]
-                else:
-                    if reorg_flights_l[time_of_day][dep_time][6] in flights_include:
-                        reorg_flight_v[time_of_day][dep_time] = reorg_flights_l[time_of_day][dep_time]
-                    
-        return F_v, flight_v, reorg_flight_v, 'Valid'
 
+def sort_all(F_v, F_mat, s_v, d_v, fl_v):
+    """
+    sorts the flights according to the F_v, assmption being that similar flights are most correlated
+
+    :param F_v:
+    """
+
+    zip_ls = sorted(zip(F_v, F_mat, s_v, d_v, fl_v))
+    F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s = zip(*zip_ls)
+    return F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s
+
+
+def obtain_flights(io_dr_minus, flights_include, io_ind='out',
+                   correct_drift=True,
+                   write_data_progress=None,
+                   is_return_for_writing=True):
+    """
     # get the flights for outbound and inbound flight
-    def obtain_flights(io_dr_minus, flights_include, io_ind='out',
-                       correct_drift=True,
-                       write_data_progress=None,
-                       is_return_for_writing=True):
-        # io_dr_minus: input/output date range _minus (with - sign)
-        # io_ind: inbound/outbound indicator 
-        F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
-        reorg_flights_v = dict()
-        if io_ind == 'out':  # outbound
-            origin_used, dest_used = origin_place, dest_place
-        else:
-            origin_used, dest_used = dest_place, origin_place
-            
-        if not mt_ind:
-            mysql_conn_gtp = mysql.connector.connect(host='localhost', database='ao',
-                                                     user='brumen',
-                                                     password=ao_codes.brumen_mysql_pass)
+    # io_dr_minus: input/output date range _minus (with - sign)
+    # io_ind: inbound/outbound indicator
 
-            for od in io_dr_minus:
-                if write_data_progress is not None:  # write progress into file
-                    fo = open(write_data_progress, 'w')
-                    fo.write(json.dumps({'is_complete': False,
-                                         'progress_notice': 'Fetching flights for ' + str(od)}))
-                    fo.close()
+    """
 
-                ticket_val, flights, reorg_flights = \
-                    air_search.get_ticket_prices(origin_place=origin_used,
-                                                 dest_place=dest_used,
-                                                 outbound_date=od,
-                                                 country=country,
-                                                 currency=currency,
-                                                 locale=locale,
-                                                 include_carriers=carrier,
-                                                 cabinclass=cabinclass,
-                                                 adults=adults,
-                                                 errors=errors,
-                                                 insert_into_livedb=insert_into_livedb,
-                                                 use_mysql_conn=mysql_conn_gtp)
+    F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
+    reorg_flights_v = dict()
+    if io_ind == 'out':  # outbound
+        origin_used, dest_used = origin_place, dest_place
+    else:
+        origin_used, dest_used = dest_place, origin_place
 
-                if write_data_progress is not None:  # write progress into file
-                    last_elt = od == io_dr_minus[-1]
-                    fo = open(write_data_progress, 'w')                    
-                    fo.write(json.dumps({'is_complete': False,  # is_return_for_writing and last_elt,
-                                         'progress_notice': 'Fetched flights for ' + str(od)}))
-                    fo.close()
+    mysql_conn_gtp = mysql.connector.connect( host     = DB_HOST
+                                            , database = DATABASE
+                                            , user     = DB_USER
+                                            , password = ao_codes.brumen_mysql_pass)
 
-                # does the flight exist for that date??
-                if reorg_flights.has_key(od):
-                    F_v.extend(ticket_val)
-                    flight_dep_time_added = [x[1] for x in flights]  # just the departure time 
-                    io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise(od,
-                                                                              flight_dep_time_added,
-                                                                              orig=origin_used,
-                                                                              dest=dest_used,
-                                                                              carrier=carrier,
-                                                                              correct_drift=correct_drift,
-                                                                              fwd_value=np.mean(ticket_val))
-                    io_dr_vol = [x[0] for x in io_dr_drift_vol]
-                    io_dr_drift = [x[1] for x in io_dr_drift_vol]
-                    s_v_obtain.extend(io_dr_vol)  # adding the vols
-                    d_v_obtain.extend(io_dr_drift)  # adding the drifts
-                    flights_v.extend(flights)
-                    F_mat.extend(obtain_flights_mat(flights, flights_include))  # maturity of forwards
-                    # for debugging
-                    f1 = open('/tmp/err1.txt', 'w+')
-                    f1.write(str(reorg_flights.keys()) + '\n')
-                    f1.close()
-                    reorg_flights_v[od] = reorg_flights[od]
-                
-        else:  # multi-threading invoked
-            nb_dates = len(io_dr_minus)
-            pool = mp.Pool(processes=nb_dates)
-            f_args = zip([origin_used] * nb_dates,
-                         [dest_used] * nb_dates,
-                         io_dr_minus,
-                         [country] * nb_dates,
-                         [currency] * nb_dates,
-                         [locale] * nb_dates,
-                         [carrier] * nb_dates,
-                         [cabinclass] * nb_dates,
-                         [adults] * nb_dates,
-                         [errors] * nb_dates,
-                         [True] * nb_dates,
-                         [insert_into_livedb] * nb_dates)  # last one is direct flights only
-            res = pool.map(air_search.get_ticket_prices_mt, f_args)
-            pool.close()
-            for res_part, od in zip(res, io_dr_minus):
-                f_on_date, flights_on_date, reorg_flights_on_date = res_part
-                # flights_on_date ... list of flights of [flight_id, dep_datetime, arr_datetime, price, flight_nb] 
-                if od in reorg_flights_on_date.keys():
-                    F_added, flights_added, reorg_added, valid_filter = filter_prices_and_flights(f_on_date, flights_on_date, reorg_flights_on_date[od], flights_include)
-                    if valid_filter == 'Valid':
-                        F_v.extend(F_added)
-                        # CHECK IF THE ORDERING OF THESE IS GOOD 
-                        flight_dep_time_added = [x[1] for x in flights_added]  # just the departure time 
-                        io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise(od,
-                                                                                  flight_dep_time_added,
-                                                                                  orig=origin_used,
-                                                                                  dest=dest_used,
-                                                                                  carrier=carrier,
-                                                                                  correct_drift=correct_drift,
-                                                                                  fwd_value=np.mean(F_added))
-                        io_dr_vol = [x[0] for x in io_dr_drift_vol]
-                        io_dr_drift = [x[1] for x in io_dr_drift_vol]
-                        s_v_obtain.extend(io_dr_vol)  # adding the vols
-                        d_v_obtain.extend(io_dr_drift)  # adding the drifts
-                        # print "VOL1", s_v_obtain
-                        F_mat.extend(obtain_flights_mat(flights_on_date, flights_include))  # maturity of the tickets 
-                        flights_v.extend(flights_added)
-                        reorg_flights_v[od] = reorg_added
-                    else:  # exit and check 
-                        [], [], [],[], [], [], 'Invalid'
-                else:  # ignore if this is empty 
-                    reorg_flights_v[od] = {}
+    for od in io_dr_minus:
+        if write_data_progress is not None:  # write progress into file
+            fo = open(write_data_progress, 'w')
+            fo.write(json.dumps({'is_complete': False,
+                                 'progress_notice': 'Fetching flights for ' + str(od)}))
+            fo.close()
 
-        F_v = np.array(F_v)
-        F_mat = np.array(F_mat)
-        if len(F_v) > 0:  # there are actual flights 
-            return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
-        else:  # no flights, indicate that it is wrong 
-            return [], [], [], [], [], [], 'Invalid'
+        ticket_val, flights, reorg_flights = \
+            air_search.get_ticket_prices(origin_place       = origin_used,
+                                         dest_place         = dest_used,
+                                         outbound_date      = od,
+                                         country            = country,
+                                         currency           = currency,
+                                         locale             = locale,
+                                         include_carriers   = carrier,
+                                         cabinclass         = cabinclass,
+                                         adults             = adults,
+                                         errors             = errors,
+                                         insert_into_livedb = insert_into_livedb,
+                                         use_mysql_conn     = mysql_conn_gtp)
 
-    # get the flights for outbound and inbound flight
-    def obtain_flights_recompute(io_dr_minus, flights_include,
-                                 io_ind='out', correct_drift=True,
-                                 write_data_progress=None,
-                                 is_return_for_writing=True):
-        # io_dr_minus: input/output date range _minus (with - sign)
-        # io_ind: inbound/outbound indicator
-        # all flights are in flights_include 
-        # F_mat ... maturity of the forward prices 
-        F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
-        reorg_flights_v = dict()
-        if io_ind == 'out':  # outbound
-            origin_used, dest_used = origin_place, dest_place
-        else:
-            origin_used, dest_used = dest_place, origin_place
-            
-        for od in io_dr_minus:
-            # fliter prices from flights_include  
-            ticket_val = []
-            flights = []  # (id, dep, arr, price, flight_id)
-            reorg_flight = {}
-            for tod in flights_include[od]:  # iterating over time of day
-                reorg_flight[tod] = {}
-                for dep_time in flights_include[od][tod]:
-                    res = flights_include[od][tod][dep_time]
-                    if dep_time != 'min_max':
-                        flight_id, _, dep_time, arr_date, arr_time, flight_price, flight_id, flight_included = res
-                        carrier = flight_id[:2]  # first two letters of id - somewhat redundant 
-                        if flight_included:
-                            ticket_val.append(flight_price)
-                            flights.append((flight_id,
-                                            od + 'T' + dep_time,
-                                            arr_date + 'T' + arr_time,
-                                            flight_price,
-                                            flight_id))
-                            reorg_flight[tod][dep_time] = flights_include[od][tod][dep_time]
+        if write_data_progress is not None:  # write progress into file
+            last_elt = od == io_dr_minus[-1]
+            fo = open(write_data_progress, 'w')
+            fo.write(json.dumps({'is_complete': False,  # is_return_for_writing and last_elt,
+                                 'progress_notice': 'Fetched flights for ' + str(od)}))
+            fo.close()
 
-            # add together 
+        # does the flight exist for that date??
+        if reorg_flights.has_key(od):
             F_v.extend(ticket_val)
-            flight_dep_time_added = [x[1] for x in flights]  # just the departure time 
+            flight_dep_time_added = [x[1] for x in flights]  # just the departure time
             io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise(od,
                                                                       flight_dep_time_added,
                                                                       orig=origin_used,
@@ -653,18 +508,154 @@ def get_flight_data(flights_include=None,
             s_v_obtain.extend(io_dr_vol)  # adding the vols
             d_v_obtain.extend(io_dr_drift)  # adding the drifts
             flights_v.extend(flights)
-            F_mat.extend(obtain_flights_mat(flights, flights_include))  # maturity of forwards
-            reorg_flights_v[od] = reorg_flight
-        
-        F_v = np.array(F_v)
-        F_mat = np.array(F_mat)
-        return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
+            F_mat.extend(obtain_flights_mat(flights, flights_include, date_today_dt))  # maturity of forwards
+            reorg_flights_v[od] = reorg_flights[od]
 
-    def sort_all(F_v, F_mat, s_v, d_v, fl_v):
-        # sort according to F_v, assmption is that similar flights are most correlated
-        zip_ls = sorted(zip(F_v, F_mat, s_v, d_v, fl_v))
-        F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s = zip(*zip_ls)
-        return F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s
+    F_v = np.array(F_v)
+    F_mat = np.array(F_mat)
+    if len(F_v) > 0:  # there are actual flights
+        return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
+    else:  # no flights, indicate that it is wrong
+        return [], [], [], [], [], [], 'Invalid'
+
+
+def filter_prices_and_flights(price_l, flights_l, reorg_flights_l, flights_include):
+    """
+    fliter prices from flights_include
+
+    """
+
+    F_v, flight_v = [], []
+    reorg_flight_v = {}
+    for flight_p, flight_info in zip(price_l, flights_l):
+        if flights_include is None:  # include all flights
+            F_v.append(flight_p)
+            flight_v.append(flight_info)
+        else:  # include only selected flights
+            flight_date, flight_hour = flight_info[1].split('T')
+            flight_tod = ao_codes.get_tod(flight_hour)
+            # check if the flight in flights_include exists in flights_l (no shananigans)
+            fcc = (flight_date in flights_include.keys()) and (flight_tod in flights_include[flight_date]) \
+                  and (flight_hour in flights_include[flight_date][flight_tod])
+
+            if fcc:
+                if flights_include[flight_date][flight_tod][flight_hour][-1]:
+                    F_v.append(flight_p)
+                    flight_v.append(flight_info)
+            else:  # shananigan happening
+                return [], [], [], 'Invalid'
+
+    # reconstructed reorg_flights_v ??? WHY IS THIS NECESSARY
+    for time_of_day in reorg_flights_l:
+        reorg_flight_v[time_of_day] = {}
+        tod_flights = reorg_flights_l[time_of_day]
+        for dep_time in tod_flights:
+            if flights_include is None:
+                reorg_flight_v[time_of_day][dep_time] = reorg_flights_l[time_of_day][dep_time]
+            else:
+                if reorg_flights_l[time_of_day][dep_time][6] in flights_include:
+                    reorg_flight_v[time_of_day][dep_time] = reorg_flights_l[time_of_day][dep_time]
+
+    return F_v, flight_v, reorg_flight_v, 'Valid'
+
+
+def obtain_flights_recompute(io_dr_minus, flights_include,
+                             io_ind='out', correct_drift=True,
+                             write_data_progress=None,
+                             is_return_for_writing=True):
+    """
+    # io_dr_minus: input/output date range _minus (with - sign)
+    # io_ind: inbound/outbound indicator
+    # all flights are in flights_include
+    # F_mat ... maturity of the forward prices
+
+    """
+
+    F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
+    reorg_flights_v = dict()
+    if io_ind == 'out':  # outbound
+        origin_used, dest_used = origin_place, dest_place
+    else:
+        origin_used, dest_used = dest_place, origin_place
+
+    for od in io_dr_minus:
+        # fliter prices from flights_include
+        ticket_val = []
+        flights = []  # (id, dep, arr, price, flight_id)
+        reorg_flight = {}
+        for tod in flights_include[od]:  # iterating over time of day
+            reorg_flight[tod] = {}
+            for dep_time in flights_include[od][tod]:
+                res = flights_include[od][tod][dep_time]
+                if dep_time != 'min_max':
+                    flight_id, _, dep_time, arr_date, arr_time, flight_price, flight_id, flight_included = res
+                    carrier = flight_id[:2]  # first two letters of id - somewhat redundant
+                    if flight_included:
+                        ticket_val.append(flight_price)
+                        flights.append((flight_id,
+                                        od + 'T' + dep_time,
+                                        arr_date + 'T' + arr_time,
+                                        flight_price,
+                                        flight_id))
+                        reorg_flight[tod][dep_time] = flights_include[od][tod][dep_time]
+
+        # add together
+        F_v.extend(ticket_val)
+        flight_dep_time_added = [x[1] for x in flights]  # just the departure time
+        io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( od
+                                                                 , flight_dep_time_added
+                                                                 , orig          = origin_used
+                                                                 , dest          = dest_used
+                                                                 , carrier       = carrier
+                                                                 , correct_drift = correct_drift
+                                                                 , fwd_value     = np.mean(ticket_val))
+        io_dr_vol = [x[0] for x in io_dr_drift_vol]
+        io_dr_drift = [x[1] for x in io_dr_drift_vol]
+        s_v_obtain.extend(io_dr_vol)  # adding the vols
+        d_v_obtain.extend(io_dr_drift)  # adding the drifts
+        flights_v.extend(flights)
+        F_mat.extend(obtain_flights_mat(flights, flights_include, date_today_dt))  # maturity of forwards
+        reorg_flights_v[od] = reorg_flight
+
+    F_v = np.array(F_v)
+    F_mat = np.array(F_mat)
+    return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
+
+
+def get_flight_data( flights_include     = None
+                   , origin_place        = 'SFO'
+                   , dest_place          = 'EWR'
+                   , outbound_date_start = '2017-02-25'
+                   , outbound_date_end   = '2017-02-26'
+                   , inbound_date_start  = '2017-03-12'
+                   , inbound_date_end    = '2017-03-13'
+                   , carrier             = 'UA'
+                   , country             = 'US'
+                   , currency            = 'USD'
+                   , locale              = 'en-US'
+                   , cabinclass          = 'Economy'
+                   , adults              = 1
+                   , errors              = 'graceful'
+                   , mt_ind              = True
+                   , return_flight       = False
+                   , recompute_ind       = False
+                   , correct_drift       = True
+                   , insert_into_livedb  = True
+                   , write_data_progress = None):
+    """
+    get flight data, no computing 
+    :param flights_include: if None - include all, otherwise remove the flights 
+                            not in flights_include 
+    :param write_data_progress: write progress of fetching data into the filename given 
+    """
+    # constuct simulation times
+    lt = time.localtime()
+    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
+    date_today_dt = ds.convert_str_date(date_today)
+
+    out_dr_minus = construct_dr(outbound_date_start, outbound_date_end)
+    if return_flight:
+        in_dr_minus = construct_dr(inbound_date_start, inbound_date_end)
 
     if recompute_ind:
         obtain_flights_f = obtain_flights_recompute
@@ -770,7 +761,31 @@ def get_flight_data(flights_include=None,
         else:
             return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
 
-    
+
+def compute_date_by_fraction(dt_today, dt_final, fract, total_fraction):
+    """
+
+    :param dt_today:       "today's" date in datetime.date format
+    :type dt_today:        datetime.date
+    :param dt_final:       final date that one considers for excersing the option
+    :type dt_final:        datetime.date
+    :param fract:          the fraction of the days between dt_today and dt_final (usually 3)
+    :type fract:           integer
+    :param total_fraction: total number of options that one considers (usually 3)
+    :type total_fraction:  integer
+    :returns:              outbound date fract/total_fraction between dt_today and dt_final
+    :rtype:                datetime.date
+    """
+
+    # fraction needs to be an integer
+    outbound_dt = ds.convert_datedash_date(dt_final)
+    # - 3 ... no change in the last 3 days
+    outbound_day_diff = (outbound_dt - dt_today).days * fract/total_fraction - 3  # integer
+    outbound_date_consid = dt_today + dt.timedelta(days=outbound_day_diff)
+    outbound_date_consid = ds.convert_datetime_str(outbound_date_consid)
+    return outbound_date_consid
+
+
 def compute_option_val( origin_place          = 'SFO'
                       , dest_place            = 'EWR'
                       , flights_include       = None
@@ -898,16 +913,7 @@ def compute_option_val( origin_place          = 'SFO'
                                            gen_first=gen_first)  #  * np.int(adults)
         opt_val_final['avg'] *= np.int(adults)
         
-    def compute_date_by_fraction(dt_today, dt_final, fract, total_fraction):
-        # fraction needs to be an integer
-        outbound_dt = ds.convert_datedash_date(dt_final)
-        # - 3 ... no change in the last 3 days 
-        outbound_day_diff = (outbound_dt - dt_today).days * fract/total_fraction - 3  # integer
-        outbound_date_consid = dt_today + dt.timedelta(days=outbound_day_diff)
-        outbound_date_consid = ds.convert_datetime_str(outbound_date_consid)
-        return outbound_date_consid
-        
-    # TO BE FURTHER IMPLEMENTED ?? 
+    # TO BE FURTHER IMPLEMENTED ??
     price_range = dict()
     if price_by_range and compute_all:  # compute_all guarantees there is something to compute
         complete_set_options = 3  # how many options to compute (default = 3)
