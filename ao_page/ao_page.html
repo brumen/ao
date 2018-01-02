@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html class="skyscanner  legacy-button " lang="en-GB">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale = 1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=10">
+    <meta http-equiv="Content-Language" content="en">
+
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script type="text/javascript" async="" src="ao_page.js"></script>
+    <!-- animated button -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- end of animated button -->
+    <!-- local variables needed -->
+    <script>
+      localStorage.setItem("flights_found", "false");
+    </script>
+    <!-- local variables ended -->
+    <meta name="theme-color" content="#34363D">
+    <meta name="msapplication-TileColor" content="#21c4d9">
+    <meta name="msapplication-TileImage" content="/framework/images/icons/mstile-144x144.png">
+    <link rel="manifest" href="https://www.skyscanner.net/android-chrome-manifest.json">
+    
+    <title> Air Options </title>
+
+    <link rel="dns-prefetch" href="https://api.mixpanel.com/">
+    <link rel="dns-prefetch" href="https://secure.skyscanner.net/">
+    <link rel="dns-prefetch" href="https://www.google-analytics.com/">
+    <link rel="dns-prefetch" href="https://cdn.mxpnl.com/">
+    <link rel="dns-prefetch" href="https://www.googletagservices.com/">
+    <link rel="canonical" href="https://www.skyscanner.net/">
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/core.78dc7a9b.css">
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/setup.e25c7fc09c84ca86af0633b6c2c5aa22.css">
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/home_root.css">
+    <!-- Air Options original -->
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/ao_add.css">
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/ao_square.css">
+    <!-- Air Options original end -->
+    <link rel="stylesheet" href="./ao_page_files/provider_logos.26667e336525ebebd617d031fa11519c.css">
+    <link rel="stylesheet" href="./ao_page_files/home_content_panels.3177657bab5ee87203630c199e37155f.css">
+    <link rel="stylesheet" href="./ao_page_files/root-1ffeaba051effc42de44ccf288b5f0cd.css">
+    <meta name="description" content="We compare cheap flights, hotels &amp; car hire from more providers than anyone else, helping you save with Skyscanner.net">
+    <link rel="alternate" href="android-app://net.skyscanner.android.main/skyscanner/home">
+    
+    <meta name="google-site-verification" content="NlhDs3vr5VL20PR8xJG1jXlCeuLAEuJFAOUfQg3vd3c">
+    <meta name="y_key" content="3ccd97fca3bc5b05">
+
+    <meta property="og:title" content="Skyscanner | Find the cheapest flights fast: save time, save money!">
+    <meta property="og:url" content="http://www.skyscanner.net/?utm_medium=social&amp;utm_campaign=addthis&amp;utm_source=facebook_uk">
+    <meta property="og:image" content="http://www.skyscanner.net/images/opengraph_v1.png">
+    <meta property="og:image:width" content="256">
+    <meta property="og:image:height" content="256">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:description" content="Compare millions of flights, as well as car hire and hotels worldwide - for free! Skyscanner is the travel search site for savvy travellers.">
+    <meta property="og:type" content="product">
+
+    <meta name="apple-itunes-app" content="app-id=415458524,app-argument=skyscanner://home?&amp;utm_source=apple&amp;utm_medium=organic&amp;utm_campaign=appbanner">    
+    <meta name="msApplication-ID" content="App"> <meta name="msApplication-PackageFamilyName" content="Skyscanner.Skyscanner_623c9he0pwcym"> <meta name="msApplication-MinVersion" content="1.2.0.0">    
+
+    
+    <!-- <script type="text/javascript" src="./ao_page_files/jp67.js" defer=""></script> -->
+    <style type="text/css">#d__fFH{position:absolute;top:-5000px;left:-5000px}#d__fF{font-family:serif;font-size:200px;visibility:hidden}#cbaqssruezqc{display:none!important}</style>
+    <!-- <script src="./ao_page_files/accessToken"></script> -->
+    <link rel="stylesheet" type="text/css" href="./ao_page_files/newsletter.min.embed.css">
+    <!-- <script src="./ao_page_files/pubads_impl_95.js" async=""></script> -->
+    <style type="text/css" media="print">.usabilla_live_button_container { display: none; }</style>
+    <link rel="prefetch" href="https://tpc.googlesyndication.com/safeframe/1-0-4/html/container.html">
+  </head>
+  <body id="category-flights" class="lang-en page-home action-index   default-layout   scaffold-font-size no-touch">
+    <div id="lightningjs-usabilla_live" style="display: none;">
+    </div>
+    <noscript>
+      &lt;div class="no-js-msg"&gt;
+      &lt;p&gt;Skyscanner needs JavaScript to work. It looks like your browser doesn&amp;#39;t support JavaScript, or has it turned off. Please try again with JavaScript support.&lt;/p&gt;
+      &lt;/div&gt;
+    </noscript>
+    <div id="pagewrap" class="clearfix">
+      <header id="header" class="global-header">
+	<div class="wrap clearfix" >
+	  <div style="float: left; margin-top: 15px;">
+	    <a href="ao_page.html">
+	      <img src="./ao.png" height="30" width="50">
+	    </a>
+	    <div style="float:right">
+	      <a href="ao_page.html" style="color:white; text-decoration:none; margin-left:10px">Air Options</a>
+	    </div>
+	  </div>
+	  <div style="float: right">
+	    <div style="float: left">
+	      <img src="./ao_page_files/right-arrow-1.png" height="10" width="70">
+	    </div>
+	    <div  style="float: right; margin-top: 15px"> 
+	      <a href="how_ao_works.html" style="color:white; text-decoration:none" target="_blank">
+		How Air Options work
+	      </a>
+	      &nbsp; &nbsp; &nbsp; &nbsp;
+	      <a href="terms_conditions.html" style="color:white; text-decoration:none;" target="_blank">
+		Terms and Conditions
+	      </a>
+	    </div>
+	  </div>
+        </div>
+      </header>
+      
+      <!-- Content start -->
+      <div id="trip-shortlist" class="hidden">
+      </div>
+      <div id="container-trip-planning-refactor" class="trip-planning hidden">
+      </div>
+      <div id="content-wrap" class="wrap clearfix">
+	<div id="home-content-container" class="    ">
+          <div class="flights-hero-image-container js-hero-image-container">
+          </div>
+	  <div class="wrap clearfix">
+            <div id="home-content">
+	      <section id="js-search-controls-container" class="search-controls   opaque-on-desktop">
+		<form class="clearfix">
+		  <section id="js-trip-type" onchange="close_flights_booking()">
+		    <input type="radio" id="js-is-return-input" name="trip-type" value="return" tabindex="1" checked="checked" onclick="add_fields_for_return()">
+		    <label for="js-is-return-input" style="color:white">Return</label>
+		    <input type="radio" id="js-one-way-input" name="trip-type" value="one-way" tabindex="1" onclick="remove_fields_for_return()">
+		    <label for="js-one-way-input" style="color:white">One way</label>
+		    <!-- Spacing here -->
+		    <span style="display:inline-block; width:10px;"></span>
+		    <label for="js-one-way-input" style="color:white">Cabin class:</label>
+		    <select name="cabin-class-type" onchange="close_flights_booking()">
+		      <option value="Economy">Economy</option>
+		      <option value="PremiumEconomy">Premium</option>
+		      <option value="Business">Business</option>
+		      <option value="First">First</option>
+		    </select>
+		    <span style="display:inline-block; width:10px;"></span>
+		    <label for="js-one-way-input" style="color:white"># passenger(s):</label>
+		    <select name="nb-people">
+		      <option value="1">1</option>
+		      <option value="2">2</option>
+		      <option value="3">3</option>
+		      <option value="4">4</option>
+		    </select>
+		    
+		  </section>
+		  <section class="traditional-search clearfix">
+		    <div id="js-places" class="search-controls-places clearfix">
+		      <div class="origin-place" style="direction: ltr;">		
+			<label for="js-origin-input" class="place-label">From</label>
+			<input type="text" name="js-origin-input" id="js-origin-input" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="tt-input" dir="auto" style="position: relative; vertical-align: top;" value="SFO" oninput="verify_origin()" onchange="close_flights_booking()" title="Departure airport">
+			
+			<pre aria-hidden="true" style="position: absolute; visibility: hidden; white-space: pre; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Oxygen, Ubuntu, Cantarell, &quot;Fira Sans&quot;, &quot;Droid Sans&quot;, &quot;Helvetica Neue&quot;, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; word-spacing: 0px; letter-spacing: 0px; text-indent: 0px; text-rendering: auto; text-transform: none;"></pre>
+			<span class="tt-dropdown-menu" style="position: absolute; left: 0px; z-index: 100; display: none; right: auto;">
+			  <div class="tt-dataset-origin"></div>
+			</span>
+			
+		      </div>
+		      <button type="button" id="js-places-toggle" class="swap-button" title="Click here to swap locations" onclick="swap_locations_fct()">
+			<span class="visuallyhidden">Click here to swap locations</span>
+		      </button>
+		      <div class="destination-place" style="direction: ltr;">
+			<label for="js-destination-input" class="place-label">To</label>
+			<input type="text" name="js-destination-input" id="js-destination-input" placeholder="Enter a country, city or airport" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="tt-input" dir="auto" style="position: relative; vertical-align: top;" value="EWR" oninput="verify_dest()" onchange="close_flights_booking()" title="Destination airport">
+			<pre aria-hidden="true" style="position: absolute; visibility: hidden; white-space: pre; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Oxygen, Ubuntu, Cantarell, &quot;Fira Sans&quot;, &quot;Droid Sans&quot;, &quot;Helvetica Neue&quot;, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; word-spacing: 0px; letter-spacing: 0px; text-indent: 0px; text-rendering: auto; text-transform: none;"></pre><span class="tt-dropdown-menu" style="position: absolute; left: 0px; z-index: 100; display: none; right: auto;"><div class="tt-dataset-destination"></div></span>
+		      </div>
+
+		      <div class="origin-place">
+			<label for="js-depart-input" class="place-label">Airline</label>
+			<input type="text" name="airline-name" id="airline-name" value="UA" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="verify_airline()" onchange="close_flights_booking()" onclick="populate_carriers()">
+		      </div>
+		      <div class="destination-place">
+			<label for="js-return-input" class="place-label">Ticket price</label>
+			<input type="text" name="ticket-price" id="ticket-price" value="800" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" title="The price you paid for the ticket purchased.">
+		      </div>
+		      
+		    </div>
+		    <div id="js-dates" class="search-controls-dates">
+		      <!-- Depart, Return -->
+		      
+		      <div class="depart">
+			<label for="js-depart-input" title="Flights to which you can change start on this date.">Departure start</label>
+			<input type="text" name="js-depart-input" id="js-depart-input" value="05/25/2017" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" title="Flights to which you can change start on this date." readonly onchange="departure_start_change()">
+		      </div>
+		      <div class="return">
+			<label for="js-return-input" title="Flights to which you can change end on this date.">Departure end</label>
+			<input type="text" name="js-return-input" id="js-return-input" value="05/26/2017" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" title="Flights to which you can change end on this date." readonly onchange="departure_start_change()">
+		      </div>
+
+		    </div>
+		    <!-- Option start/end -->
+		    <div id="all_return_options" class="search-controls-dates2">
+		      <div class="depart">
+			<label for="js-depart-input-return">Return start</label>
+			<input type="text" name="js-depart-input-return" id="js-depart-input-return" value="06/05/2017" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onchange="departure_start_change()" title="Return leg to which you can change starts on this date.">
+		      </div>
+		      <div class="return">
+			<label for="js-return-input-return">Return end</label>
+			<input type="text" name="js-return-input-return" id="js-return-input-return" value="06/06/2017" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onchange="departure_start_change()" title="Return leg to which you can change ends on this date.">
+		      </div>
+		    </div>
+
+		    <!-- return options  -->
+		    <div id="all_return_options_2" style="display: none">
+		      <div id="js-dates-return" class="search-controls-dates">
+		      <!-- Depart, Return -->
+		      <div class="depart">
+			<label for="js-depart-input" title="You can start changing the outbound flight on this date">Option dep. start</label>
+			<input type="text" name="option-start-date" id="option-start-date" value="12/15/2016" data-date="2016-09-07" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" title="You can start changing the outbound flight on this date">
+		      </div>
+		      <div class="return">
+			<label for="js-return-input" title="You can only change the outbound flight until this date.">Option dep. end</label>
+			<input type="text" name="option-end-date" id="option-end-date" value="12/16/2016" data-date="2016-09-08" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" title="You can only change the outbound flight until this date.">
+		      </div>
+
+		    </div>
+
+		    <!-- Return option start/end -->
+		    <div id="js-dates-return" class="search-controls-dates2">
+		      <div class="depart">
+			<label for="js-depart-input-return">Option ret. start</label>
+			<input type="text" name="option-start-date-return" id="option-start-date-return" value="12/25/2016" data-date="2016-09-07" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+		      </div>
+		      <div class="return">
+			<label for="js-return-input-return">Option ret. end</label>
+			<input type="text" name="option-end-date-return" id="option-end-date-return" value="12/26/2016" data-date="2016-09-08" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+		      </div>
+
+		    </div>
+		    </div>  <!-- all return fields end here -->
+		    
+		    <div id="js-dates" class="search-controls-dates">
+		    </div>
+		    
+		    <!-- Option result -->
+		    <div id="option_price_all" style="display: none">
+		    <div id="js-pax-cabin-class" class="search-controls-dates2">
+		      <label for="js-trad-cabin-class-travellers-toggle">Option price</label>
+		      <input type="text" name="js-destination-input" id="option_price_frame" placeholder="Option price" tabindex="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="tt-input" dir="auto" style="position: relative; vertical-align: top;" value=""><pre aria-hidden="true" style="position: absolute; visibility: hidden; white-space: pre; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Oxygen, Ubuntu, Cantarell, &quot;Fira Sans&quot;, &quot;Droid Sans&quot;, &quot;Helvetica Neue&quot;, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; word-spacing: 0px; letter-spacing: 0px; text-indent: 0px; text-rendering: auto; text-transform: none;"></pre><span class="tt-dropdown-menu" style="position: absolute; left: 0px; z-index: 100; display: none; right: auto;"><div class="tt-dataset-destination"></div></span>
+		    </div>
+		    </div>
+
+		    <button type="button" id="find_flights_button" class="js-search-button wc-button-large-left"
+		    	    onclick="compute_option_from_init()">Find flights</button>
+		    <button type="button" id="recompute_button" class="js-search-button wc-button-large-left-after" onclick="recompute_option_post()">Recompute</button>
+		    <button type="button" class="js-search-button wc-button-large-left-after" onclick="open_inquiry()">Send inquiry</button>
+		    <button type="button" id="book_details_button" class="js-search-button wc-button-large-left-after" style="display: none" onclick="book_option_details()">Book</button>
+		    
+		  </section>
+
+		  <section>
+		    <div class="options-display" id="options-display" style="background: white;"> </div>
+		  </section>
+		  
+		  <section>
+		    <div id="flights-section" class="flights-display" style="display:none;">
+		      <div id="notification_messages">
+		      </div>
+		      <div id="flights_presented">
+			<p> Select the flights to change to: </p>
+		      </div>
+		    </div>
+		  </section>
+		  <section id="inquiry_recompute_sect">
+		  </section>
+		  <div id="inquiry_form" style="display: none;">
+		    <label style="color:#b6b1bd;">Message:</label>
+		    <input type="text" name="inquiry_text_form" id="inquiry_text_form">
+		    <label style="color:#b6b1bd">E-mail:</label>
+		    <input type="text" name="inquiry_text_form" id="inquiry_email" style="margin-bottom:7px;">
+		    <input type="button" id="inquiry_submit_button" value="Send inquiry!" onclick="send_inquiry()">
+		    <input type="button" id="inquiry_submit_button" value="Close inquiry!" onclick="close_inquiry()">
+		  </div>
+		  <!-- Payments form  -->
+		</form>
+
+		<section> 
+		  <div id="payment_form" style="background: white; display: none;">
+		    <form id="nonce-form" novalidate action="cgi-bin/process_card.py" method="post">
+		      <label>Card Name</label>
+		      <input id="card-name" name="card-name" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0" style="font-size:15px;" type="text"></input>
+		      <!-- Address -->
+		      <label>Address</label>
+		      <input type="text" id="card-address" name="card-address" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
+		      <label>City, State</label>
+		      <input type="text" id="card-city" name="card-city" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
+		      <label>E-mail</label>
+		      <input type="text" id="email-addr" name="email-addr" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
+		      <label>Card Number 4532 7597 3454 5858</label>
+		      <div id="sq-card-number"></div>
+		      <label>CVV 111</label>
+		      <div id="sq-cvv"></div>
+		      <label>Expiration Date 11/17</label>
+		      <div id="sq-expiration-date"></div>
+		      <label>Postal Code 10032 </label>
+		      <div id="sq-postal-code"></div>
+		      <input type="hidden" id="sq-postal-code-final" name="sq-postal-code-final">
+		      <!-- card nonce -->
+		      <input type="hidden" id="card-nonce" name="nonce"> 
+		      <label id="option_price_final_display">Price: </label>
+		      <div> <!-- hiddenn things, for confirming -->
+			<input type="hidden" id="option_value_final" name="option_value_final">  <!-- this is where the option value gets written -->
+			<input type="hidden" id="origin_final" name="origin_final">
+			<input type="hidden" id="dest_final" name="dest_final">
+			<input type="hidden" id="nb_persons" name="nb_persons">
+			<input type="hidden" id="class_travel" name="class_travel">
+			<input type="hidden" id="carrier_final" name="carrier_final">
+			<input type="hidden" id="dep_start_final" name="dep_start_final">
+			<input type="hidden" id="dep_end_final" name="dep_end_final">
+			<input type="hidden" id="ret_start_final" name="ret_start_final">
+			<input type="hidden" id="ret_end_final" name="ret_end_final">
+			<input type="hidden" id="ticket_price_final" name="ticket_price_final">
+			<input type="hidden" id="return_ow_final" name="return_ow_final">
+			<input type="hidden" id="flights_sel_final" name="flights_sel_final">  <!-- this is where the selected flights get written -->
+			<input type="hidden" id="opt_end_dep_final" name="opt_end_dep_final">
+			<input type="hidden" id="opt_end_ret_final" name="opt_end_ret_final">
+			<input type="checkbox" id="confirm-pay-cb" value="details" tabindex="1" onclick="disable_paybutton()">
+			<label>I agree to Air Options LLC
+			  <a href="terms_conditions.html" target="_blank">terms and conditions</a>
+			</label>
+			<center>
+			  <input type="button" onclick="requestCardNonce(event)" id="card-nonce-submit" value="Pay!" disabled>
+			  <input type="button" onclick="close_book_option_details()" id="card-nonce-close" value="Close booking">
+			</center>
+		      </div>
+		    </form>
+		    <div id="result_transaction" style="background: white; display: none">
+		    </div>
+		  </div>
+		</section>
+	      </section>
+            </div>
+	  </div>
+	</div>
+      </div>
+      <!-- END Content -->
+      <div class="wrap legal-info">
+	<p id="copyright" class="asian-lang-font-reset">
+	  <span>© Air Options LLC 2016-2016</span>
+	</p>
+	<p id="contact" class="asian-lang-font-reset">
+	  <span>Contact: <a href="mailto:airoptions.llc@gmail.com">airoptions.llc@gmail.com</a></span>
+	</p>
+      </div>
+      <div class="wrap legal-info">
+	<p id="powered_by_skyscanner" class="asian-lang-font-reset">
+	  <a href="http://www.skyscanner.com" target="_blank">
+	    <img src="powered_by_skyscanner.png" alt="Skyscanner" width="190">
+	  </a>
+	</p>
+      </div>
+      
+    <div id="overlay" class="hide lightbox darkbg" style="height: 2016px; width: 1905px;"></div>
+    <div id="confirmation-dialog" class="hidden"></div>
+
+    <!-- DATEPICKER - changes  -->
+    <script>
+      $( function() {
+      $( "#option-start-date" ).datepicker();
+      $( "#option-end-date" ).datepicker();
+      // departure start input 
+      $("#js-depart-input").datepicker({minDate: "+13d"});  // minimum date 
+      $("#js-depart-input").datepicker("setDate", "+14d");
+      var js_depart_input_curr = $("#js-depart-input").datepicker("getDate");
+      var js_depart_input_curr_date = new Date(js_depart_input_curr.toDateString());
+      js_depart_input_curr_date.setDate(js_depart_input_curr_date.getDate() + 1);  // the next date to use
+      // departure end input 
+      $( "#js-return-input" ).datepicker({minDate: "+13d"});
+      $( "#js-return-input" ).datepicker("setDate", new Date(js_depart_input_curr_date));
+      var js_return_input_curr = $("#js-return-input").datepicker("getDate");
+      var js_return_input_curr_date = new Date(js_return_input_curr.toDateString());
+      js_return_input_curr_date.setDate(js_return_input_curr_date.getDate() + 7);  // a week later
+      // following 2 not important 
+      $( "#option-start-date-return").datepicker();
+      $( "#option-end-date-return").datepicker();
+      // return start 
+      $( "#js-depart-input-return" ).datepicker({minDate: "+13d"});
+      $( "#js-depart-input-return" ).datepicker("setDate", new Date(js_return_input_curr_date));
+      var js_return_input_return_curr = $("#js-depart-input-return").datepicker("getDate");
+      var js_return_input_return_curr_date = new Date(js_return_input_return_curr.toDateString());
+      js_return_input_return_curr_date.setDate(js_return_input_return_curr_date.getDate() + 1);
+      // return end 
+      $("#js-return-input-return").datepicker({minDate: "+13d"});
+      $("#js-return-input-return").datepicker("setDate", new Date(js_return_input_return_curr_date));
+      } );
+    </script>
+    <!-- END DATEPICKER -->
+
+    <!-- Square payments --> 
+    <script type="text/javascript" src="https://js.squareup.com/v2/paymentform"></script>
+
+    <script src="ao_autocomplete.js"> </script>
+    <script type="text/javascript" src="ao_payment.js"></script>
+</body>
+</html>
