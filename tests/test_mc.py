@@ -58,7 +58,7 @@ class TestMC(unittest.TestCase):
 
         F_v = (np.array([100., 105., 106.]), np.array([200., 205.]))
         s_v = (np.array([0.2, 0.2, 0.2]), np.array([0.2, 0.3]))
-        s_v_fct =
+        #s_v_fct =
         T_l = ([0.1, 0.2, 0.3, 0.4, 0.5], [0.15, 0.25, 0.35, 0.45, 0.55])
         rho_m = (corr_hyp_sec_mat(0.95, range(3)), corr_hyp_sec_mat(0.95, range(2)))
         nb_sim = 1000
