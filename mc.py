@@ -1,3 +1,5 @@
+# specialized monte carlo for AirOptions
+
 import config
 import numpy as np
 import scipy.integrate
@@ -127,12 +129,22 @@ def mc_mult_steps_cpu( F_v
         
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
         ttm_used = np.array(T_v_exp) - T_curr
-        s_v_used = np.array([integrate_fct(s_vol, T_curr, T_curr+T_diff, ttm_curr, drift_vol_ind='vol')
+        s_v_used = np.array([integrate_fct( s_vol
+                                          , T_curr
+                                          , T_curr + T_diff
+                                          , ttm_curr
+                                          , drift_vol_ind='vol')
                              for (s_vol, ttm_curr) in zip(s_v, ttm_used)])  # volatility depends on time-to-maturity
 
         if d_v is not None:
-            d_v_used = np.array([integrate_fct(d_v_curr, T_curr, T_curr+T_diff, ttm_curr, drift_vol_ind='drift')
+            d_v_used = np.array([integrate_fct( d_v_curr
+                                              , T_curr
+                                              , T_curr + T_diff
+                                              , ttm_curr
+                                              , drift_vol_ind='drift')
                                  for (d_v_curr, ttm_curr) in zip(d_v, ttm_used)])
+        # TODO: THIS IS BAD - WHAT HAPPENS WHEN d_v is None - >then the next line fails
+
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
             d_v_used = d_v_used.reshape((len(d_v_used), 1))
@@ -217,7 +229,7 @@ def ao_compute_from_F(F_sim_l, T_l,
     """
     computes the ao_f vectors from previously simulated F_sim_l
 
-    :param F_sim_l:   
+    :param F_sim_l:   list of simulated forward ticket prices
     :type F_sim_l:    numpy array of shape (len(T_l), nb_fwds, nb_sim))
     :param T_l:       list of time points at which all F_v should be simulated
     :param ao_f:      function to compute new vals from old ones
@@ -233,20 +245,45 @@ def ao_compute_from_F(F_sim_l, T_l,
         F_sim_next = F_sim_l[T_ind+1, :, :]
         ao_p_next = ao_f(F_sim_next, ao_p_next, cuda_ind=cuda_ind)
 
-    return ao_p_next 
-    
+    return ao_p_next
 
-def mc_mult_steps_cpu_ret(F_v, s_v, T_l, rho_m, nb_sim,
-                          T_v_exp, 
-                          ao_f=None, ao_p=None,
-                          d_v=None, 
-                          cva_vals=None, model='n',
-                          cuda_ind=False,
-                          gen_first=True):
+
+def add_zero_to_Tl(T_list):
     """
-    same as above,
+    adds a zero to T_l if T_list doesnt already have it
 
-    :param F_v: tuple of list of forward values, first for departure, second for return 
+    :param T_list:  list of simulation times
+    :type T_list:   list
+    :returns:       array with potential zero added
+    :rtype:         numpy array, with the first element 0
+    """
+
+    if T_list[0] != 0.:
+        T_l_local = np.zeros(len(T_list) + 1)
+        T_l_local[1:] = T_list
+    else:
+        T_l_local = T_list
+    return T_l_local
+
+
+def mc_mult_steps_cpu_ret( F_v
+                         , s_v
+                         , T_l
+                         , rho_m
+                         , nb_sim
+                         , T_v_exp
+                         , ao_f      = None
+                         , ao_p      = None
+                         , d_v       = None
+                         , cva_vals  = None
+                         , model     = 'n'
+                         , cuda_ind  = False
+                         , gen_first = True):
+    """
+    Simulates ticket prices for a return flight.
+
+    :param F_v: tuple of list of forward values, first for departure, second for return
+    :type F_v:  tuple of 1-dimensional np.array
     :param s_v: tuple of IMPROVE HERE vector of vols for forward vals
     :param T_l: list of time points at which all F_v should be simulated
     :param rho_m: correlation matrix
@@ -268,14 +305,6 @@ def mc_mult_steps_cpu_ret(F_v, s_v, T_l, rho_m, nb_sim,
         mn = mn_cpu
     else:
         mn = mn_gpu
-
-    def add_zero_to_Tl(T_list):
-        if T_list[0] != 0.:
-            T_l_local = np.zeros(len(T_list)+1)
-            T_l_local[1:] = T_list
-        else:
-            T_l_local = T_list
-        return T_l_local
 
     F_v_dep, F_v_ret = F_v
     s_v_dep, s_v_ret = s_v  # a function
@@ -449,7 +478,9 @@ def mc_mult_steps_cpu_ret(F_v, s_v, T_l, rho_m, nb_sim,
         return ao_p_next 
 
 
-def mc_mult_steps(F, s, T_l, rho_m, nb_sim, cva_vals=None, ci=False):
+def mc_mult_steps(F, s, T_l, rho_m, nb_sim, T_l_exp
+                 , cva_vals=None
+                 , d_v=None):
     """
 
     :param F: for CPU - np.array of forwards, for GPU - gpuarray of forwards
@@ -457,7 +488,7 @@ def mc_mult_steps(F, s, T_l, rho_m, nb_sim, cva_vals=None, ci=False):
     :param ci: cuda indicator
     """
 
-    return mc_mult_steps_cpu(F, s, T_l, rho_m, nb_sim, cva_vals=cva_vals)
+    return mc_mult_steps_cpu(F, s, T_l, rho_m, nb_sim, T_l_exp, cva_vals=cva_vals, d_v=d_v)
 
 
 def mn_gpu(unimp, rho_m, size=100):
