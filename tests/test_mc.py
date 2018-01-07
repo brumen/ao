@@ -12,19 +12,27 @@ if config.CUDA_PRESENT:
 
 class TestMC(unittest.TestCase):
 
-    def test_0(self, nb_sim=100):
+    def test_0( self
+              , nb_sim     = 1000
+              , nb_tickets = 5
+              , sim_times  = np.array([0.2, 0.3, 0.4])):
         """
-        tests whether the mc_mult_steps function works
+        tests whether the mc_mult_steps_cpu function works
 
         """
 
-        F_d = np.zeros(5) + 100.
-        s_d = np.zeros(5) + 0.2
-        s_d_fct = [lambda t: s_d[0], lambda t: s_d[1]]
-        d_v_fct = [lambda t: 0.01, lambda t: 0.02]
-        rho_m = corr_hyp_sec_mat(0.99, range(5)).astype(np.float32)
-        v1 = mc.mc_mult_steps(F_d, s_d_fct, [0.2, 0.3], rho_m, nb_sim, [0.21, 0.31]
-                             , d_v=d_v_fct)
+        F_v = np.zeros(nb_tickets) + 100.
+        s_v = np.zeros(nb_tickets) + 0.2
+        d_v = s_v
+        rho_m = corr_hyp_sec_mat(0.95, range(nb_tickets))
+        v1 = mc.mc_mult_steps( F_v
+                             , s_v
+                             , d_v
+                             , sim_times
+                             , rho_m
+                             , nb_sim
+                             , sim_times + 0.01
+                             , ao_f = ao.ao_f_arb)
         print "V1:", v1
         self.assertTrue(True)
 

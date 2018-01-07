@@ -11,24 +11,8 @@ import ao_estimate as aoe
 
 class TestAirOption(unittest.TestCase):
 
-    def test_ao_1(self, nb_sim=50000):
-        """
-        tests the air option
-
-        """
-
-        tickets = np.linspace(450., 500., 50)
-        s_v = 0.2 * np.ones(len(tickets))
-        T_l = np.linspace(1./365., 62./365., 62)
-        ao_p = { 'model': 'max'
-               , 'F_max_prev': np.zeros((len(tickets), nb_sim))}
-
-        print ao.air_option_seq( tickets, s_v, T_l, 200., 100., 1.
-                               , ao_f=ao.ao_f, ao_p=ao_p
-                               , nb_sim=nb_sim
-                               , underlyer='ln')
-
-    def test_ao_2(self, nb_sim=50000):
+    def test_ao_2( self
+                 , nb_sim=50000):
         """
         tests the air option
 
@@ -36,8 +20,15 @@ class TestAirOption(unittest.TestCase):
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 62./365., 62)
-        print ao.air_option(tickets, s_v, T_l, 450., 0.2, d_c=0.95, nb_sim=nb_sim,
-                            model='prob')
+        print ao.air_option( tickets
+                           , s_v
+                           , s_v
+                           , T_l
+                           , T_l + 0.01
+                           , 0.2
+                           , nb_sim = nb_sim
+                           , ao_f=ao.ao_f_arb)
+        self.assertTrue(True)
 
     def test_ao_25(self, nb_sim=50000):
         """
@@ -46,8 +37,15 @@ class TestAirOption(unittest.TestCase):
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 180./365., 180)
-        print ao.air_option(tickets, s_v, T_l, 450., 100., 0.2, d_c=0.95, nb_sim=nb_sim,
-                            model='max')
+        print ao.air_option( tickets
+                           , s_v
+                           , s_v
+                           , T_l
+                           , 450.
+                           , 100.
+                           , 0.2
+                           , nb_sim = nb_sim)
+        self.assertTrue(True)
 
     def test_ao_26(self, nb_sim=10000):
         """
@@ -58,98 +56,68 @@ class TestAirOption(unittest.TestCase):
         T_l = np.linspace(1./365., 180./365., 180)
         T_mat = T_l + 0.01  # some increase over T_l
 
-        ao_p = {'model': 'max',
-                'F_max_prev': np.zeros((len(tickets), nb_sim))}
-        ao_f = ao.ao_f
-
-        print ao.air_option_seq( tickets
-                               , s_v
-                               , T_l
-                               , T_mat
-                               , 100.
-                               , ao_f   = ao_f
-                               , ao_p   = ao_p
-                               , nb_sim = nb_sim)
+        print ao.air_option( tickets
+                           , s_v
+                           , s_v
+                           , T_l
+                           , T_mat
+                           , 100.
+                           , ao_f   = ao.ao_f
+                           , nb_sim = nb_sim)
 
         self.assertTrue(True)
 
-    def test_ao_27(self, nb_sim=10000):
+    def test_ao_27( self
+                  , nb_sim=10000):
         """
         tests the air option
+
         """
+
+        tickets = np.linspace(450., 400., 3)
+        s_v = 100. * np.ones(len(tickets))
+        T_l = np.linspace(1./365., 180./365., 2)
+        d_v = 0.2 * np.ones(len(tickets))
+
+        print ao.air_option( tickets
+                           , s_v
+                           , d_v
+                           , T_l
+                           , T_l + 0.05
+                           , 450.
+                           , ao_f   = ao.ao_f_arb
+                           , nb_sim = nb_sim)
+
+        self.assertTrue(True)
+
+    def test_ao_32( self
+                  , nb_sim=10000):
+        """
+        tests the air option
+
+        """
+
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 180./365., 180)
 
-        ao_p = {'model': 'prob',
-                'F_max_prev': np.zeros((len(tickets), nb_sim))}
-        ao_f = ao.ao_f
+        print ao.air_option( tickets
+                           , s_v
+                           , s_v   # d_v = s_v
+                           , T_l
+                           , T_l + 0.05
+                           , 450.
+                           , ao_f   = ao.ao_f_arb
+                           , nb_sim = nb_sim)
 
-        print ao.air_option_seq(tickets, s_v, T_l, 450., 100., 0.2,
-                                ao_f=ao_f, ao_p=ao_p,
-                                d_c=0.95, nb_sim=nb_sim,
-                                model='max')
-
-    def test_ao_3(self, nb_sim=2**9*1000):
-        """
-        tests the air option
-        """
-        tickets = np.linspace(450., 400., 50)
-        s_v = 100. * np.ones(len(tickets))
-        T_l = np.linspace(1./365., 62./365., 62)
-        print ao.air_option(tickets, s_v, T_l, 450., 100., 0.2, d_c=0.95, nb_sim=nb_sim,
-                            model='prob', cuda_ind=True)
-
-    def test_ao_32(self, nb_sim=10000, date_today='20161001'):
-        """
-        tests the air option
-        """
-        tickets = np.linspace(450., 400., 50)
-
-        date_today_dt = ds.convert_str_datetime(date_today)
-
-        s_v = 100. * np.ones(len(tickets))
-        T_l = np.linspace(1./365., 180./365., 180)
-
-        ao_p = {'model': 'max',
-                'F_max_prev': np.zeros((len(tickets), nb_sim))}
-        ao_f = ao.ao_f
-
-        print ao.air_option_seq(tickets, s_v, T_l, 450., 100., 0.2,
-                                ao_f=ao_f, ao_p=ao_p,
-                                d_c=0.95, nb_sim=nb_sim,
-                                model='max')
-
-    def test_ao_33(self):
-        vals = ao.compute_option_val(option_end_date='20161030',
-                                     outbound_date_end='2016-10-05',
-                                     nb_sim=2000, s_v_test=200.)
-        print "VALS:", vals
-
-    def test_compute_opt_val_nosearch_1(self, s_v_test=0.2):
-        """
-        compute the option val
-        """
-        F_v = np.linspace(600., 900., 250)
-        date_option_start, date_option_end = '20161101', '20161231'
-        K = 900.
-        simplify_compute = 'all_sim_dates' # 'take_last_only' is the other option
-        s_v_test = s_v_test
-        rho = 0.95
-
-        res = ao.compute_option_val_nosearch(F_v, option_start_date=date_option_start,
-                                             option_end_date=date_option_end,
-                                             K=K,
-                                             simplify_compute=simplify_compute,
-                                             s_v_test=s_v_test,
-                                             rho=rho)
-        return res
+        self.assertTrue(True)
 
     def test_compute_vols(airline='Alaska Airlines'):
         """
         airline from the cache database
         """
-        aoe.all_vols_by_airline(airline, use_cache=True)
+        print aoe.all_vols_by_airline(airline, use_cache=True)
+        self.assertTrue(True)
 
     def test_simple(self):
         """
@@ -189,6 +157,7 @@ class TestAirOption(unittest.TestCase):
         self. assertTrue(True)
 
     def test_ao_new1(simplify_compute='take_last_only'):
+
         v1 = ao.compute_option_val(option_start_date='20161211',
                                    option_end_date='20161212',
                                    option_ret_start_date='20161201',
@@ -228,22 +197,10 @@ class TestAirOption(unittest.TestCase):
                                   , cuda_ind              = cuda_ind)
         print v1[0]
 
-    def test_ao_new4(self, simplify_compute='take_last_only', nb_sim=10000, cuda_ind=True):
-        ress = pickle.load(open('/home/brumen/work/mrds/ao/tmp/res_1.obj'))
-        v1 = ao.compute_option_val(option_start_date='20161204',
-                                   option_end_date='20161231',
-                                   option_ret_start_date='20161204',
-                                   option_ret_end_date='20161231',
-                                   K=900.0, penalty=100.0,
-                                   nb_sim=nb_sim, rho=0.95,
-                                   simplify_compute=simplify_compute,
-                                   underlyer='n',
-                                   return_flight=False,
-                                   cuda_ind=cuda_ind,
-                                   res_supplied=ress)
-        print v1[0]
-
-    def test_ao_new5(self, simplify_compute='take_last_only', nb_sim=10000, cuda_ind=True):
+    def test_ao_new5( self
+                    , simplify_compute = 'take_last_only'
+                    , nb_sim           = 10000
+                    , cuda_ind         = True):
 
         v1 = ao.compute_option_val(option_start_date='20161215',
                                    option_end_date='20161216',
@@ -254,13 +211,14 @@ class TestAirOption(unittest.TestCase):
                                    simplify_compute=simplify_compute,
                                    underlyer='n',
                                    return_flight=False,
-                                   cuda_ind=cuda_ind,
-                                   res_supplied=ress)
-        print v1[0]
+                                   cuda_ind=cuda_ind)
+        print v1
+        self.assertTrue(True)
 
     def test_ao_rho(self):
         """
         tests the effect of correlation
+
         """
         rho_l               = [0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.3, 0.2, -0.2, -0.3, -0.9]
         outbound_date_start = '2017-06-07'
