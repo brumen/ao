@@ -1,9 +1,11 @@
 #! /usr/bin/python 
-import config
-import time 
+
+import time
 import ao_db
 import datetime as dt 
+import ds
 
+# date when to finish the flight capture
 date_finish = '20180701'
 
 
@@ -17,9 +19,76 @@ def get_today_p2d():
     return date_today_p2d_str
 
 
-# main routine, repeat forever 
+def ao_db_run( dep_start      = '20161201'
+             , dep_end        = '20171231'
+             , dest_l         = None
+             , mt_ind         = False
+             , nb_cores       = 8
+             , dummy          = False
+             , depth_max      = 0
+             , use_cache      = False
+             , existing_pairs = None):
+
+    # if depth_max > 0:  # set global variables, only execute this in this case, as it takes a long time
+    #     check_exists_str_live = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights"
+    #     existing_pairs_live = set(run_db(check_exists_str_live))  # using set is very efficient, this is GLOBAL variable
+    #     check_exists_str_cache = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights_cache"
+    #     existing_pairs_cache = set(run_db(check_exists_str_cache))
+    #     if use_cache:
+    #         existing_pairs = existing_pairs_cache
+    #     else:
+    #         existing_pairs = existing_pairs_live
+
+    # construct a set of already given pairs
+    dep_date_l_dt = ds.construct_date_range(dep_start, dep_end)
+    dep_date_l = [ds.convert_dt_minus(x) for x in dep_date_l_dt]
+    if dest_l is None:
+        dest_l_used = ['JFK', 'LGA', 'EWR', 'SFO', 'LAX',
+                       'BOS', 'FLL', 'MIA', 'DEN', 'ORD',
+                       'HOU', 'IAH',
+                       'ATL', 'DFW', 'CLT', 'LAS', 'PHX', 'SEA', 'MCO',
+                       'MSP', 'DTW', 'PHL', 'BWI', 'DCA', 'MDW', 'SLC', 'IAD',
+                       'SAN', 'HNL', 'TPA', 'PDX', 'DAL', 'STL', 'AUS', 'BNA', 'MSY',
+                       'MCI', 'RDU', 'SNA', 'SJC', 'SMF', 'SJU', 'RSW', 'SAT', 'CLE',
+                       'PIT', 'IND', 'CMH', 'MKE', 'BDL', 'MEX',  # up to here US
+                       'PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
+                       'PVG', 'CGK', 'CAN', 'BKK', 'ICN', 'DEL',
+                       'BOM', 'DEL', 'SHA', 'MNL', 'TPE', 'SZX', 'JED',
+                       'CTU', 'KHI', 'KIX', 'GMP', 'HGH', 'CJU', 'SGN',
+                       'THR', 'XIY', 'RUH', 'MAA',
+                       # asia here
+                       'LHR', 'CDG', 'IST', 'FRA', 'AMS', 'MAD', 'MUC', 'FCO',
+                       'LGW', 'BCN', 'DME', 'SVO', 'ORY', 'AYT', 'CPH', 'ZRH',
+                       'DUB', 'OSL', 'BRU', 'PMI', 'ARN', 'MAN', 'VIE', 'STN',
+                       'DUS', 'TXL', 'LIS', 'MXP', 'ATH', 'HEL',
+                       'VKO', 'GVA', 'HAM'  # europe here
+                       ]
+        # dest_l_used = iata_codes_cities.keys()
+    else:
+        dest_l_used = dest_l
+
+    dest_l_usa = ['JFK', 'LGA', 'EWR',
+                  'MIA', 'DEN', 'ORD',
+                  'IAH',
+                  'ATL', 'SAN']
+    dest_l_asia = ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
+                   'PVG', 'CGK', 'CAN']
+    dest_l_used = dest_l_asia
+
+    # ao_db_fill(dep_date_l, dest_l_used)
+    ao_db.ao_db_fill_mt( dep_date_l
+                       , dest_l_used
+                       , mt_ind=mt_ind
+                       , dummy=dummy
+                       , depth_max=depth_max
+                       , use_cache=use_cache
+                       , nb_cores=nb_cores
+                       , existing_pairs=existing_pairs)
+
+
+# main routine, repeat forever
 while True:
     try: 
-        ao_db.ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
+        ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
     except:  # if there is any mistake here, restart it again 
-        ao_db.ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
+        ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
