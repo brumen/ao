@@ -1,6 +1,4 @@
 # date manipulating functions
-import numpy as np
-import scipy.interpolate
 import datetime as dt
 import calendar as cal
 
@@ -33,7 +31,13 @@ def convert_str_datetime(date_):
 def convert_str_dateslash(date_):
     """
     converts yyyymmdd into date slash format
+
+    :param date_: date in string 'yyyymmdd' format
+    :type date_:  string, or list of strings
+    :returns:     date in / format '2017/05/05' or a list of them
+    :rtype:       string or list of strings
     """
+
     def conv_local(d_elt):
         return str(int(d_elt[4:6])) + '/' + str(int(d_elt[6:8])) + '/' + str(int(d_elt[0:4]))
 
@@ -42,12 +46,17 @@ def convert_str_dateslash(date_):
     else:
         return conv_local(date_)
 
-    
 
 def convert_str_date(date_):
     """
     converts yyyymmdd into datetime
+
+    :param date_: date in yyyymmdd format
+    :type date_:  string, in 'yyyymmdd' format
+    :returns:     date in datetime.date format
+    :rtype:       datetime.date
     """
+
     def conv_local(d_elt):
         return dt.date(int(d_elt[0:4]),
                        int(d_elt[4:6]),
@@ -71,12 +80,27 @@ def d2s(i):
 
 def convert_datetime_str(date_):
     """
-    converts the date in datetime format into string format 
+    converts the date in datetime format into string format
+
+    :param date_: date in datetime.date format
+    :type date_:  datetime.date
+    :returns:     same date in string format '20170502'
+    :rtype:       string
     """
+
     return str(date_.year) + d2s(date_.month) + d2s(date_.day)
 
 
 def convert_dt_minus(date_):
+    """
+    converts datetime.date to string date with - format
+
+    :param date_: datetime.date in datetime.date format
+    :type date_:  datetime.date
+    :returns:     date in - format '2017-05-02'
+    :rtype:       string
+    """
+
     return str(date_.year) + '-' + d2s(date_.month) + '-' + d2s(date_.day)
 
 
