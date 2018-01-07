@@ -213,16 +213,19 @@ class TestAirOption(unittest.TestCase):
         print v1[0]
 
     def test_ao_new3(simplify_compute='take_last_only', nb_sim=10000, cuda_ind=False):
-        v1 = ao.compute_option_val(option_start_date='20161204',
-                                   option_end_date='20161231',
-                                   option_ret_start_date='20161204',
-                                   option_ret_end_date='20161231',
-                                   K=900.0, penalty=100.0,
-                                   nb_sim=10000, rho=0.95,
-                                   simplify_compute=simplify_compute,
-                                   underlyer='n',
-                                   return_flight=False,
-                                   cuda_ind=cuda_ind)
+
+        v1 = ao.compute_option_val( option_start_date     = '20180301'
+                                  , option_end_date       = '20180301'
+                                  , option_ret_start_date = '20180302'
+                                  , option_ret_end_date   = '20180302'
+                                  , K                     = 900.0
+                                  , penalty               = 100.0
+                                  , nb_sim                = 10000
+                                  , rho                   = 0.95
+                                  , simplify_compute      = simplify_compute
+                                  , underlyer             = 'n'
+                                  , return_flight         = False
+                                  , cuda_ind              = cuda_ind)
         print v1[0]
 
     def test_ao_new4(self, simplify_compute='take_last_only', nb_sim=10000, cuda_ind=True):
@@ -241,7 +244,7 @@ class TestAirOption(unittest.TestCase):
         print v1[0]
 
     def test_ao_new5(self, simplify_compute='take_last_only', nb_sim=10000, cuda_ind=True):
-        ress = pickle.load(open('/home/brumen/work/mrds/ao/tmp/res_1.obj'))
+
         v1 = ao.compute_option_val(option_start_date='20161215',
                                    option_end_date='20161216',
                                    option_ret_start_date='20161225',
@@ -259,21 +262,21 @@ class TestAirOption(unittest.TestCase):
         """
         tests the effect of correlation
         """
-        rho_l = [0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.3, 0.2, -0.2, -0.3, -0.9]
-        outbound_date_start='2017-06-07'
-        outbound_date_end='2017-06-09'
-        inbound_date_start='2017-06-20'
-        inbound_date_end='2017-06-21'
-        K=1000.
+        rho_l               = [0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.3, 0.2, -0.2, -0.3, -0.9]
+        outbound_date_start = '2017-06-07'
+        outbound_date_end   = '2017-06-09'
+        inbound_date_start  = '2017-06-20'
+        inbound_date_end    = '2017-06-21'
+        K                   = 1000.
         impact_rho = {}
         for rho in rho_l:
-            k1 = ao.compute_option_val(outbound_date_start=outbound_date_start,
-                                       outbound_date_end=outbound_date_end,
-                                       inbound_date_start=inbound_date_start,
-                                       inbound_date_end=inbound_date_end,
-                                       K=1200.,
-                                       return_flight=True,
-                                       rho=rho)
+            k1 = ao.compute_option_val(outbound_date_start = outbound_date_start,
+                                       outbound_date_end   = outbound_date_end,
+                                       inbound_date_start  = inbound_date_start,
+                                       inbound_date_end    = inbound_date_end,
+                                       K                   = K,
+                                       return_flight       = True,
+                                       rho                 = rho)
             impact_rho[rho] = k1[1]
             print "RHO ", rho, ":", k1[1]
         return impact_rho
