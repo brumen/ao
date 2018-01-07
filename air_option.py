@@ -4,7 +4,6 @@ import datetime as dt
 import numpy as np
 import scipy.stats
 import time
-import multiprocessing as mp
 import json
 import mysql.connector
 if config.CUDA_PRESENT:
@@ -18,107 +17,36 @@ import ao_codes
 import air_search
 import ao_params
 
+from ao_codes import DB_HOST, DB_USER, DATABASE, MAX_TICKET
 
-DB_HOST  = 'odroid.local'
-DATABASE = 'ao'
-DB_USER  = 'brumen'
+
+def date_today():
+    """
+    returns today's date
+    :returns:  today's date
+    :rtype:    datetime.date
+    """
+    lt = time.localtime()
+    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
+    return ds.convert_str_date(date_today)
 
 
 def air_option( F_v
               , s_v
               , T_l
+              , T_mat
               , K
-              , p_c
-              , d_c=None
-              , nb_sim=1000
-              , rho=0.9
-              , model='max'
-              , cuda_ind=False):
+              , ao_f      = None
+              , ao_p      = None
+              , d_v       = None
+              , nb_sim    = 1000
+              , rho       = 0.9
+              , cuda_ind  = False
+              , underlyer ='n'
+              , gen_first = False):
     """
-    computes the value of the air option 
-
-    :param F_v:        value of the forwards, air tickets considered
-    :type F_v:         np.array 1-dimensional
-    :param s_v:        volatility of air tickets
-    :type s_v:         np.array 1- dimensional
-    :param T_l:        list of dates on which tickets can be changed
-    :type T_l:         list
-    :param K:          strike of the option
-    :type K:           double
-    :param p_c:        probability of exercising
-    :type p_c:         double
-    :param d_c:        decreasing probability of exercising
-    :type d_c:         double
-    :param nb_sim:     number of simulations
-    :type nb_sim:      integer
-    :param rho:        correlation of simulations
-    :type rho:         double
-    :param model:      'max' or 'stat', for statistical
-    :type model:       string
-    :param cuda_ind:   indicator of the cuda
-    :type cuda_ind:    bool
-    """
-
-    if type(F_v) is tuple:
-        nb_fwds_dep, nb_fwds_ret = len(F_v[0]), len(F_v[1])
-        nb_sim_times = len(T_l[0])  # TODO: THIS NEEDS UPDATING
-        rho_m_dep, rho_m_ret = vols.corr_hyp_sec_mat(rho, range(nb_fwds_dep)), \
-                               vols.corr_hyp_sec_mat(rho, range(nb_fwds_ret))
-    else:  # only outgoing flight
-        nb_fwds = len(F_v[0])
-        nb_sim_times = len(T_l[0])  # TODO: THIS NEEDS UPDATING
-        rho_m = vols.corr_hyp_sec_mat(rho, range(nb_fwds))  # TODO: THIS NEEDS TO BE UPDATED
-
-    if model != 'max':
-        d_v = vols.corr_hyp_sec_mat(d_c, range(nb_sim_times))[:, -1]
-        d_v /= np.sum(d_v)
-    else:
-        d_v = None
-    if not cuda_ind:
-        F_sims = mc.mc_mult_steps_cpu(F_v, s_v, T_l, rho_m, nb_sim, d_v=d_v, model='n')
-        max_f = np.maximum
-    else:
-        F_sims = mc.mc_mult_steps_cuda(F_v, s_v, T_l, rho_m, nb_sim, d_v=d_v, model='n')
-        max_f = gpa.maximum
-        
-    # max over fwds
-    F_max = np.amax(F_sims, axis=1)
-    # max over times
-    if model == 'max':
-        F_max_max = np.amax(F_max, axis=0)
-    else:
-        F_max_max = F_max[0, :] * d_v[0]
-        for st in range(1, nb_sim_times):
-            F_max_max += F_max[st, :] * d_v[st]
-
-    F_max_max_opt = F_max_max - K
-    F_final = max_f(F_max_max_opt, 0.)
-    if not cuda_ind:
-        F_avg = np.mean(F_final)
-    else:
-        F_avg = np.mean(F_final.get())
-    p_c_ch = 0.95 - p_c
-    q95 = scipy.stats.mstats.mquantiles(F_max_max_opt, prob = p_c_ch)
-    
-    return {'avg': p_c * F_avg,
-            'q95': q95[0]}
-
-
-def air_option_seq( F_v
-                  , s_v
-                  , T_l
-                  , T_mat
-                  , K
-                  , ao_f      = None
-                  , ao_p      = None
-                  , d_v       = None
-                  , nb_sim    = 1000
-                  , rho       = 0.9
-                  , cuda_ind  = False
-                  , underlyer ='n'
-                  , gen_first = False):
-    """
-    computes the value of the air option, much lower memory impact, same as above
+    computes the value of the air option, has low
+      memory impact
 
     :param F_v: vector of forward prices, or a tuple (F_1_v, F_2_v) for return flights
     :param s_v: vector of vols, or a tuple, similarly to F_v
@@ -246,7 +174,6 @@ def compute_option_raw( F_v
                       , T_mat_num
                       , K
                       , penalty
-                      , p_c
                       , rho
                       , nb_sim    = 10000
                       , d_v       = None
@@ -261,103 +188,134 @@ def compute_option_raw( F_v
     """
 
     # sequential option parameter setup
+
     if type(F_v) is not tuple:
         F_v_len = len(F_v)
     else:
         F_v_len = len(F_v[1])  # iteration over return dates 
-    if not cuda_ind:
-        if model == 'max':  # lots of simplifications
-            F_max_prev = np.zeros(nb_sim)
-        else:
-            F_max_prev = np.zeros((F_v_len, nb_sim))
-    else:
-        F_max_prev = gpa.zeros((F_v_len, nb_sim), dtype=np.double)
-        
-    ao_p = {'model': 'max',
-            'F_max_prev': F_max_prev,
-            'K': K,
-            'penalty': penalty}
 
-    opt_val_final = air_option_seq(F_v, s_v, T_l_num, T_mat_num,
-                                   K, penalty, p_c,
-                                   ao_f=ao_f_arb, ao_p=ao_p,
-                                   d_v=d_v, nb_sim=nb_sim, rho=rho,
-                                   model=model, cuda_ind=cuda_ind,
-                                   underlyer=underlyer,
-                                   gen_first=gen_first)
+    if not cuda_ind:
+        F_max_prev = np.zeros(nb_sim)
+    else:
+        F_max_prev = gpa.zeros( (F_v_len, nb_sim)
+                              , dtype = np.double)
+        
+    ao_p = { 'F_max_prev': F_max_prev
+           , 'K': K
+           , 'penalty': penalty}
+
+    opt_val_final = air_option( F_v
+                              , s_v
+                              , T_l_num
+                              , T_mat_num
+                              , K
+                              , ao_f      = ao_f_arb
+                              , ao_p      = ao_p
+                              , d_v       = d_v
+                              , nb_sim    = nb_sim
+                              , rho       = rho
+                              , cuda_ind  = cuda_ind
+                              , underlyer = underlyer
+                              , gen_first = gen_first)
 
     # markups to the option value
     percentage_markup = ao_codes.reserves + ao_codes.tax_rate # 10 % markup 
+
     if type(F_v) is not tuple:
         F_v_max = np.max(F_v)
     else:
         F_v_max = max(np.max(F_v[0]), np.max(F_v[1]))
+
+    # minimal payoff
     min_payoff = max(50., F_v_max / ao_codes.ref_base_F * 50.)
     opt_val_final['avg'] = max(min_payoff, (1. + percentage_markup) * opt_val_final['avg'])
+
     return opt_val_final
     
 
-def construct_st(date_s, date_e, date_t_dt, simplify_compute):
+def construct_sim_times( date_start
+                       , date_end
+                       , date_today_dt
+                       , simplify_compute):
     """
-    used for construction of simulation times 
-    :param ate_s: date start
-    :param date_e: date end
-    :param date_t_dt: date today (in dt format)
-    """
-    T_l = ds.construct_date_range(date_s, date_e)  # in date format
-    if simplify_compute == 'all_sim_dates':
-        T_l_num = [(date_sim - date_t_dt).days/365. for date_sim in T_l]
-    elif simplify_compute == 'take_last_only':
-        T_l_num = [(T_l[-1] - date_t_dt).days/365.]
+    Constructs the simulation times used in Monte Carlo
 
-    return T_l_num
+    :param date_s: date start
+    :type date_s:  datetime.date
+    :param date_e: date end
+    :type date_e:  datetime.date
+    :param date_t_dt: date today
+    :type date_today_dt: datetime.date
+    :returns:            list of simulated dates
+    :rtype:              list of datetime.date
+    """
+    T_l = ds.construct_date_range(date_start, date_end)  # in date format
+
+    if simplify_compute == 'all_sim_dates':
+        return [(date_sim - date_today_dt).days/365. for date_sim in T_l]
+    elif simplify_compute == 'take_last_only':
+        return [(T_l[-1] - date_today_dt).days/365.]
 
 
 def find_minmax_ow(rof):
     """
-    does that for one-way flights; adds fields 'min_max' to reorg_flights_v
+    computes the min/max ticket by different subsets of tickets (e.g. days,
+        hours, etc. ). This function only does that for one-way flights;
+        adds fields 'min_max' to reorg_flights_v
 
     :param rof: TODO HERE
     :type rof:  TODO HERE
     """
     min_max_dict = dict()  # new dict to return
     change_dates = rof.keys()
-    total_min, total_max = 1000000., 0.
+    total_min, total_max = MAX_TICKET, 0.
+
     for c_date in change_dates:
         min_max_dict[c_date] = dict()
         flights_by_daytime = rof[c_date]
         flight_daytimes = rof[c_date].keys()
-        cd_min, cd_max = 1000000., 0.
+        cd_min, cd_max = MAX_TICKET, 0.
+
         for f_daytime in flight_daytimes:
             flight_subset = flights_by_daytime[f_daytime]
             # now find minimum or maximum
-            min_subset, max_subset = 1000000., 0.  # one million
+            min_subset, max_subset = MAX_TICKET, 0.
+
             for d_date in flight_subset:
                 if flight_subset[d_date][5] < min_subset:
                     min_subset = flight_subset[d_date][5]
                 if flight_subset[d_date][5] >= max_subset:
                     max_subset = flight_subset[d_date][5]
+
             flight_subset['min_max'] = (min_subset, max_subset)
             min_max_dict[c_date][f_daytime] = (min_subset, max_subset)
             if min_subset < cd_min:
                 cd_min = min_subset
             if max_subset >= cd_max:
                 cd_max = max_subset
+
         min_max_dict[c_date]['min_max'] = (cd_min, cd_max)
         if total_min > cd_min:
             total_min = cd_min
         if total_max < cd_max:
             total_max = cd_max
+
     min_max_dict['min_max'] = (total_min, total_max)
+
     return min_max_dict
 
 
-def find_minmax_flight_subset(reorg_flights_v, ret_ind=False):
+def find_minmax_flight_subset( reorg_flights_v
+                             , ret_ind = False):
     """
-    finds the minimum and maximum of flights in each subset 
-    :param reorg_flights_v: dictionary structure of flights 
-    :param ret_ind: indicator of return flight 
-    :return min_max subset 
+    Finds the minimum and maximum of flights in each subset of flights
+
+    :param reorg_flights_v: dictionary structure of flights
+    :type reorg_flights_v:  dict
+    :param ret_ind:         indicator of return flight
+    :type ret_ind:          bool
+    :returns:               min_max subset over flights
+    :rtype:                 dict
     """
 
     if not ret_ind:  # outbound flight only
@@ -378,15 +336,26 @@ def s_v_fct(s, t):
     :returns: volatility of the model
     :rtype:   double
     """
+
     return s
 
     
 def d_v_fct(d, t):
+    """
+    drift structure of the model,
+
+    :param d: drift at time t
+    :type d:  double
+    :param t: time at which drift is evaluted
+    :type t:  double
+    :returns: drift of the model
+    :rtype:   double
+    """
 
     return d
 
 
-def construct_dr(date_s, date_e):
+def construct_date_range(date_start, date_end):
     """
     constructs the interval for option extension
 
@@ -396,9 +365,9 @@ def construct_dr(date_s, date_e):
     :type date_e:   string in the format '2017-02-05
     :returns:
     """
-    y_b, m_b, d_b = date_s.split('-')
+    y_b, m_b, d_b = date_start.split('-')
     outbound_date_start_nf = y_b + m_b + d_b
-    y_e, m_e, d_e = date_e.split('-')
+    y_e, m_e, d_e = date_end.split('-')
     outbound_date_end_nf = y_e + m_e + d_e
     outbound_date_range = ds.construct_date_range(outbound_date_start_nf, outbound_date_end_nf)
     outbound_date_range_minus = [ds.convert_dt_minus(x) for x in outbound_date_range]
@@ -431,32 +400,46 @@ def obtain_flights_mat( flights
 
 def sort_all(F_v, F_mat, s_v, d_v, fl_v):
     """
-    sorts the flights according to the F_v, assmption being that similar flights are most correlated
+    Sorts the flights according to the F_v,
+    assmption being that similar flights by values are most correlated
 
-    :param F_v:
+    :param F_v: vector of flight prices
+    :type F_v:  np.array
+
     """
 
     zip_ls = sorted(zip(F_v, F_mat, s_v, d_v, fl_v))
     F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s = zip(*zip_ls)
+
     return F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s
 
 
-def obtain_flights(io_dr_minus, flights_include, io_ind='out',
-                   correct_drift=True,
-                   write_data_progress=None,
-                   is_return_for_writing=True):
+def obtain_flights( origin_place
+                  , dest_place
+                  , country
+                  , currency
+                  , locale
+                  , carrier
+                  , io_dr_minus
+                  , flights_include
+                  , io_ind                = 'out'
+                  , correct_drift         = True
+                  , write_data_progress   = None
+                  , is_return_for_writing = True):
     """
-    # get the flights for outbound and inbound flight
-    # io_dr_minus: input/output date range _minus (with - sign)
-    # io_ind: inbound/outbound indicator
+    get the flights for outbound and inbound flight
 
+    :param io_dr_minus: input/output date range _minus (with - sign)
+    :param io_ind:      inbound/outbound indicator ('in', 'out')
+    :type io_ind:
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
     reorg_flights_v = dict()
+
     if io_ind == 'out':  # outbound
         origin_used, dest_used = origin_place, dest_place
-    else:
+    else:  # inbound, reverse the origin, destination
         origin_used, dest_used = dest_place, origin_place
 
     mysql_conn_gtp = mysql.connector.connect( host     = DB_HOST
@@ -472,18 +455,17 @@ def obtain_flights(io_dr_minus, flights_include, io_ind='out',
             fo.close()
 
         ticket_val, flights, reorg_flights = \
-            air_search.get_ticket_prices(origin_place       = origin_used,
-                                         dest_place         = dest_used,
-                                         outbound_date      = od,
-                                         country            = country,
-                                         currency           = currency,
-                                         locale             = locale,
-                                         include_carriers   = carrier,
-                                         cabinclass         = cabinclass,
-                                         adults             = adults,
-                                         errors             = errors,
-                                         insert_into_livedb = insert_into_livedb,
-                                         use_mysql_conn     = mysql_conn_gtp)
+            air_search.get_ticket_prices( origin_place       = origin_used
+                                        , dest_place         = dest_used
+                                        , outbound_date      = od
+                                        , country            = country
+                                        , currency           = currency
+                                        , locale             = locale
+                                        , include_carriers   = carrier
+                                        , cabinclass         = cabinclass
+                                        , adults             = adults
+                                        , insert_into_livedb = insert_into_livedb
+                                        , use_mysql_conn     = mysql_conn_gtp)
 
         if write_data_progress is not None:  # write progress into file
             last_elt = od == io_dr_minus[-1]
@@ -496,19 +478,18 @@ def obtain_flights(io_dr_minus, flights_include, io_ind='out',
         if reorg_flights.has_key(od):
             F_v.extend(ticket_val)
             flight_dep_time_added = [x[1] for x in flights]  # just the departure time
-            io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise(od,
-                                                                      flight_dep_time_added,
-                                                                      orig=origin_used,
-                                                                      dest=dest_used,
-                                                                      carrier=carrier,
-                                                                      correct_drift=correct_drift,
-                                                                      fwd_value=np.mean(ticket_val))
+            io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( flight_dep_time_added
+                                                                     , orig          = origin_used
+                                                                     , dest          = dest_used
+                                                                     , carrier       = carrier
+                                                                     , correct_drift = correct_drift
+                                                                     , fwd_value     = np.mean(ticket_val))
             io_dr_vol = [x[0] for x in io_dr_drift_vol]
             io_dr_drift = [x[1] for x in io_dr_drift_vol]
             s_v_obtain.extend(io_dr_vol)  # adding the vols
             d_v_obtain.extend(io_dr_drift)  # adding the drifts
             flights_v.extend(flights)
-            F_mat.extend(obtain_flights_mat(flights, flights_include, date_today_dt))  # maturity of forwards
+            F_mat.extend(obtain_flights_mat(flights, flights_include, date_today()))  # maturity of forwards
             reorg_flights_v[od] = reorg_flights[od]
 
     F_v = np.array(F_v)
@@ -559,16 +540,21 @@ def filter_prices_and_flights(price_l, flights_l, reorg_flights_l, flights_inclu
     return F_v, flight_v, reorg_flight_v, 'Valid'
 
 
-def obtain_flights_recompute(io_dr_minus, flights_include,
-                             io_ind='out', correct_drift=True,
-                             write_data_progress=None,
-                             is_return_for_writing=True):
+def obtain_flights_recompute( origin_place
+                            , dest_place
+                            , io_dr_minus
+                            , flights_include
+                            , io_ind                = 'out'
+                            , correct_drift         = True
+                            , write_data_progress   = None
+                            , is_return_for_writing = True):
     """
-    # io_dr_minus: input/output date range _minus (with - sign)
-    # io_ind: inbound/outbound indicator
-    # all flights are in flights_include
-    # F_mat ... maturity of the forward prices
 
+
+    io_dr_minus: input/output date range _minus (with - sign)
+    io_ind: inbound/outbound indicator
+    all flights are in flights_include
+    F_mat ... maturity of the forward prices
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
@@ -602,8 +588,7 @@ def obtain_flights_recompute(io_dr_minus, flights_include,
         # add together
         F_v.extend(ticket_val)
         flight_dep_time_added = [x[1] for x in flights]  # just the departure time
-        io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( od
-                                                                 , flight_dep_time_added
+        io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( flight_dep_time_added
                                                                  , orig          = origin_used
                                                                  , dest          = dest_used
                                                                  , carrier       = carrier
@@ -617,9 +602,9 @@ def obtain_flights_recompute(io_dr_minus, flights_include,
         F_mat.extend(obtain_flights_mat(flights, flights_include, date_today_dt))  # maturity of forwards
         reorg_flights_v[od] = reorg_flight
 
-    F_v = np.array(F_v)
-    F_mat = np.array(F_mat)
-    return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
+    return np.array(F_v), np.array(F_mat),\
+           s_v_obtain, d_v_obtain, \
+           flights_v, reorg_flights_v, 'Valid'
 
 
 def get_flight_data( flights_include     = None
@@ -643,19 +628,38 @@ def get_flight_data( flights_include     = None
                    , insert_into_livedb  = True
                    , write_data_progress = None):
     """
-    get flight data, no computing 
-    :param flights_include: if None - include all, otherwise remove the flights 
-                            not in flights_include 
+    get flight data for the parameters specified
+
+    :param flights_include:      if None - include all
+                                 if specified, then only consider the flights in flights_include
+    :type flights_include:       list of flights # TODO: SPECIFY THIS BETTER
+    :param origin_place:         IATA code of the origin airport, e.g.  'SFO'
+    :type origin_place:          string
+    :param dest_place:           IATA code of the destination airport, e.g.  'SFO'
+    :type dest_place:            string
+    :param outbound_date_start:  start date of the outbound flights
+    :type outbound_date_start:   string in the form '2017-05-05'
+    :param outbound_date_end:    end date of the outbound flights
+    :type outbound_date_end:     string in the form '2017-05-05'
+    :param inbound_date_start:   start date of the inbound (return) flights
+    :type inbound_date_start:    string in the form '2017-05-05'
+    :param inbound_date_end:     end date of the inbound (return) flights
+    :type inbound_date_end:      string in the form '2017-05-05'
+    :param carrier:              IATA code of the carrier, e.g. 'UA'
+    :type carrier:               string
+    :param country:              country used for data fetch, usually 'US',
+                                   for other possibilities check the skyscanner API
+    :type country:               string
+    :param currency:             which currency to display prices in, e.g. 'USD', 'GBP'
+    :type currency:              string
+
     :param write_data_progress: write progress of fetching data into the filename given 
     """
-    # constuct simulation times
-    lt = time.localtime()
-    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    date_today_dt = ds.convert_str_date(date_today)
 
-    out_dr_minus = construct_dr(outbound_date_start, outbound_date_end)
+    # outbound data range
+    out_dr_minus = construct_date_range(outbound_date_start, outbound_date_end)
     if return_flight:
-        in_dr_minus = construct_dr(inbound_date_start, inbound_date_end)
+        in_dr_minus = construct_date_range(inbound_date_start, inbound_date_end)
 
     if recompute_ind:
         obtain_flights_f = obtain_flights_recompute
@@ -664,23 +668,31 @@ def get_flight_data( flights_include     = None
         
     # departure flights, always establish
     if not return_flight:
-        F_v_dep_uns, F_mat_dep_uns, s_v_dep_u_uns, d_v_dep_u_uns, \
-            flights_v_dep_uns, reorg_flights_v_dep, valid_check = obtain_flights_f(out_dr_minus, flights_include, io_ind='out',
-                                                                                   correct_drift=correct_drift,
-                                                                                   write_data_progress=write_data_progress,
-                                                                                   is_return_for_writing=True)
+        F_v_dep_uns, F_mat_dep_uns,\
+            s_v_dep_u_uns, d_v_dep_u_uns,\
+            flights_v_dep_uns, reorg_flights_v_dep,\
+            valid_check = obtain_flights_f( out_dr_minus
+                                          , flights_include
+                                          , io_ind                = 'out'
+                                          , correct_drift         = correct_drift
+                                          , write_data_progress   = write_data_progress
+                                          , is_return_for_writing = True)
         if valid_check != 'Valid':  # not valid, return immediately
             return [], [], [], [], [], [], False
         
         F_v_dep, F_mat_dep, s_v_dep_u, d_v_dep_u, \
-            flights_v_dep = sort_all(F_v_dep_uns, F_mat_dep_uns, s_v_dep_u_uns, d_v_dep_u_uns,
-                                     flights_v_dep_uns)
+            flights_v_dep = sort_all( F_v_dep_uns
+                                    , F_mat_dep_uns
+                                    , s_v_dep_u_uns
+                                    , d_v_dep_u_uns
+                                    , flights_v_dep_uns)
         F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back 
         F_mat_dep = np.array(F_mat_dep)
-        if valid_check == 'Valid':
-            s_v_dep = [lambda t: s_v_fct(s_v_u, t) for s_v_u in s_v_dep_u]
-            d_v_dep = [lambda t: d_v_fct(d_v_u, t) for d_v_u in d_v_dep_u]
-    else:
+        s_v_dep = [lambda t: s_v_fct(s_v_u, t) for s_v_u in s_v_dep_u]
+        d_v_dep = [lambda t: d_v_fct(d_v_u, t) for d_v_u in d_v_dep_u]
+
+    else:  # return flights handling
+
         if flights_include is None:
             F_v_dep_uns, F_mat_dep_uns, s_v_dep_raw_uns, d_v_dep_raw_uns, \
                 flights_v_dep_uns, reorg_flights_v_dep, valid_check_out = \
@@ -698,26 +710,39 @@ def get_flight_data( flights_include     = None
             F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back 
             F_mat_dep = np.array(F_mat_dep)
             
-            F_v_ret_uns, F_mat_ret_uns, s_v_ret_raw_uns, d_v_ret_raw_uns, \
-                flights_v_ret_uns, reorg_flights_v_ret, valid_check_in = obtain_flights_f(in_dr_minus, 
-                                                                                          flights_include, io_ind='in', correct_drift=correct_drift,
-                                                                                          write_data_progress=write_data_progress,
-                                                                                          is_return_for_writing=True)
+            F_v_ret_uns, F_mat_ret_uns,\
+                s_v_ret_raw_uns, d_v_ret_raw_uns, \
+                flights_v_ret_uns, reorg_flights_v_ret,\
+                valid_check_in = obtain_flights_f( in_dr_minus
+                                                 , flights_include
+                                                 , io_ind                = 'in'
+                                                 , correct_drift         = correct_drift
+                                                 , write_data_progress   = write_data_progress
+                                                 , is_return_for_writing = True)
+
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
             F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, \
-                flights_v_ret = sort_all(F_v_ret_uns, F_mat_ret_uns, s_v_ret_raw_uns, d_v_ret_raw_uns, \
-                                                              flights_v_ret_uns)
+                flights_v_ret = sort_all( F_v_ret_uns
+                                        , F_mat_ret_uns
+                                        , s_v_ret_raw_uns
+                                        , d_v_ret_raw_uns
+                                        , flights_v_ret_uns)
+
             F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back 
             F_mat_ret = np.array(F_mat_ret)
             
         else:
-            F_v_dep_uns, F_mat_dep_uns, s_v_dep_raw_uns, d_v_dep_raw_uns, \
-                flights_v_dep_uns, reorg_flights_v_dep, valid_check_out = obtain_flights_f(out_dr_minus,
-                                                                                           flights_include[0], io_ind='out', correct_drift=correct_drift,
-                                                                                           write_data_progress=write_data_progress,
-                                                                                           is_return_for_writing=True)
+            F_v_dep_uns, F_mat_dep_uns, \
+                s_v_dep_raw_uns, d_v_dep_raw_uns, \
+                flights_v_dep_uns, reorg_flights_v_dep, \
+                valid_check_out = obtain_flights_f( out_dr_minus
+                                                  , flights_include[0]
+                                                  , io_ind                = 'out'
+                                                  , correct_drift         = correct_drift
+                                                  , write_data_progress   = write_data_progress
+                                                  , is_return_for_writing = True)
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
@@ -727,21 +752,32 @@ def get_flight_data( flights_include     = None
             F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back 
             F_mat_dep = np.array(F_mat_dep)
             
-            F_v_ret_uns, F_mat_ret_uns, s_v_ret_raw_uns, d_v_ret_raw_uns, \
-                flights_v_ret_uns, reorg_flights_v_ret, valid_check_in = obtain_flights_f(in_dr_minus,
-                                                                                          flights_include[1], io_ind='in', correct_drift=correct_drift,
-                                                                                          write_data_progress=write_data_progress,
-                                                                                          is_return_for_writing=True)
+            F_v_ret_uns, F_mat_ret_uns, \
+                s_v_ret_raw_uns, d_v_ret_raw_uns, \
+                flights_v_ret_uns, reorg_flights_v_ret,\
+                valid_check_in = obtain_flights_f( in_dr_minus
+                                                 , flights_include[1]
+                                                 , io_ind                ='in'
+                                                 , correct_drift         = correct_drift
+                                                 , write_data_progress   = write_data_progress
+                                                 , is_return_for_writing = True)
+
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
-            F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, \
-                flights_v_ret = sort_all(F_v_ret_uns, F_mat_ret_uns, s_v_ret_raw_uns, d_v_ret_raw_uns,
-                                         flights_v_ret_uns)
-            F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back 
+            F_v_ret, F_mat_ret, \
+                s_v_ret_raw, d_v_ret_raw, \
+                flights_v_ret = sort_all( F_v_ret_uns
+                                        , F_mat_ret_uns
+                                        , s_v_ret_raw_uns
+                                        , d_v_ret_raw_uns
+                                        , flights_v_ret_uns)
+
+            F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back
             F_mat_ret = np.array(F_mat_ret)
             
         valid_check = (valid_check_out == 'Valid') and (valid_check_in == 'Valid')
+
         if valid_check:
             s_v_dep = [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_dep_raw]
             d_v_dep = [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_dep_raw]
@@ -753,9 +789,12 @@ def get_flight_data( flights_include     = None
             return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, True
         else:
             return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), \
-                (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
+                (flights_v_dep, flights_v_ret), \
+                (reorg_flights_v_dep, reorg_flights_v_ret), \
                 (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), True
+
     else:  # not valid
+
         if not return_flight:
             return [], [], [], [], [], [], False
         else:
@@ -789,93 +828,96 @@ def compute_date_by_fraction(dt_today, dt_final, fract, total_fraction):
 def compute_option_val( origin_place          = 'SFO'
                       , dest_place            = 'EWR'
                       , flights_include       = None
-                       # when can you change the option 
+                      # when can you change the option
                       , option_start_date     = '20170522'
                       , option_end_date       = '20170524'
-                      , option_ret_start_date ='20170601'
-                      , option_ret_end_date   ='20170603',
-                       # next 4 - when do the (changed) flights occur
-                       outbound_date_start='2017-05-25',
-                       outbound_date_end='2017-05-26',
-                       inbound_date_start='2017-06-05',
-                       inbound_date_end='2017-06-06',
-                       K=1600.,  # option strike price (return or combined)
-                       penalty=100.,  # if return, this is counted 2x
-                       p_c=0.2,  # probability of changing
-                       carrier='UA',
-                       nb_sim=10000,  # CHECK THIS 
-                       rho=0.95,
-                       country='US', currency='USD', locale='en-US',
-                       adults=1,
-                       cabinclass='Economy', 
-                       model='max', cuda_ind=False,
-                       debug=False,
-                       errors='graceful',
-                       simplify_compute='take_last_only',  # 'all_sim_dates'
-                       # simplify_compute='all_sim_dates',  # 'all_sim_dates'
-                       underlyer='n',
-                       mt_ind=False,
-                       price_by_range=True,
-                       return_flight=False,
-                       res_supplied=None,
-                       gen_first=True,
-                       recompute_ind=False,
-                       correct_drift=True,
-                       write_data_progress=None):
+                      , option_ret_start_date = '20170601'
+                      , option_ret_end_date   = '20170603'
+                      # next 4 - when do the (changed) flights occur
+                      , outbound_date_start   = '2017-05-25'
+                      , outbound_date_end     = '2017-05-26'
+                      , inbound_date_start    = '2017-06-05'
+                      , inbound_date_end      = '2017-06-06'
+                      , K                     = 1600.  # option strike price (return or combined)
+                      , penalty               = 100.  # if return, this is counted 2x
+                      , carrier               = 'UA'
+                      , nb_sim                = 10000  # CHECK THIS
+                      , rho                   = 0.95
+                      , country               = 'US'
+                      , currency              = 'USD'
+                      , locale                = 'en-US'
+                      , adults                = 1
+                      , cabinclass            = 'Economy'
+                      , cuda_ind              = False
+                      , debug                 = False
+                      , errors                = 'graceful'
+                      , simplify_compute      = 'take_last_only' # 'all_sim_dates'
+                      , underlyer             = 'n'
+                      , mt_ind                = False
+                      , price_by_range        = True
+                      , return_flight         = False
+                      , res_supplied          = None
+                      , gen_first             = True
+                      , recompute_ind         = False
+                      , correct_drift         = True
+                      , write_data_progress   = None):
     """
-    computes the option value by getting data from skyscanner
+    computes the flight option
+
+    :param origin_place:    IATA code of the origin airport ('SFO')
+    :type origin_place:     string
+    :param dest_place:      IATA code of the destination airport ('EWR')
+    :type dest_place:       string
+    :param flights_include:
+    :type flights_include:
+    :param option_start_date: the date when you can start changing the outbound flight
+    :type option_start_date:  string in the format '20170522'
+    :param option_end_date:   the date when you stop changing the outbound flight
+    :type option_end_date:    string in the format '20170522'
+
     :param simplify_compute: simplifies the computation in that it only simulates the last simulation date
-       options are: "take_last_only", "all_sim_dates"
+    :type simplify_compute:  string, options are: "take_last_only", "all_sim_dates"
+
     :param write_data_progress: if None, just compute the option 
                                 if filename given, then write into that filename the progress 
     """
     # date today 
-    lt = time.localtime()
-    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    date_today_dt = ds.convert_str_date(date_today)
-    if res_supplied is None:
-        res = get_flight_data(flights_include=flights_include,
-                              origin_place=origin_place,
-                              dest_place=dest_place,
-                              # when can you change the option 
-                              option_start_date=option_start_date,
-                              option_end_date=option_end_date,
-                              option_ret_start_date=option_ret_start_date,
-                              option_ret_end_date=option_ret_end_date,
-                              # next 4 - when do the (changed) flights occur
-                              outbound_date_start=outbound_date_start,
-                              outbound_date_end=outbound_date_end,
-                              inbound_date_start=inbound_date_start,
-                              inbound_date_end=inbound_date_end,
-                              K=K,  # option strike price (return or combined)
-                              p_c=p_c,  # probability of changing
-                              carrier=carrier,
-                              nb_sim=nb_sim,
-                              rho=rho,
-                              country=country, currency=currency, locale=locale,
-                              cabinclass=cabinclass,
-                              adults=adults,
-                              model=model, cuda_ind=cuda_ind,
-                              debug=debug,
-                              errors=errors,
-                              simplify_compute=simplify_compute,
-                              underlyer=underlyer,
-                              mt_ind=mt_ind,
-                              price_by_range=price_by_range,
-                              return_flight=return_flight,
-                              recompute_ind=recompute_ind,
-                              correct_drift=correct_drift,
-                              write_data_progress=write_data_progress)
-        # pickle.dump(res, open('/home/brumen/work/mrds/ao/tmp/res_1.obj', 'wb'))
-    else:
+    date_today_dt = date_today()
+
+    if res_supplied is None:  # no flights are supplied, find them
+        res = get_flight_data(flights_include        = flights_include
+                             , origin_place          = origin_place
+                             , dest_place            = dest_place
+                             , outbound_date_start   = outbound_date_start
+                             , outbound_date_end     = outbound_date_end
+                             , inbound_date_start    = inbound_date_start
+                             , inbound_date_end      = inbound_date_end
+                             , carrier               = carrier
+                             , country               = country
+                             , currency              = currency
+                             , locale                = locale
+                             , cabinclass            = cabinclass
+                             , adults                = adults
+                             , errors                = errors
+                             , mt_ind                = mt_ind
+                             , return_flight         = return_flight
+                             , recompute_ind         = recompute_ind
+                             , correct_drift         = correct_drift
+                             , write_data_progress   = write_data_progress)
+
+    else:  # flights are provided, use these
         res = res_supplied
         
     # all simulation times 
-    T_l_dep_num = construct_st(option_start_date, option_end_date, date_today_dt,
-                               simplify_compute=simplify_compute)
+    T_l_dep_num = construct_sim_times( option_start_date
+                                     , option_end_date
+                                     , date_today_dt
+                                     , simplify_compute = simplify_compute)
     if return_flight:
-        T_l_ret_num = construct_st(option_ret_start_date, option_ret_end_date, date_today_dt,
-                                   simplify_compute=simplify_compute)
+        T_l_ret_num = construct_sim_times( option_ret_start_date
+                                         , option_ret_end_date
+                                         , date_today_dt
+                                         , simplify_compute = simplify_compute)
         
     if not return_flight:  # one-way flight
         penalty_used = penalty
@@ -890,6 +932,7 @@ def compute_option_val( origin_place          = 'SFO'
     if len(F_v_dep) == 0 or (not valid_ind):
         opt_val_final = "Invalid"
         compute_all = False
+
     else:
         compute_all = True
         if not return_flight:
@@ -904,13 +947,19 @@ def compute_option_val( origin_place          = 'SFO'
             s_v_used = (s_v_dep, s_v_ret)
             d_v_used = (d_v_dep, d_v_ret)
             T_l_used = (T_l_dep_num, T_l_ret_num)
-        opt_val_final = compute_option_raw(F_v_used, s_v_used, T_l_used, F_mat_used,
-                                           K, penalty_used, p_c,
-                                           rho, nb_sim=nb_sim,
-                                           d_v=d_v_used,
-                                           model=model, cuda_ind=cuda_ind,
-                                           underlyer=underlyer,
-                                           gen_first=gen_first)  #  * np.int(adults)
+
+        opt_val_final = compute_option_raw( F_v_used
+                                          , s_v_used
+                                          , T_l_used
+                                          , F_mat_used
+                                          , K
+                                          , penalty_used
+                                          , rho
+                                          , nb_sim     = nb_sim
+                                          , d_v        = d_v_used
+                                          , cuda_ind   = cuda_ind
+                                          , underlyer  = underlyer
+                                          , gen_first  = gen_first)
         opt_val_final['avg'] *= np.int(adults)
         
     # TO BE FURTHER IMPLEMENTED ??
@@ -920,30 +969,42 @@ def compute_option_val( origin_place          = 'SFO'
         for ri in range(complete_set_options):
             outbound_date_consid = compute_date_by_fraction(date_today_dt, outbound_date_start,
                                                             complete_set_options-ri, complete_set_options)
-            T_l_dep_num = construct_st(date_today, outbound_date_consid, date_today_dt,
-                                       simplify_compute=simplify_compute)
+            T_l_dep_num = construct_sim_times( date_today
+                                             , outbound_date_consid
+                                             , date_today_dt
+                                             , simplify_compute = simplify_compute)
+
             if not return_flight:
                 T_l_used = T_l_dep_num
                 key_ind = ds.convert_str_dateslash(outbound_date_consid)
             else:
                 inbound_date_consid = compute_date_by_fraction(date_today_dt, inbound_date_start,
                                                                complete_set_options-ri, complete_set_options)
-                T_l_ret_num = construct_st(date_today, inbound_date_consid, date_today_dt,
-                                           simplify_compute=simplify_compute)
+                T_l_ret_num = construct_sim_times( date_today
+                                                 , inbound_date_consid
+                                                 , date_today_dt
+                                                 , simplify_compute = simplify_compute)
                 T_l_used = (T_l_dep_num, T_l_ret_num)
                 key_ind = ds.convert_str_dateslash(outbound_date_consid) + ' - ' + ds.convert_str_dateslash(inbound_date_consid)
 
             # for debugging 
-            opt_val_scenario = compute_option_raw(F_v_used, s_v_used, T_l_used, F_mat_used,
-                                                  K, penalty_used, p_c,
-                                                  rho, nb_sim=nb_sim,
-                                                  d_v=d_v_used,
-                                                  model=model, cuda_ind=cuda_ind,
-                                                  underlyer=underlyer)
+            opt_val_scenario = compute_option_raw( F_v_used
+                                                 , s_v_used
+                                                 , T_l_used
+                                                 , F_mat_used
+                                                 , K
+                                                 , penalty_used
+                                                 , rho
+                                                 , nb_sim    = nb_sim
+                                                 , d_v       = d_v_used
+                                                 , cuda_ind  = cuda_ind
+                                                 , underlyer = underlyer)
+
             opt_val_scenario['avg'] *= np.int(adults)
             price_range[key_ind] = int(np.ceil(opt_val_scenario['avg']))
 
     if compute_all:
+
         if price_by_range:  # compute ranges
             if not return_flight:
                 return opt_val_final, price_range, flights_v_dep, reorg_flights_v_dep, \
@@ -951,7 +1012,8 @@ def compute_option_val( origin_place          = 'SFO'
             else:
                 return opt_val_final, price_range, (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
                     find_minmax_flight_subset((reorg_flights_v_dep, reorg_flights_v_ret), ret_ind=True)
-        else:  # dont compute range 
+
+        else:  # dont compute range
             if not return_flight:
                 return opt_val_final, [], flights_v_dep, reorg_flights_v_dep, \
                     find_minmax_flight_subset(reorg_flights_v_dep, ret_ind=False)  # reorg_flights_v_dep
