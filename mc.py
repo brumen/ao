@@ -6,7 +6,6 @@ import scipy.integrate
 from numpy.random import multivariate_normal as mn_cpu
 import vtpm_cpu  # avx & omp analysis
 if config.CUDA_PRESENT:
-    import pycuda.cumath
     import cuda_ops as co
     import pycuda.gpuarray as gpa
     import pycuda.cumath as cumath
@@ -61,7 +60,7 @@ def mc_mult_steps_cpu( F_v
                      , F_ret    = None
                      , cuda_ind = False):
     """
-    multi-step monte-carlo integration of the ticket prices
+    Multi-step monte-carlo integration of the ticket prices
 
     :param F_v: list of forward values
     :type F_v:  list??/ numpy array of forward values 
@@ -75,11 +74,12 @@ def mc_mult_steps_cpu( F_v
     :param d_v: drift of the process 
     :param cva_vals: None ... everything is regenerated anew
                      a list of random numbers generated which can be reused all the time
-    :param model: model 'ln' or 'n' for normal
+    :param model: model used for simulation
+    :type model:  string, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
     :param cuda_ind: cuda inidcator 
-    returns:
-       matrix [time_step, simulation, fwd] or new parameters
+    :returns: matrix of simulation values in the shape [time_step, simulation, fwd] or new parameters
+    :rtype:   TODO
     """
 
     if not cuda_ind:
@@ -369,12 +369,19 @@ def mc_mult_steps_cpu_ret( F_v
     # iteration over simulation times 
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff_dep, T_l_dep[:-1])):  # current time 
         ttm_dep = np.array(T_v_used) - T_curr  # time to maturity for departures 
-        s_v_used = np.array([integrate_fct(s_vol, T_curr, T_curr+T_diff, ttm_curr, drift_vol_ind='vol')
+        s_v_used = np.array([integrate_fct( s_vol
+                                          , T_curr
+                                          , T_curr + T_diff
+                                          , ttm_curr
+                                          , drift_vol_ind = 'vol')
                              for (s_vol, ttm_curr) in zip(s_v_dep, ttm_dep)])  # volatility depends on time-to-maturity
         if d_v is not None:
-            d_v_used = np.array([integrate_fct(d_v_curr, T_curr, T_curr+T_diff, ttm_curr, drift_vol_ind='drift')
-                                 for (d_v_curr, ttm_curr) in
-                                 zip(d_v_dep, ttm_dep)])
+            d_v_used = np.array([integrate_fct( d_v_curr
+                                              , T_curr
+                                              , T_curr + T_diff
+                                              , ttm_curr
+                                              , drift_vol_ind = 'drift')
+                                 for (d_v_curr, ttm_curr) in zip(d_v_dep, ttm_dep)])
             
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
@@ -441,15 +448,20 @@ def mc_mult_steps_cpu_ret( F_v
                 for F_dep_idx in range(len(F_v_dep)):
                     if not gen_first: 
                         # F_sim_next are departure sims, F_sim_ret .. return sims 
-                        ao_p_tmp = mc_mult_steps_cpu(F_v_ret, s_v_ret, T_l_ret,
-                                                     rho_m_ret, nb_sim,
-                                                     T_v_exp_ret,
-                                                     ao_f=ao_f, ao_p=ao_p_next,
-                                                     d_v=d_v_ret_used, 
-                                                     cva_vals=cva_vals, model=model,
-                                                     # F_ret is simulations of that departure flight
-                                                     F_ret=F_sim_next[F_dep_idx, :],
-                                                     cuda_ind=cuda_ind)
+                        ao_p_tmp = mc_mult_steps_cpu( F_v_ret
+                                                    , s_v_ret
+                                                    , T_l_ret
+                                                    , rho_m_ret
+                                                    , nb_sim
+                                                    , T_v_exp_ret
+                                                    , ao_f      = ao_f
+                                                    , ao_p      = ao_p_next
+                                                    , d_v       = d_v_ret_used
+                                                    , cva_vals  = cva_vals
+                                                    , model     = model
+                                                    # F_ret is simulations of that departure flight
+                                                    , F_ret     = F_sim_next[F_dep_idx, :]
+                                                    , cuda_ind  = cuda_ind)
                     else:
                         ao_p_tmp = ao_compute_from_F(F_sim_ret + F_sim_next[F_dep_idx, :].reshape((1, 1, nb_sim)),  # latter is vector (row)
                                                      T_l_ret, ao_f, ao_p,
@@ -458,14 +470,14 @@ def mc_mult_steps_cpu_ret( F_v
                     if not cuda_ind:
                         # ao_p_next['F_max_prev'] = max_fct_used(ao_p_tmp['F_max_prev'],
                         #                                       ao_p_next['F_max_prev'])
-                        vtpm_cpu.max2m(ao_p_tmp['F_max_prev'],
-                                       ao_p_next['F_max_prev'],
-                                       ao_p_next['F_max_prev'],
-                                       ao_p_next['F_max_prev'].shape[0],
-                                       ao_p_next['F_max_prev'].shape[1])
+                        vtpm_cpu.max2m( ao_p_tmp['F_max_prev']
+                                      , ao_p_next['F_max_prev']
+                                      , ao_p_next['F_max_prev']
+                                      , ao_p_next['F_max_prev'].shape[0]
+                                      , ao_p_next['F_max_prev'].shape[1])
                     else:
-                        ao_p_next['F_max_prev'] = max_fct_used(ao_p_tmp['F_max_prev'],
-                                                               ao_p_next['F_max_prev'])
+                        ao_p_next['F_max_prev'] = max_fct_used( ao_p_tmp['F_max_prev']
+                                                              , ao_p_next['F_max_prev'])
                     
         F_sim_prev = F_sim_next
 
