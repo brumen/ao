@@ -17,7 +17,7 @@ import ao_codes
 import air_search
 import ao_params
 
-from ao_codes import DB_HOST, DB_USER, DATABASE, MAX_TICKET
+from ao_codes import DB_HOST, DB_USER, DATABASE, MAX_TICKET, MIN_PRICE
 
 
 def date_today():
@@ -26,19 +26,20 @@ def date_today():
     :returns:  today's date
     :rtype:    datetime.date
     """
+
     lt = time.localtime()
-    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    return ds.convert_str_date(date_today)
+    return ds.convert_str_date(str(lt.tm_year) +\
+                               str(ds.d2s(lt.tm_mon)) +\
+                               str(ds.d2s(lt.tm_mday)))
 
 
 def air_option( F_v
               , s_v
+              , d_v
               , T_l
               , T_mat
               , K
               , ao_f      = None
-              , ao_p      = None
-              , d_v       = None
               , nb_sim    = 1000
               , rho       = 0.9
               , cuda_ind  = False
@@ -70,148 +71,113 @@ def air_option( F_v
         rho_m_dep, rho_m_ret = vols.corr_hyp_sec_mat(rho, range(nb_fwds_dep)), \
                                vols.corr_hyp_sec_mat(rho, range(nb_fwds_ret))
         rho_m = (rho_m_dep, rho_m_ret)
+
     else:  # only outgoing flight
         nb_fwds = len(F_v)
         rho_m = vols.corr_hyp_sec_mat(rho, range(nb_fwds))
 
+    args = [ F_v, s_v, d_v, T_l, rho_m, nb_sim, T_mat ]
+    kwargs = { 'ao_f'    : ao_f
+             , 'model'   : underlyer
+             , 'cuda_ind': cuda_ind}
+
     if not return_flight_ind:
-        mc_used = mc.mc_mult_steps_cpu
+        mc_used = mc.mc_mult_steps
     else:
-        mc_used = mc.mc_mult_steps_cpu_ret
+        mc_used = mc.mc_mult_steps_ret
+        kwargs['gen_first'] = gen_first
 
-    ao_final = mc_used( F_v
-                      , s_v
-                      , T_l
-                      , rho_m
-                      , nb_sim
-                      , T_mat
-                      , ao_f      = ao_f
-                      , ao_p      = ao_p
-                      , d_v       = d_v
-                      , model     = underlyer
-                      , cuda_ind  = cuda_ind
-                      , gen_first = gen_first)
+    F_max_prev = mc_used(*args, **kwargs)
 
     if not cuda_ind:
-        F_res = ao_final['F_max_prev']  # no averaging needed
+        return np.mean(np.maximum (F_max_prev - K, 0.))
     else:
-        F_res = cuda_ops.amax_gpu_0(ao_final['F_max_prev'])
-
-    F_max_max_opt = F_res - K
-
-    if not cuda_ind:
-        F_final = np.maximum(F_max_max_opt, 0.)
-    else:
-        F_final = gpa.maximum(F_max_max_opt, 0.)
-
-    if not cuda_ind:
-        F_avg = np.mean(F_final)
-    else:
-        F_avg = np.mean(F_final.get())
-
-    return {'avg': F_avg,
-            'q95': -1111.}
+        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_prev) - K, 0.))
 
 
 def ao_f( F_sims
-        , ao_p
-        , d_v    = None):
+        , F_max_prev):
     """
     air_option in-between function, an example, others can be used
 
     :param ao_p['F_max_prev'] ... previous F_max
                                   has to return the next ao_p object
     """
-    nb_tickets = F_sims.shape[0]
-    # max over tickets
-    if ao_p['model'] == 'max':
-        F_max_max = np.maximum(F_sims, ao_p['F_max_prev'])
-        ao_next = {'model': 'max',
-                   'F_max_prev': F_max_max}
-        return ao_next
-    
-    else:  # probability weighted model 
-        F_new_max = np.sum(F_sims * d_v.reshape((nb_tickets, 1)), axis=0)
-        F_max_max = np.maximum(F_new_max, ao_p['F_max_prev'])
-        return {'model': 'prob',
-                'F_max_prev': F_max_max}
+
+    return np.maximum(F_sims, F_max_prev)
 
 
 def ao_f_arb( F_sims
-            , ao_p
+            , F_max_prev
             , cuda_ind = False):
     """
     air_option in-between function avoiding the arbitrage condition 
 
-    :param ao_p['F_max_prev'] ... previous F_max
-    has to return the next ao_p object 
+    :param F_sims: current simulation ticket vals
+    :type F_sims:  TODO
+    :param F_max_prev: ticket vals from the previous simulation iteration
+    :type F_max_prev:  TODO
+    :param cuda_ind:   whether to use cuda or not; True for cuda, False for cpu
+    :type cuda_ind:    bool
+    :returns:
+    :rtype:
     """
-    nb_tickets = F_sims.shape[0]
-    # max over tickets
-    if not cuda_ind:
-        # the next 3 lines are correct
-        # vtpm_cpu.max2m(F_sims, ao_p['F_max_prev'], F_max_max,
-        #               F_max_max.shape[0],
-        #               F_max_max.shape[1])
-        # F_max_max = np.maximum(F_sims, ao_p['F_max_prev'])
-        # arbitrage price of an option
-        # F_max_arb = np.maximum(F_sims - (ao_p['K'] + ao_p['penalty']), 0.)
-        # P_arg = np.mean(np.max(F_max_arb, axis=0))  # forwards are in columns
-        F_max_max = np.maximum(np.amax(F_sims, axis=0), ao_p['F_max_prev'])
-    else:
-        F_max_max = gpa.maximum(F_sims, ao_p['F_max_prev'])
 
-    ao_next = { 'model'     : 'max'
-              , 'K'         : ao_p['K']
-              , 'penalty'   : ao_p['penalty']
-              , 'F_max_prev': F_max_max}
-    return ao_next
+    if not cuda_ind:  # cpu computation
+        return np.maximum( np.amax(F_sims, axis=0)
+                         , F_max_prev)
+
+    else:  # gpu computation
+        return gpa.maximum(F_sims, F_max_prev)
 
 
 def compute_option_raw( F_v
                       , s_v
+                      , d_v
                       , T_l_num
                       , T_mat_num
                       , K
-                      , penalty
                       , rho
                       , nb_sim    = 10000
-                      , d_v       = None
-                      , model     = 'max'
                       , cuda_ind  = False
                       , underlyer = 'n'
                       , gen_first = True):
     """
     computes the value of the option sequentially, in order to minimize memory footprint
 
-    :param F_v:   vector of tickets
+    :param F_v:       vector of tickets for one-way flights, tuple for return flights
+    :type F_v:        np.array or tuple(np.array, np.array)
+    :param s_v:       vector of vols for one-way, the same size as F_v, or tuple for return flights
+    :type s_v:        np.array or tuple(np.array, np.array)
+    :param d_v:       vector of drifts for one-way, the same size as F_v, or tuple for return flights
+    :type d_v:        np.array or tuple(np.array, np.array)
+    :param T_l_num:   simulation times of for tickets; or a tuple for departure, return tickets
+    :type T_l_num:    np.array 1-dimensional; or tuple (np.array, np.array)
+    :param T_mat_num: maturity of tickets TODO
+    :type T_mat_num:
+    :param K:         strike of the option
+    :type K:          double
+    :param rho:       correlation matrix for flight tickets, or a tuple of matrices for departure, return tickets
+    :type rho:        np.array 2 dimensional; or a tuple of two such matrices
+    :param nb_sim:    number of simulations
+    :type nb_sim:     integer
+    :param cuda_ind:  whether to use cuda; True or False
+    :type cuda_ind:   bool
+    :param underlyer: which model to use - lognormal or normal ('ln' or 'n')
+    :type underlyer:  string; 'ln' or 'n'
+    :param gen_first: TODO
+    :type gen_first:  TODO
+    :returns:
+    :rtype:
     """
-
-    # sequential option parameter setup
-
-    if type(F_v) is not tuple:
-        F_v_len = len(F_v)
-    else:
-        F_v_len = len(F_v[1])  # iteration over return dates 
-
-    if not cuda_ind:
-        F_max_prev = np.zeros(nb_sim)
-    else:
-        F_max_prev = gpa.zeros( (F_v_len, nb_sim)
-                              , dtype = np.double)
-        
-    ao_p = { 'F_max_prev': F_max_prev
-           , 'K': K
-           , 'penalty': penalty}
 
     opt_val_final = air_option( F_v
                               , s_v
+                              , d_v
                               , T_l_num
                               , T_mat_num
                               , K
                               , ao_f      = ao_f_arb
-                              , ao_p      = ao_p
-                              , d_v       = d_v
                               , nb_sim    = nb_sim
                               , rho       = rho
                               , cuda_ind  = cuda_ind
@@ -227,10 +193,9 @@ def compute_option_raw( F_v
         F_v_max = max(np.max(F_v[0]), np.max(F_v[1]))
 
     # minimal payoff
-    min_payoff = max(50., F_v_max / ao_codes.ref_base_F * 50.)
-    opt_val_final['avg'] = max(min_payoff, (1. + percentage_markup) * opt_val_final['avg'])
+    min_payoff = max(MIN_PRICE, F_v_max / ao_codes.ref_base_F * MIN_PRICE)
 
-    return opt_val_final
+    return max(min_payoff, (1. + percentage_markup) * opt_val_final)
     
 
 def construct_sim_times( date_start
@@ -599,7 +564,9 @@ def obtain_flights_recompute( origin_place
         s_v_obtain.extend(io_dr_vol)  # adding the vols
         d_v_obtain.extend(io_dr_drift)  # adding the drifts
         flights_v.extend(flights)
-        F_mat.extend(obtain_flights_mat(flights, flights_include, date_today_dt))  # maturity of forwards
+        F_mat.extend(obtain_flights_mat( flights
+                                       , flights_include
+                                       , date_today()))  # maturity of forwards
         reorg_flights_v[od] = reorg_flight
 
     return np.array(F_v), np.array(F_mat),\
@@ -920,10 +887,9 @@ def compute_option_val( origin_place          = 'SFO'
                                          , simplify_compute = simplify_compute)
         
     if not return_flight:  # one-way flight
-        penalty_used = penalty
         F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, valid_ind = res
-    else:
-        penalty_used = 2 * penalty
+
+    else:  # return flight
         (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), \
             (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
             (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), valid_ind = res
@@ -935,13 +901,14 @@ def compute_option_val( origin_place          = 'SFO'
 
     else:
         compute_all = True
-        if not return_flight:
+        if not return_flight:  # one way flight
             F_v_used = F_v_dep
             F_mat_used = F_mat_dep
             s_v_used = s_v_dep
             d_v_used = d_v_dep
             T_l_used = T_l_dep_num
-        else:
+
+        else:  # return flight
             F_v_used = (F_v_dep, F_v_ret)
             F_mat_used = (F_mat_dep, F_mat_ret)
             s_v_used = (s_v_dep, s_v_ret)
@@ -950,17 +917,16 @@ def compute_option_val( origin_place          = 'SFO'
 
         opt_val_final = compute_option_raw( F_v_used
                                           , s_v_used
+                                          , d_v_used
                                           , T_l_used
                                           , F_mat_used
                                           , K
-                                          , penalty_used
                                           , rho
                                           , nb_sim     = nb_sim
-                                          , d_v        = d_v_used
                                           , cuda_ind   = cuda_ind
                                           , underlyer  = underlyer
-                                          , gen_first  = gen_first)
-        opt_val_final['avg'] *= np.int(adults)
+                                          , gen_first  = gen_first)\
+                        * np.int(adults)
         
     # TO BE FURTHER IMPLEMENTED ??
     price_range = dict()
@@ -990,18 +956,17 @@ def compute_option_val( origin_place          = 'SFO'
             # for debugging 
             opt_val_scenario = compute_option_raw( F_v_used
                                                  , s_v_used
+                                                 , d_v_used
                                                  , T_l_used
                                                  , F_mat_used
                                                  , K
-                                                 , penalty_used
                                                  , rho
                                                  , nb_sim    = nb_sim
-                                                 , d_v       = d_v_used
                                                  , cuda_ind  = cuda_ind
-                                                 , underlyer = underlyer)
+                                                 , underlyer = underlyer)\
+                              * np.int(adults)
 
-            opt_val_scenario['avg'] *= np.int(adults)
-            price_range[key_ind] = int(np.ceil(opt_val_scenario['avg']))
+            price_range[key_ind] = int(np.ceil(opt_val_scenario))
 
     if compute_all:
 
