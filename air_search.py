@@ -1,10 +1,10 @@
 # air option search and compute 
 
 import time
-from requests              import ConnectionError
 import mysql.connector
 import datetime            as dt
 
+from requests              import ConnectionError
 from skyscanner.skyscanner import Flights
 from skyscanner.skyscanner import FlightsCache
 
@@ -40,6 +40,8 @@ def get_itins(origin_place    = 'SIN',
     :type cabinclass:  String
     :param nb_tries:   number of tries that one tries to get a connection to SkyScanner
     :type nb_tries:    integer
+    :returns:          TODO
+    :rtype:            TODO
     """
 
     origin_place_used = origin_place + '-sky'
@@ -72,7 +74,6 @@ def get_itins(origin_place    = 'SIN',
         result = query_fct(**params_all).parsed
     except (ConnectionError, AttributeError):
         time.sleep(5)  # wait 5 secs
-        # result = query_fct(**params_all).parsed
         if nb_tries <= 5:
             return get_itins( origin_place    = origin_place
                             , dest_place      = dest_place
@@ -106,7 +107,7 @@ def find_carrier(carrier_l, carrier_id):
     for carrier_info in carrier_l:
         if carrier_id == carrier_info['Id']:
             return carrier_info['Code']
-    return None  # this should never be reached
+    return None  # None indicates failure
 
 
 def get_ticket_prices(origin_place       = 'SIN',
@@ -133,7 +134,8 @@ def get_ticket_prices(origin_place       = 'SIN',
     
     # first check the local database
     flights_live_local = """
-    SELECT as_of, flight_id, dep_date, dep_time, arr_date, price, carrier, flight_nb FROM flights_live 
+    SELECT as_of, flight_id, dep_date, dep_time, arr_date, price, carrier, flight_nb 
+    FROM flights_live 
     WHERE orig = '{0}' AND dest = '{1}' AND dep_date = '{2}' AND cabin_class = '{3}' AND as_of > '{4}' 
     """.format(origin_place, dest_place, outbound_date, cabinclass, lt_adj)
     if include_carriers is not None:
