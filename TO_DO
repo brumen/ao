@@ -1,0 +1,12 @@
+1. Terms and conditions improve. 
+5. firefox should display booking info. 
+8. clean ao_page.js from console.log
+
+TO DO:
+1. put a page up on linkedin for air options 
+
+
+THINGS CHANGED: 
+???    4. change compute_option to use user_name in the log file !!!
+       8. added stored procedure for exporting to csv
+
