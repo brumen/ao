@@ -1,0 +1,29 @@
+#! /usr/bin/env python
+import subprocess
+import exceptions
+import time
+
+
+def query_gpu():
+    while 1:
+        p = subprocess.Popen(["/usr/bin/nvidia-smi", "-q"], stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        out_lines = out.split('\n')
+        # 39 - fan speed 
+        seeked_lines = [out_lines[62], out_lines[63], out_lines[64], out_lines[65],
+                        out_lines[71], out_lines[72], out_lines[73], out_lines[74],
+                        out_lines[75]]
+
+        whole_1 = ''
+        for line in seeked_lines:
+            whole_1 = whole_1 + line + '\n'
+            print whole_1 
+            print "\033[12A"
+
+        time.sleep(1)
+
+
+try: 
+    query_gpu()
+except KeyboardInterrupt:
+    pass 
