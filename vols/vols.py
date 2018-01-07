@@ -15,6 +15,7 @@ def corr_hyp_sec_basic(alpha, i, j):
     :returns:     correlation between months i, j
     :rtype:       double
     """
+
     return 1.0 / np.cosh(alpha * (i - j))  # TODO: This inversion can perhaps be written better
 
 
@@ -25,9 +26,9 @@ def corr_hyp_sec_two_fronts(rho, i, j):
     :param rho: correlation parameter
     :type rho:  double
     :param i:   first month
-    :type i:    integer
+    :type i:    integer or ndarray
     :param j:   second month
-    :type j:    integer
+    :type j:    integer or ndarray
     :returns:   correlation between the two months
     :rtype:     double
     """
@@ -46,9 +47,7 @@ def corr_hyp_sec_mat(rho, ind_range):
     :returns:         matrix of size (len(ind_range), len(ind_range)) for each months
     :rtype:           2-dimensional np.array
     """
-    # return np.array([[corr_hyp_sec_two_fronts(rho, i, j)
-    #                   for j in ind_range]
-    #                  for i in ind_range])
+
     return corr_hyp_sec_two_fronts( rho
-                                  , ind_range.reshape((len(ind_range), 1))
-                                  , ind_range)
+                                  , np.array(ind_range).reshape((len(ind_range), 1))
+                                  , np.array(ind_range))
