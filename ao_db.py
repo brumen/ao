@@ -43,10 +43,12 @@ file_orig = config.work_dir + 'ao.db'
 conn_ao   = sqlite3.connect(file_orig)
 c_ao      = conn_ao.cursor()
 file_logger = config.work_dir + 'logger/ao_db.log'
+
 # cloned sqlite database
 db_clone      = config.work_dir + 'ao.db.clone'
 conn_ao_clone = sqlite3.connect(db_clone)
 c_ao_clone    = conn_ao_clone.cursor()
+
 # mysql db
 mysql_conn = mysql.connector.connect( host     = DB_HOST
                                     , database = DATABASE
@@ -84,7 +86,7 @@ def run_db_mysql(s, mysql_conn_u=None):
         mysql_conn_c = mysql_conn_u.cursor()
 
     mysql_conn_c.execute(s)
-    return mysql_conn_c
+    return mysql_conn_c.fetchall()
 
 
 def create_ao_db(file=file_orig):
@@ -101,7 +103,8 @@ def create_ao_db(file=file_orig):
              carrier TEXT, price REAL,
              id TEXT, direct_flight INTEGER)
     """
-    c.execute(create_str)
+
+    c.execute(create_flights)
     conn.commit()
     conn.close()
 
@@ -161,14 +164,17 @@ def find_dep_hour_day_inv(dep_date, dep_time):
     return dod, dof
 
     
-def update_existing_flights(c_ao=c_ao, conn_ao=conn_ao,
-                            dcf=365., insert_into_db=False,
-                            as_of_date=None,
-                            use_cache=False,
-                            model='n',
-                            correct_drift_vol=False):
+def update_existing_flights( c_ao              = c_ao
+                           , conn_ao           = conn_ao
+                           , dcf               = 365.
+                           , insert_into_db    = False
+                           , as_of_date        = None
+                           , use_cache         = False
+                           , model             = 'n'
+                           , correct_drift_vol = False):
     """
-    updates the existing flights with month, dayofweek, hour 
+    updates the existing flights with month, dayofweek, hour
+
     """
     # before this is executed do the following:
     # 1. clone the database (copy, there is a better way)
@@ -187,7 +193,7 @@ def update_existing_flights(c_ao=c_ao, conn_ao=conn_ao,
         #
         dep_date, dep_time = row[3].split('T')  # departure date/time
         dep_date_dt = ds.convert_datedash_date(dep_date)
-        # print "TIME", row[0], dep_time
+
         if '+' not in dep_time:
             dep_time_dt = ds.convert_hour_time(dep_time)
             month = dep_date_dt.month
@@ -204,6 +210,7 @@ def insert_into_reg_ids_db():
     """
     populates table reg_ids, for historical reference 
     """
+
     ins_l = []
     for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
         for dep_day in ['weekday', 'weekend']:
@@ -221,6 +228,7 @@ def update_flights_w_regs():
     """
     fixes the column reg_id in table flights 
     """
+
     update_str = """
     UPDATE flights SET reg_id = %s WHERE (month = %s AND tod = '%s' and weekday_ind = '%s')
     """
@@ -230,6 +238,7 @@ def update_flights_w_regs():
                                               , user     = DB_USER
                                               , password=ao_codes.brumen_mysql_pass)
     mysql_c_local = mysql_conn_local.cursor()
+
     for row in mysql_c:
         update_str_curr = update_str % (row[0], row[1], row[2], row[3])
         print update_str_curr
@@ -248,29 +257,18 @@ def insert_flight_ids():
     """
 
     
-def insert_cities_into_db():
-    add_cities_str = """INSERT INTO iata_cities
-                        (city) 
-                        VALUES ('%s')"""
-    mysql_conn_fid_rid = pymysql.connect( host     = DB_HOST
-                                        , database = DATABASE
-                                        , user     = DB_USER
-                                        , passwd   = ao_codes.brumen_mysql_pass)
-    mysql_c_fid_rid = mysql_conn_1.cursor()
-
-    ins_l = []
-    
-    
-def copy_sqlite_to_mysql_by_carrier(sqlite_ao_file='/home/brumen/rasp/work/mrds/ao/ao.db',
-                                    add_flight_ids=True,
-                                    delete_flights_in_sqlite=False):
+def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/rasp/work/mrds/ao/ao.db'
+                                   , add_flight_ids           = True
+                                   , delete_flights_in_sqlite = False):
     """
     copies the flights data from sqlite database on raspberry to mysql database 
     and at the same time updates the existing flights with month, dayofweek, hour 
-    :param sqlite_ao_file: file to the sqlite ao.db, by default, it takes from 
+
+    :param sqlite_ao_file: file to the sqlite ao.db, by default, it takes from
                            /home/brumen/rasp/work/mrds/ao.db
     :param add_flight_ids: whether to add new ids to the flights, should be True by default
     """
+
     # sqlite on raspberry
     if os.path.isfile(sqlite_ao_file): 
         conn_ao = sqlite3.connect(sqlite_ao_file)
@@ -384,33 +382,36 @@ def copy_sqlite_to_mysql_by_carrier(sqlite_ao_file='/home/brumen/rasp/work/mrds/
         c_ao.close()
     
 
-def insert_into_itin(db_name=file_orig,
-                     originplace='SIN-sky',
-                     destinationplace='KUL-sky',
-                     date_today='2016-08-25',
-                     outbounddate='2016-10-28',
-                     # inbounddate='2016-10-31',
-                     country='US',
-                     currency='USD',
-                     locale='en-US',
-                     includecarriers='SQ',
-                     adults=1):
+def insert_into_itin( db_name          = file_orig
+                    , originplace      = 'SIN-sky'
+                    , destinationplace = 'KUL-sky'
+                    , date_today       = '2016-08-25'
+                    , outbounddate     = '2016-10-28'
+                    # inbounddate='2016-10-31',
+                    , country          = 'US'
+                    , currency         = 'USD'
+                    , locale           = 'en-US'
+                    , includecarriers  = 'SQ'
+                    , adults           = 1):
     """
     inserts itiniraries into the database 
-    uses sqlite db on the raspberry pi 
+    uses sqlite db on the raspberry pi
+
     """
+
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
     flights_service = Flights(ao_codes.skyscanner_api_key)
-    result = flights_service.get_result(country=country,
-                                        currency=currency,
-                                        locale=locale,
-                                        originplace=originplace,
-                                        destinationplace=destinationplace,
-                                        outbounddate=outbounddate,
-                                        # inbounddate=inbounddate,
-                                        includecarriers=includecarriers,
-                                        adults=1).parsed
+    result = flights_service.get_result( country          = country
+                                       , currency         = currency
+                                       , locale           = locale
+                                       , originplace      = originplace
+                                       , destinationplace = destinationplace
+                                       , outbounddate     = outbounddate
+                                       # inbounddate=inbounddate,
+                                       , includecarriers  = includecarriers
+                                       , adults           = 1).parsed
+
     # returns all one ways on that date
     ri = result['Itineraries']
     for itin in ri:
@@ -423,12 +424,17 @@ def insert_into_itin(db_name=file_orig,
     conn.close()
 
 
-def insert_into_db(flights, direct_only=False,
-                   mysql_conn=mysql_conn, mysql_c=mysql_c, 
-                   conn_ao=conn_ao, c_ao=c_ao,
-                   dummy=False, depth=0,
-                   depth_max=0,
-                   use_cache=False, existing_pairs=None):
+def insert_into_db( flights
+                  , direct_only     = False
+                  , mysql_conn      = mysql_conn
+                  , mysql_c         = mysql_c
+                  , conn_ao         = conn_ao
+                  , c_ao            = c_ao
+                  , dummy           = False
+                  , depth           = 0
+                  , depth_max       = 0
+                  , use_cache       = False
+                  , existing_pairs  = None):
     """
     insert flights into db, uses sqlite on rasp pi
 
@@ -617,6 +623,7 @@ def insert_into_db_cache(flights,
     :param dummy: if True, don't insert into database, just print
     :param depth: depth of the recursive search
     """
+
     existing_pairs_cache = existing_pairs  # existing_pairs: existing pairs in the database
 
     def find_location(loc_id, flights):
@@ -725,8 +732,10 @@ def ao_db_fill_mt_f(inp):
     """
     function to produce multi-threading 
     could use as dest_l: iata_codes.keys()
+
     :param dep_date_l: list of departure dates in the form 2016-10-28
     """
+
     dep_date, dest_l, debug, dummy, depth_max, use_cache, existing_pairs = inp
     for orig in dest_l:
         for dest in dest_l:
@@ -778,72 +787,8 @@ def find_city_code(name_part):
 def find_airline_code(name_part):
     """
     finds code of a city where name_part is part of the name
+
+    :param name_part: part of the airline name that one is searching
+    :type name_part:  string
     """
     return [iata_airlines_codes[airline] for airline in iata_airlines_codes if name_part in airline]
-
-                    
-def ao_db_run( dep_start      = '20161201'
-             , dep_end        = '20171231'
-             , dest_l         = None
-             , mt_ind         = False
-             , nb_cores       = 8
-             , dummy          = False
-             , depth_max      = 0
-             , use_cache      = False
-             , existing_pairs = None):
-
-    # if depth_max > 0:  # set global variables, only execute this in this case, as it takes a long time
-    #     check_exists_str_live = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights"
-    #     existing_pairs_live = set(run_db(check_exists_str_live))  # using set is very efficient, this is GLOBAL variable
-    #     check_exists_str_cache = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights_cache"
-    #     existing_pairs_cache = set(run_db(check_exists_str_cache))
-    #     if use_cache:
-    #         existing_pairs = existing_pairs_cache
-    #     else:
-    #         existing_pairs = existing_pairs_live
-    
-    # construct a set of already given pairs
-    dep_date_l_dt = ds.construct_date_range(dep_start, dep_end)
-    dep_date_l = [ds.convert_dt_minus(x) for x in dep_date_l_dt]
-    if dest_l is None:
-        dest_l_used = ['JFK', 'LGA', 'EWR', 'SFO', 'LAX',
-                       'BOS', 'FLL', 'MIA', 'DEN', 'ORD',
-                       'HOU', 'IAH',
-                       'ATL', 'DFW', 'CLT', 'LAS', 'PHX', 'SEA', 'MCO',
-                       'MSP', 'DTW', 'PHL', 'BWI', 'DCA', 'MDW', 'SLC', 'IAD',
-                       'SAN', 'HNL', 'TPA', 'PDX', 'DAL', 'STL', 'AUS', 'BNA', 'MSY',
-                       'MCI', 'RDU', 'SNA', 'SJC', 'SMF', 'SJU', 'RSW', 'SAT', 'CLE',
-                       'PIT', 'IND', 'CMH', 'MKE', 'BDL', 'MEX', # up to here US
-                       'PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
-                       'PVG', 'CGK', 'CAN', 'BKK', 'ICN', 'DEL',
-                       'BOM', 'DEL', 'SHA', 'MNL', 'TPE', 'SZX', 'JED',
-                       'CTU', 'KHI', 'KIX', 'GMP', 'HGH', 'CJU', 'SGN',
-                       'THR', 'XIY', 'RUH', 'MAA',
-                       # asia here
-                       'LHR', 'CDG', 'IST', 'FRA', 'AMS', 'MAD', 'MUC', 'FCO',
-                       'LGW', 'BCN', 'DME', 'SVO', 'ORY', 'AYT', 'CPH', 'ZRH',
-                       'DUB', 'OSL', 'BRU', 'PMI', 'ARN', 'MAN', 'VIE', 'STN',
-                       'DUS', 'TXL', 'LIS', 'MXP', 'ATH', 'HEL',
-                       'VKO', 'GVA', 'HAM' # europe here
-        ]
-        # dest_l_used = iata_codes_cities.keys()
-    else:
-        dest_l_used = dest_l
-
-    dest_l_usa = ['JFK', 'LGA', 'EWR', 
-                  'MIA', 'DEN', 'ORD',
-                  'IAH',
-                  'ATL', 'SAN']
-    dest_l_asia = ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
-                   'PVG', 'CGK', 'CAN']
-    dest_l_used = dest_l_asia
-    
-    # ao_db_fill(dep_date_l, dest_l_used)
-    ao_db_fill_mt( dep_date_l
-                 , dest_l_used
-                 , mt_ind         = mt_ind
-                 , dummy          = dummy
-                 , depth_max      = depth_max
-                 , use_cache      = use_cache
-                 , nb_cores       = nb_cores
-                 , existing_pairs = existing_pairs)

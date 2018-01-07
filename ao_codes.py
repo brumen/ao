@@ -4,6 +4,15 @@ import datetime as dt
 import ds 
 import csv
 
+# database setup
+DB_HOST  = 'odroid.local'
+DATABASE = 'ao'
+DB_USER  = 'brumen'
+
+# maximum flight ticket, used for reordering a list
+MAX_TICKET = 1000000.  # one million
+MIN_PRICE  = 50.       # minimum price of an air option
+
 # api keys
 skyscanner_api_key    = 'pe941949487693197945430744449137'
 hotwire_api_key       = "vxkjbx6j7jzvpt97grskk5bu"
@@ -13,11 +22,11 @@ airoptions_gmail_acct = 'airoptions.llc@gmail.com'
 
 # times of days 
 # morning = '06:00:00', '11:00:00'
-morning    = '06:00:00', '10:40:00'
+morning   = '06:00:00', '10:40:00'
 # afternoon = '11:00:00', '18:00:00'
 afternoon = '10:41:00', '18:00:00'
-evening = '18:00:00', '23:00:00'
-night = '23:00:00', '06:00:00'
+evening   = '18:00:00', '23:00:00'
+night     = '23:00:00', '06:00:00'
 
 
 day_str    = ('morning', 'afternoon', 'evening', 'night')
@@ -44,9 +53,9 @@ debug_dir   = config.prod_dir + 'debug/'
 iata_dir    = config.prod_dir + 'iata/'
 
 # reserves, taxes
-reserves = 0.12  # 10% reserves, 15, but 
-tax_rate = 0.09  # slightly more than 8%
-ref_base_F = 600.  # 50$ is based on reference of 600$    
+reserves             = 0.12  # 10% reserves, 15, but
+tax_rate             = 0.09  # slightly more than 8%
+ref_base_F           = 600.  # 50$ is based on reference of 600$
 amount_charged_below = 0.95
 
 
