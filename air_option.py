@@ -16,8 +16,8 @@ import ao_codes
 import air_search
 import ao_params
 
-from ao_codes import DB_HOST, DB_USER, DATABASE, MAX_TICKET, MIN_PRICE
-from ao_db    import COUNTRY, CURRENCY, LOCALE
+from ao_codes import MAX_TICKET, MIN_PRICE
+
 
 def date_today():
     """
@@ -129,8 +129,6 @@ def air_option( F_v
         return np.mean(np.maximum (F_max_prev - K, 0.))
     else:
         return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_prev) - K, 0.))
-
-
 
 
 def compute_option_raw( F_v
@@ -602,9 +600,6 @@ def get_flight_data( flights_include     = None
                    , inbound_date_start  = '2017-03-12'
                    , inbound_date_end    = '2017-03-13'
                    , carrier             = 'UA'
-                   , country             = 'US'
-                   , currency            = 'USD'
-                   , locale              = 'en-US'
                    , cabinclass          = 'Economy'
                    , adults              = 1
                    , errors              = 'graceful'
@@ -840,9 +835,6 @@ def compute_option_val( origin_place          = 'SFO'
                       , carrier               = 'UA'
                       , nb_sim                = 10000  # CHECK THIS
                       , rho                   = 0.95
-                      , country               = 'US'
-                      , currency              = 'USD'
-                      , locale                = 'en-US'
                       , adults                = 1
                       , cabinclass            = 'Economy'
                       , cuda_ind              = False
@@ -881,7 +873,7 @@ def compute_option_val( origin_place          = 'SFO'
     date_today_dt = date_today()
 
     if res_supplied is None:  # no flights are supplied, find them
-        res = get_flight_data(flights_include        = flights_include
+        res = get_flight_data( flights_include       = flights_include
                              , origin_place          = origin_place
                              , dest_place            = dest_place
                              , outbound_date_start   = outbound_date_start
@@ -889,9 +881,6 @@ def compute_option_val( origin_place          = 'SFO'
                              , inbound_date_start    = inbound_date_start
                              , inbound_date_end      = inbound_date_end
                              , carrier               = carrier
-                             , country               = country
-                             , currency              = currency
-                             , locale                = locale
                              , cabinclass            = cabinclass
                              , adults                = adults
                              , errors                = errors

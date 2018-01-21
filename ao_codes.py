@@ -9,6 +9,10 @@ DB_HOST  = 'odroid.local'
 DATABASE = 'ao'
 DB_USER  = 'brumen'
 
+# original sqlite db
+SQLITE_FILE       = config.work_dir + 'ao.db'
+SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
+
 # Common properties
 COUNTRY = 'US'
 CURRENCY = 'USD'

@@ -165,9 +165,6 @@ class TestAirOption(unittest.TestCase):
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000
                                   , rho                   = 0.95
-                                  , country               = 'US'
-                                  , currency              = 'USD'
-                                  , locale                = 'en-US'
                                   , adults                = 1
                                   , cuda_ind              = False
                                   , errors                = 'graceful'

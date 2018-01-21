@@ -153,29 +153,37 @@ def convert_dateslash_dash(dates):
     return year + '-' + d2s(int(mon)) + '-' + d2s(int(day))    
 
 
+def process_mm(m, year, month, day_b, day_e):
+    """
+    process the month matrix between day_b and day_e,
+    a helper function for construct_date_range below
+
+    """
+
+    T_l = []
+
+    for row in m:
+        for day in row:
+            if (day >= day_b) and (day <= day_e):
+                T_l.append(dt.date(year, month, day))
+
+    return T_l
+
+
 def construct_date_range(date_b, date_e):
     """
     constructs the date range between date_b and date_e
+
     :param date_b: begin date, in string format
     :param date_e: end date, in string format
     """
+
     date_b_dt = convert_str_date(date_b)
     date_e_dt = convert_str_date(date_e)
     year_b, month_b, day_b = date_b_dt.year, date_b_dt.month, date_b_dt.day
     year_e, month_e, day_e = date_e_dt.year, date_e_dt.month, date_e_dt.day
     T_l = []  # construction of the date list 
 
-    def process_mm(m, year, month, day_b, day_e):
-        """
-        process the month matrix between day_b and day_e
-        """
-        T_l = []
-        for row in m:
-            for day in row:
-                if day >= day_b and day <= day_e:
-                    T_l.append(dt.date(year, month, day))
-        return T_l
-        
     for year in range(year_b, year_e+1):
         if year == year_b:
             if year_e == year_b:

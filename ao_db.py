@@ -9,7 +9,8 @@ import logging
 
 import ao_codes
 from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
-                                    COUNTRY, CURRENCY, LOCALE
+                                    COUNTRY, CURRENCY, LOCALE,\
+                                    SQLITE_FILE, SQLITE_FILE_CLONE
 import air_search
 import ds
 from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
@@ -31,11 +32,6 @@ logger = logging.getLogger(__name__)
 #      call push_new_params_to_prod(): copies params_new to params;
 #      call insert_flights_live_into_flights_ord(): insert flights from flights_live db into flights_ord, historical db
 # 3. potentially delete sqlite db on rasp
-
-
-# original sqlite db 
-SQLITE_FILE       = config.work_dir + 'ao.db'
-SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
 
 
 def run_db(s):

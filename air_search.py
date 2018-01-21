@@ -14,40 +14,39 @@ from   ao_codes            import COUNTRY, CURRENCY, LOCALE
 from   mysql_connector_env import MysqlConnectorEnv
 
 
-def get_itins(origin_place    = 'SIN',
-              dest_place      = 'KUL',
-              outbound_date   = '2017-02-05',
-              includecarriers = None,
-              cabinclass      = 'Economy',
-              adults          = 1,
-              use_cache       = False,
-              nb_tries        = 1):
+def get_itins( origin_place    = 'SIN'
+             , dest_place      = 'KUL'
+             , outbound_date   = '2017-02-05'
+             , includecarriers = None
+             , cabinclass      = 'Economy'
+             , adults          = 1
+             , use_cache       = False
+             , nb_tries        = 1 ):
     """
     helper function that returns itineraries, uses skyscanner api 
 
-    :param origin_place: origin of the flight
-    :type origin_place:  string
-    :param dest_place:   destination of the flight
-    :type dest_place:    string
-    :param cabinclass: one of the following: Economy*, PremiumEconomy, Business, First
-    :type cabinclass:  String
-    :param nb_tries:   number of tries that one tries to get a connection to SkyScanner
-    :type nb_tries:    integer
+    :param origin_place:  origin of the flight
+    :type origin_place:   str
+    :param dest_place:    destination of the flight
+    :type dest_place:     str
+    :param outbound_date: date for flights, in the - format '2017-05-05'
+    :type outbound_date:  str
+    :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
+    :type cabinclass:     str
+    :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
+    :type nb_tries:       int
     :returns:          TODO
     :rtype:            TODO
     """
 
-    origin_place_used = origin_place + '-sky'
-    dest_place_used = dest_place + '-sky'
-    
-    params_all = dict(country          = COUNTRY,
-                      currency         = CURRENCY,
-                      locale           = LOCALE,
-                      originplace      = origin_place_used,
-                      destinationplace = dest_place_used,
-                      outbounddate     = outbound_date,
-                      cabinclass       = cabinclass,
-                      adults           = adults)
+    params_all = dict( country          = COUNTRY
+                     , currency         = CURRENCY
+                     , locale           = LOCALE
+                     , originplace      = origin_place + '-sky'
+                     , destinationplace = dest_place + '-sky'
+                     , outbounddate     = outbound_date
+                     , cabinclass       = cabinclass
+                     , adults           = adults )
 
     if includecarriers is not None:
         params_all['includecarriers'] = includecarriers
@@ -97,17 +96,18 @@ def find_carrier(carrier_l, carrier_id):
     for carrier_info in carrier_l:
         if carrier_id == carrier_info['Id']:
             return carrier_info['Code']
+
     return None  # None indicates failure
 
 
-def get_ticket_prices(origin_place       = 'SIN',
-                      dest_place         = 'KUL',  # possible NYCA-sky
-                      outbound_date      = '2017-03-05',
-                      include_carriers   = None,
-                      cabinclass         = 'Economy',
-                      adults             = 1,
-                      use_cache          = False,
-                      insert_into_livedb = False):
+def get_ticket_prices( origin_place       = 'SIN'
+                     , dest_place         = 'KUL'  # possible NYCA-sky
+                     , outbound_date      = '2017-03-05'
+                     , include_carriers   = None
+                     , cabinclass         = 'Economy'
+                     , adults             = 1
+                     , use_cache          = False
+                     , insert_into_livedb = False ):
     """
     returns the ticket prices for a flight 
 
