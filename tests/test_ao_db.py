@@ -21,21 +21,9 @@ class TestAoDb(unittest.TestCase):
               , nb_tickets = 5
               , sim_times  = np.array([0.2, 0.3, 0.4])):
         """
-        tests whether the mc_mult_steps_cpu function works
+        tests whether the ao database connections work
 
         """
 
-        F_v = np.zeros(nb_tickets) + 100.
-        s_v = np.zeros(nb_tickets) + 0.2
-        d_v = s_v
-        rho_m = corr_hyp_sec_mat(0.95, range(nb_tickets))
-        v1 = mc.mc_mult_steps( F_v
-                             , s_v
-                             , d_v
-                             , sim_times
-                             , rho_m
-                             , nb_sim
-                             , sim_times + 0.01
-                             , ao_f = ao.ao_f_arb)
-        print "V1:", v1
+
         self.assertTrue(True)

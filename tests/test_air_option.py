@@ -1,10 +1,8 @@
 # testing framework for air options
 
 import numpy as np
-import pickle
 import unittest
 
-import ds
 import air_option  as ao
 import ao_estimate as aoe
 
@@ -26,8 +24,35 @@ class TestAirOption(unittest.TestCase):
                            , T_l
                            , T_l + 0.01
                            , 0.2
-                           , nb_sim = nb_sim
-                           , ao_f=ao.ao_f_arb)
+                           , nb_sim = nb_sim)
+
+        self.assertTrue(True)
+
+    def test_construct_date_range(self):
+        """
+        Tests whether the date range function works.
+
+        """
+
+        io_dr_minus = ao.construct_date_range( '2018-03-01'
+                                             , '2018-03-02')
+
+        self.assertTrue(io_dr_minus == ['2018-03-01', '2018-03-02'])
+
+    def test_obtain_flights(self):
+        """
+        Tests whether we can obtain flights from SkyScanner
+
+        """
+        io_dr_minus = ao.construct_date_range( '2018-03-01'
+                                             , '2018-03-02')
+        res = ao.obtain_flights( 'EWR'
+                               , 'SFO'
+                               , 'UA'
+                               , io_dr_minus
+                               , None)
+        print res
+
         self.assertTrue(True)
 
     def test_ao_25(self, nb_sim=50000):
@@ -112,10 +137,12 @@ class TestAirOption(unittest.TestCase):
 
         self.assertTrue(True)
 
-    def test_compute_vols(airline='Alaska Airlines'):
+    def test_compute_vols( self
+                         ,  airline='Alaska Airlines'):
         """
         airline from the cache database
         """
+
         print aoe.all_vols_by_airline(airline, use_cache=True)
         self.assertTrue(True)
 
@@ -126,16 +153,15 @@ class TestAirOption(unittest.TestCase):
 
         v1 = ao.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
-                                  , option_start_date     = '20161115'
+                                  , option_start_date     = '20180301'
                                   , option_end_date       = '20161116'
                                   , option_ret_start_date = '20161122'
                                   , option_ret_end_date   = '20161123'
-                                  , outbound_date_start   = '2016-11-05'
+                                  , outbound_date_start   = '201-11-05'
                                   , outbound_date_end     = '2016-11-06'
                                   , inbound_date_start    = '2016-12-12'
                                   , inbound_date_end      = '2016-12-13'
                                   , K                     = 200.0
-                                  , penalty               = 100.0
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000
                                   , rho                   = 0.95
@@ -143,30 +169,28 @@ class TestAirOption(unittest.TestCase):
                                   , currency              = 'USD'
                                   , locale                = 'en-US'
                                   , adults                = 1
-                                  , model                 = 'max'
                                   , cuda_ind              = False
-                                  , s_v_test              = 1.2
-                                  , debug                 = False
                                   , errors                = 'graceful'
                                   , simplify_compute      = 'take_last_only'
                                   , underlyer             = 'ln'
                                   , mt_ind                = True
                                   , price_by_range        = False
-                                  , return_flight=True)
+                                  , return_flight         = True)
 
+        print v1
         self. assertTrue(True)
 
-    def test_ao_new1(simplify_compute='take_last_only'):
+    def test_ao_new1(simplify_compute = 'take_last_only'):
 
-        v1 = ao.compute_option_val(option_start_date='20161211',
-                                   option_end_date='20161212',
-                                   option_ret_start_date='20161201',
-                                   option_ret_end_date='20161202',
-                                   K=1600.0, penalty=100.0,
-                                   nb_sim=10000, rho=0.95,
-                                   simplify_compute=simplify_compute,
-                                   underlyer='ln',
-                                   return_flight=True)
+        v1 = ao.compute_option_val( option_start_date     = '20161211'
+                                  , option_end_date       = '20161212'
+                                  , option_ret_start_date = '20161201'
+                                  , option_ret_end_date   = '20161202'
+                                  , K                     = 1600.0
+                                  , nb_sim                = 10000
+                                  , rho                   = 0.95
+                                  , simplify_compute      = simplify_compute
+                                  , return_flight         = True)
         print v1[0]
 
     def test_ao_new2(simplify_compute='take_last_only'):
