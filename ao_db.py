@@ -1,21 +1,24 @@
 # air option database construction 
 import config
+
 import sqlite3
 import mysql.connector
 import pymysql
-import requests
-from skyscanner.skyscanner import Flights
+from   skyscanner.skyscanner import Flights
 import time
-import multiprocessing as mp
-from sets import Set
+from   sets                  import Set
 import os
 import os.path
+import logging
 
 import ao_codes
-from ao_codes import iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
+from   ao_codes              import iata_cities_codes, iata_airlines_codes
 import air_search
 import ds
+from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
 
+# logger
+logger = logging.getLogger(__name__)
 
 # instructions for db admin
 # 1. Copy from sqlite db on raspberry into mysql database on prasic:
@@ -30,7 +33,12 @@ import ds
 #             live data that are older than hours_old
 #      call push_new_params_to_prod(): copies params_new to params;
 #      call insert_flights_live_into_flights_ord(): insert flights from flights_live db into flights_ord, historical db
-# 3. potentially delete sqlite db on rasp 
+# 3. potentially delete sqlite db on rasp
+
+# Common properties
+COUNTRY = 'US'
+CURRENCY = 'USD'
+LOCALE   = 'en-US'
 
 # database connection properties
 DB_HOST  = 'odroid.local'  # localhost'
@@ -39,77 +47,75 @@ DB_USER  = 'brumen'
 
 
 # original sqlite db 
-file_orig = config.work_dir + 'ao.db'
-conn_ao   = sqlite3.connect(file_orig)
-c_ao      = conn_ao.cursor()
-file_logger = config.work_dir + 'logger/ao_db.log'
+SQLITE_FILE       = config.work_dir + 'ao.db'
+SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
 
+#conn_ao   = sqlite3.connect(file_orig)  # file_orig = SQLITE_FILE
+#c_ao      = conn_ao.cursor()
 # cloned sqlite database
-db_clone      = config.work_dir + 'ao.db.clone'
-conn_ao_clone = sqlite3.connect(db_clone)
-c_ao_clone    = conn_ao_clone.cursor()
-
+#db_clone      = config.work_dir + 'ao.db.clone'
+#conn_ao_clone = sqlite3.connect(db_clone)
+#c_ao_clone    = conn_ao_clone.cursor()
+#
 # mysql db
-mysql_conn = mysql.connector.connect( host     = DB_HOST
-                                    , database = DATABASE
-                                    , user     = DB_USER
-                                    , password = ao_codes.brumen_mysql_pass)
-mysql_c    = mysql_conn.cursor()
+#mysql_conn = mysql.connector.connect( host     = DB_HOST
+#                                    , database = DATABASE
+#                                    , user     = DB_USER
+#                                    , password = ao_codes.brumen_mysql_pass)
+#mysql_c    = mysql_conn.cursor()
 
 
-def run_db(s, db_name=config.work_dir + 'ao.db'):
+def run_db(s):
     """
     run query s on the database
     """
-    conn = sqlite3.connect(db_name)
-    c = conn.cursor()
+
     res = []
-    for row in c.execute(s):
-        res.append(row)
-    conn.close()
+
+    with sqlite3.connect(SQLITE_FILE) as conn:
+        c = conn.cursor()
+        for row in c.execute(s):
+            res.append(row)
+
     return res
 
 
-def run_db_mysql(s, mysql_conn_u=None):
+def run_db_mysql(s):
     """
-    runs the query on the mysql database, 
-    :param s: string of the query 
-    :param mysql_conn_u: use this connection instead of a new one 
-    """
-    if mysql_conn_u is None:
-        new_mysql = mysql.connector.connect( host     = DB_HOST
-                                           , database = DATABASE
-                                           , user     = DB_USER
-                                           , password = ao_codes.brumen_mysql_pass)
-        mysql_conn_c = new_mysql.cursor()
-    else:
-        mysql_conn_c = mysql_conn_u.cursor()
+    runs the query on the mysql database,
 
-    mysql_conn_c.execute(s)
-    return mysql_conn_c.fetchall()
+    :param s:   query to be executed
+    :type s:    string
+    :returns:   result of the mysql executed
+    :rtype:     List
+    """
+
+    with MysqlConnectorEnv() as new_mysql:
+        return new_mysql.cursor().execute(s).fetchall()
 
 
-def create_ao_db(file=file_orig):
+def create_ao_db():
     """
-    creates the sqlite3 database
+    creates the sqlite3 database for collecting Flights
+
     """
-    conn = sqlite3.connect(file)
-    c = conn.cursor()
 
     create_flights = """
-        CREATE TABLE flights 
-            (as_of TEXT, orig TEXT, dest TEXT, 
-             dep_date TEXT, arr_date TEXT, 
-             carrier TEXT, price REAL,
-             id TEXT, direct_flight INTEGER)
+            CREATE TABLE flights 
+                (as_of TEXT, orig TEXT, dest TEXT, 
+                 dep_date TEXT, arr_date TEXT, 
+                 carrier TEXT, price REAL,
+                 id TEXT, direct_flight INTEGER)
     """
 
-    c.execute(create_flights)
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(SQLITE_FILE) as conn:
+        c = conn.cursor()
+        c.execute(create_flights)
+        conn.commit()  # TODO: DO YOU NEED THIS
 
 
-def find_dep_hour_day(dep_hour, dep_day):
+def find_dep_hour_day( dep_hour
+                     , dep_day ):
     """
     returns beg., end hours for dep_hours and dep_day
 
@@ -164,51 +170,10 @@ def find_dep_hour_day_inv(dep_date, dep_time):
     return dod, dof
 
     
-def update_existing_flights( c_ao              = c_ao
-                           , conn_ao           = conn_ao
-                           , dcf               = 365.
-                           , insert_into_db    = False
-                           , as_of_date        = None
-                           , use_cache         = False
-                           , model             = 'n'
-                           , correct_drift_vol = False):
-    """
-    updates the existing flights with month, dayofweek, hour
-
-    """
-    # before this is executed do the following:
-    # 1. clone the database (copy, there is a better way)
-    # 2. perform vacuum on the database (command vacuum;)
-    # 3. delete from flights 
-    ins_l = []
-    all_flights = "SELECT * FROM flights WHERE carrier = 'UA'"  # CHANGE THIS CHANGE THIS 
-    for row in c_ao.execute(all_flights):
-        # first 9 values are directly copied
-        # flights table columns are:
-        #   as_of text, orig text, dest text, 
-        #   dep_date text, arr_date text, 
-        #   carrier text, price real,
-        #   id text, direct_flight INTEGER,
-        #   month INTEGER, tod TEXT, weekday_ind TEXT
-        #
-        dep_date, dep_time = row[3].split('T')  # departure date/time
-        dep_date_dt = ds.convert_datedash_date(dep_date)
-
-        if '+' not in dep_time:
-            dep_time_dt = ds.convert_hour_time(dep_time)
-            month = dep_date_dt.month
-            dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)
-            print "('%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', %s, %s, '%s', '%s')" % (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], month, dod, dof)
-            # (add this to 
-            ins_l.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], month, dod, dof))
-
-    c_ao_clone.executemany('INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ins_l)
-    conn_ao_clone.commit()  # maybe this is very slow ????
-
-    
 def insert_into_reg_ids_db():
     """
     populates table reg_ids, for historical reference 
+
     """
 
     ins_l = []
@@ -220,44 +185,40 @@ def insert_into_reg_ids_db():
                       (month, tod, weekday_ind)
                       VALUES (%s, %s, %s)
     """
-    mysql_c.executemany(add_regs_str, ins_l)
-    mysql_conn.commit()            
+
+    with MysqlConnectorEnv() as mysql_conn:
+        mysql_conn.cursor().executemany(add_regs_str, ins_l)
+        mysql_conn.commit()
 
 
 def update_flights_w_regs():
     """
     fixes the column reg_id in table flights 
+
     """
 
     update_str = """
-    UPDATE flights SET reg_id = %s WHERE (month = %s AND tod = '%s' and weekday_ind = '%s')
+    UPDATE flights 
+    SET reg_id = {0} 
+    WHERE (month = {1} AND tod = '{2}' and weekday_ind = '{3}')
     """
-    mysql_c.execute('SELECT reg_id, month, tod, weekday_ind FROM reg_ids')
-    mysql_conn_local = mysql.connector.connect( host     = DB_HOST
-                                              , database = DATABASE
-                                              , user     = DB_USER
-                                              , password=ao_codes.brumen_mysql_pass)
-    mysql_c_local = mysql_conn_local.cursor()
 
-    for row in mysql_c:
-        update_str_curr = update_str % (row[0], row[1], row[2], row[3])
-        print update_str_curr
-        mysql_c_local.execute(update_str_curr)
-        mysql_conn_local.commit()
-    
+    with MysqlConnectorEnv() as mysql_conn:
 
-def insert_flight_ids():
-    """
-    creates the table flight_ids and populates it w/ correct values 
-    """
-    ins_q = """
-    INSERT INTO flight_ids (flight_id_long, orig, dest, dep_date, arr_date, carrier)
-    SELECT DISTINCT id, orig, dest, dep_date, arr_date, carrier 
-    FROM flights
-    """
+        mysql_c = mysql_conn.cursor()
+        mysql_c.execute('SELECT reg_id, month, tod, weekday_ind FROM reg_ids')
+
+        with MysqlConnectorEnv() as mysql_conn_local:
+
+            for row in mysql_c:
+
+                update_str_curr = update_str.format(row[0], row[1], row[2], row[3])
+                # TODO: THIS IS REALLY SLOW - FIND A BETTER WAY
+                mysql_conn_local.cursor().execute(update_str_curr)
+                mysql_conn_local.commit()
 
     
-def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/rasp/work/mrds/ao/ao.db'
+def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = SQLITE_FILE
                                    , add_flight_ids           = True
                                    , delete_flights_in_sqlite = False):
     """
@@ -280,40 +241,24 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/ra
     # before this is executed do the following:
     # 1. clone the database (copy, there is a better way)
     # 2. perform vacuum on the database (command vacuum;)
-    # 3. delete from flights 
+    # 3. delete from flights
+
     ins_l = []
     all_flights = "SELECT * FROM flights"  #  WHERE carrier = '%s'" % (carrier)
     # insert this list into 
     add_flights_str = """INSERT INTO flights_ord
                          (as_of, price, reg_id, flight_id) 
                          VALUES (%s, %s, %s, %s)"""
+
     find_rid_str = """
     SELECT reg_id from reg_ids 
     WHERE month = %s AND tod = '%s' AND weekday_ind = '%s'
     """
+
     find_fid_str = """
     SELECT flight_id from flight_ids 
     WHERE flight_id_long = '%s'
     """
-    mysql_conn_fid_rid = pymysql.connect( host     = DB_HOST
-                                        , database = DATABASE
-                                        , user     = DB_USER
-                                        , passwd   = ao_codes.brumen_mysql_pass)
-    mysql_c_fid_rid = mysql_conn_fid_rid.cursor()
-
-    mysql_conn_fid_rid2 = pymysql.connect( host     = DB_HOST
-                                         , database = DATABASE
-                                         , user     = DB_USER
-                                         , passwd   = ao_codes.brumen_mysql_pass)
-    mysql_c_fid_rid2 = mysql_conn_fid_rid2.cursor()
-
-    
-    # cursor for inserting the flight_ids 
-    mysql_conn_fid_ins = mysql.connector.connect( host     = DB_HOST
-                                                , database = DATABASE
-                                                , user     = DB_USER
-                                                , passwd   = ao_codes.brumen_mysql_pass)
-    mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
 
     ins_new_fid_str = """
         INSERT INTO flight_ids (flight_id_long, 
@@ -321,11 +266,19 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/ra
         VALUES (%s, %s, %s, %s, %s, %s);
     """
 
+    with make_pymysql_conn() as mysql_conn_fid_rid:
+        mysql_c_fid_rid = mysql_conn_fid_rid.cursor()
+
+        with make_pymysql_conn() as mysql_conn_fid_ins:
+            # cursor for inserting the flight_ids
+            mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
+
     # this for loop finds all the flight_ids not previously in the database
     if add_flight_ids:
-        print "Adding flight ids..."
+
         fids_new = Set()
         fids_size = 0
+
         for row in c_ao.execute(all_flights):
             dep_date, dep_time = row[3].split('T')  # departure date/time
             dep_date_dt = ds.convert_datedash_date(dep_date)
@@ -350,7 +303,6 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/ra
         mysql_conn_fid_ins.commit() 
 
     # this part inserts all the flight price data into the database
-    print "Adding flights..."
     for row in c_ao.execute(all_flights):
         dep_date, dep_time = row[3].split('T')  # departure date/time
         dep_date_dt = ds.convert_datedash_date(dep_date)
@@ -378,19 +330,19 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = '/home/brumen/ra
 
     # delete flights from sqlite db
     if delete_flights_in_sqlite:
-        c_ao.execute("delete from flihgts")
+        c_ao.execute("DELETE FROM flights")
         c_ao.close()
     
 
-def insert_into_itin( db_name          = file_orig
+def insert_into_itin( db_name          = SQLITE_FILE
                     , originplace      = 'SIN-sky'
                     , destinationplace = 'KUL-sky'
                     , date_today       = '2016-08-25'
                     , outbounddate     = '2016-10-28'
                     # inbounddate='2016-10-31',
-                    , country          = 'US'
-                    , currency         = 'USD'
-                    , locale           = 'en-US'
+                    , country          = COUNTRY
+                    , currency         = CURRENCY
+                    , locale           = LOCALE
                     , includecarriers  = 'SQ'
                     , adults           = 1):
     """
@@ -399,8 +351,6 @@ def insert_into_itin( db_name          = file_orig
 
     """
 
-    conn = sqlite3.connect(db_name)
-    c = conn.cursor()
     flights_service = Flights(ao_codes.skyscanner_api_key)
     result = flights_service.get_result( country          = country
                                        , currency         = currency
@@ -408,28 +358,41 @@ def insert_into_itin( db_name          = file_orig
                                        , originplace      = originplace
                                        , destinationplace = destinationplace
                                        , outbounddate     = outbounddate
-                                       # inbounddate=inbounddate,
+                                       # inbounddate = inbounddate,
                                        , includecarriers  = includecarriers
-                                       , adults           = 1).parsed
+                                       , adults           = adults).parsed
 
-    # returns all one ways on that date
-    ri = result['Itineraries']
-    for itin in ri:
-        po = itin['PricingOptions']
-        for po_elt in po:
-            price = po_elt['Price']
-            ins_str = "INSERT INTO itins VALUES ('%s', '%s', '%s', '%s', '%s', %s)" % (date_today, outbounddate, originplace, destinationplace, includecarriers, price)
-            c.execute(ins_str)
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(db_name) as conn:
+        c = conn.cursor()
+        # returns all one ways on that date
+        ri = result['Itineraries']
+        for itin in ri:
+            po = itin['PricingOptions']
+            for po_elt in po:
+                price = po_elt['Price']
+                ins_str = "INSERT INTO itins VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5})"\
+                          .format( date_today
+                                 , outbounddate
+                                 , originplace
+                                 , destinationplace
+                                 , includecarriers
+                                 , price)
+                c.execute(ins_str)
+        conn.commit()
+
+
+def find_location(loc_id, flights):
+    """
+    finds the airport location as a string from loc_id (which is ID)
+
+    """
+    return [x['Code']
+            for x in flights['Places']
+            if x['Id'] == loc_id][0]
 
 
 def insert_into_db( flights
                   , direct_only     = False
-                  , mysql_conn      = mysql_conn
-                  , mysql_c         = mysql_c
-                  , conn_ao         = conn_ao
-                  , c_ao            = c_ao
                   , dummy           = False
                   , depth           = 0
                   , depth_max       = 0
@@ -446,30 +409,24 @@ def insert_into_db( flights
     :param depth: depth of the recursive search
     """
 
-    # global existing_pairs  # existing_pairs: existing pairs in the database
-
-    def find_location(loc_id, flights):
-        """
-        finds the airport location as a string from loc_id (which is ID)
-        """
-        return [x['Code'] for x in flights['Places'] if x['Id'] == loc_id][0]
-
     if flights is None:
         return
-    segms = flights['Segments']    
+
+    segms = flights['Segments']
     if segms == []:
         return 
-    itins = flights['Itineraries']
-    legs = flights['Legs']
 
+    lt      = time.localtime()
+    itins   = flights['Itineraries']
+    legs    = flights['Legs']
     dest_id = int(flights['Query']['DestinationPlace'])
     orig_id = int(flights['Query']['OriginPlace'])
-    orig = find_location(orig_id, flights) 
-    dest = find_location(dest_id, flights)
+    orig    = find_location(orig_id, flights)
+    dest    = find_location(dest_id, flights)
 
-    lt = time.localtime()
     as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
             str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
+
     ins_l = []
     for leg in legs:
         # checking if direct flights (accepts 1 or 0)
@@ -514,20 +471,19 @@ def insert_into_db( flights
                             # if res == 0:
                             #if (as_of, leg_orig_2, leg_dest_2, dep_date_2_full) not in existing_pairs:
                             #    # update the existing pairs
-                            insert_flight(origin_place=leg_orig_2,
-                                          dest_place=leg_dest_2,
-                                          outbound_date=dep_date_2,
-                                          country='US',
-                                          currency='USD',
-                                          locale='en-US',
-                                          includecarriers=None,
-                                          adults=1,
-                                          debug=True,
-                                          dummy=dummy,
-                                          depth=depth+1,
-                                          direct_only=direct_only,
-                                          depth_max=depth_max,
-                                          use_cache=use_cache)
+                            insert_flight(origin_place     = leg_orig_2,
+                                          dest_place       = leg_dest_2,
+                                          outbound_date    = dep_date_2,
+                                          country          = COUNTRY,
+                                          currency         = CURRENCY,
+                                          locale           = LOCALE,
+                                          includecarriers  = None,
+                                          adults           = 1,
+                                          dummy            = dummy,
+                                          depth            = depth+1,
+                                          direct_only      = direct_only,
+                                          depth_max        = depth_max,
+                                          use_cache        = use_cache)
             
         outbound_leg_id = leg['Id']
         # low_price = itin['PricingOptions'][0]['Price']
@@ -550,9 +506,14 @@ def insert_into_db( flights
             if direct_ind == 1:
                 # ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
                 # commits the insert with all the additional structures TO CORRECT TO CORRECT 
-                commit_insert(as_of, orig, dest, dep_date, arr_date, carrier,
-                              price, outbound_leg_id, mysql_conn, mysql_c,
-                              log_ind=False, file_logger="/home/brumen/tmp/a.txt")
+                commit_insert( as_of
+                             , orig
+                             , dest
+                             , dep_date
+                             , arr_date
+                             , carrier
+                             , price
+                             , outbound_leg_id)
 
                 if existing_pairs is not None:
                     existing_pairs.update([(as_of, orig, dest, dep_date)])
@@ -562,23 +523,28 @@ def insert_into_db( flights
     if not dummy:  # TO BE FURTHER CORRECTED 
         c_ao.executemany('INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', ins_l)
         conn_ao.commit()
-        # logging 
-        with open(file_logger, 'a') as logger:
-                # logger.write(",".join([str(fr_elt) for fr_elt in fr]) + "\n")
-                logger.write(str(as_of) + "," + orig + "," + dest + "," + dep_date + "\n")
+
+        logger.debug(str(as_of) + "," + orig + "," + dest + "," + dep_date + "\n")
     else:
         print "Flights:", ins_l[0]
         
 
-def commit_insert(as_of, orig, dest, dep_date, arr_date, carrier,
-                  price, outbound_leg_id, mysql_conn, mysql_c,
-                  log_ind=False, file_logger="/home/brumen/tmp/a.txt"):
+def commit_insert( as_of
+                 , orig
+                 , dest
+                 , dep_date
+                 , arr_date
+                 , carrier
+                 , price
+                 , outbound_leg_id ):
+
     """
     commits the flight into mysql db using mysql_conn, mysql_c is the cursor to the connection 
+
     """
+
     # check if outbound_leg_id is in the database, and return flight_id_used
-    find_ob_leg_str = """SELECT flight_id FROM flight_ids WHERE flight_id_long = '%s'"""
-    print "RE2", find_ob_leg_str % outbound_leg_id
+    find_ob_leg_str = "SELECT flight_id FROM flight_ids WHERE flight_id_long = '%s'"
     find_ob_leg_id = mysql_c.execute(find_ob_leg_str % outbound_leg_id)
     ob_leg_res = mysql_c.fetchone()
     if ob_leg_res is None:  # nothing in flight_ids, insert flight_id into the flight_ids table 
@@ -587,6 +553,7 @@ def commit_insert(as_of, orig, dest, dep_date, arr_date, carrier,
         print "test_run"
     else:
         flight_id_used = ob_leg_res[0]
+
     # find reg_id
     dep_date, dep_time = dep_date.split('T')  # departure date/time
     dep_date_dt = ds.convert_datedash_date(dep_date)
@@ -594,31 +561,22 @@ def commit_insert(as_of, orig, dest, dep_date, arr_date, carrier,
     month = dep_date_dt.month
     dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)  # tod = dod, weekday_ind = dof
     reg_id_str = "SELECT reg_id FROM reg_ids WHERE month = %s AND tod = '%s' AND weekday_ind = '%s'"
-    print "RE1", reg_id_str % (month, dod, dof)
     mysql_c.execute(reg_id_str % (month, dod, dof))
-    reg_id_used = mysql_c.fetchone()[0]
-    # insert into db 
-    insert_str = "INSERT INTO flights_ord (as_of, price, reg_id, flight_id)"
-    print "INS", (as_of, price, reg_id_used, flight_id_used)
-    # mysql_c.execute(insert_str, (as_of, price, reg_id_used, flight_id_used)
-    # mysql_conn.commit()
-    # logging 
-    if log_ind:
-        with open(file_logger, 'a') as logger:
-            # logger.write(",".join([str(fr_elt) for fr_elt in fr]) + "\n")
-            logger.write(str(as_of) + "," + orig + "," + dest + "," + dep_date +
-                         "," + outbound_leg_id + "\n")
+
+    # insert into db
+    logger.debug( str(as_of) + "," + orig + "," + dest + "," + dep_date + \
+                  "," + outbound_leg_id + "\n" )
     
 
-def insert_into_db_cache(flights,
-                         conn_ao=conn_ao, c_ao=c_ao,
-                         dummy=False,
-                         existing_pairs=None):
+def insert_into_db_cache( flights
+                        , dummy          = False
+                        , existing_pairs = None):
     """
     insert flights into db from Skyscanner cache, a much simplified version of above
-    :param flights: flights object as generated
+
+    :param flights:     flights object as generated
     :param direct_only: consider only direct flights 
-    :param conn_ao: connection to ao
+    :param conn_ao:     connection to ao
     :param c_ao: cursor to ao
     :param dummy: if True, don't insert into database, just print
     :param depth: depth of the recursive search
@@ -669,126 +627,110 @@ def insert_into_db_cache(flights,
         print "Flights:", ins_l
 
         
-def insert_flight(origin_place='SIN',
-                  dest_place='KUL',
-                  outbound_date='2016-10-28',
-                  # inbounddate='2016-10-31',
-                  country='US',
-                  currency='USD',
-                  locale='en-US',
-                  includecarriers=None,
-                  adults=1,
-                  debug=True,
-                  dummy=False,
-                  depth=0,
-                  direct_only=True,
-                  depth_max=0,
-                  use_cache=False,
-                  existing_pairs=None):
-    if debug:
-        print "Inserting flight from " + origin_place + " to " + dest_place + " on " + outbound_date
+def insert_flight(origin_place    = 'SIN',
+                  dest_place      = 'KUL',
+                  outbound_date   = '2016-10-28',
+                  # inbounddate   = '2016-10-31',
+                  country         = 'US',
+                  currency        = 'USD',
+                  locale          = 'en-US',
+                  includecarriers = None,
+                  adults          = 1,
+                  dummy           = False,
+                  depth           = 0,
+                  direct_only     = True,
+                  depth_max       = 0,
+                  use_cache       = False,
+                  existing_pairs  = None):
 
-    flights = air_search.get_itins(origin_place=origin_place,
-                                   dest_place=dest_place,
-                                   outbound_date=outbound_date,
-                                   # inbounddate='2016-10-31',
-                                   country=country,
-                                   currency=currency,
-                                   locale=locale,
-                                   includecarriers=includecarriers,
-                                   adults=adults,
-                                   use_cache=use_cache)
+    logger.debug(" ".join([ "Inserting flight from"
+                          , origin_place
+                          , "to"
+                          , dest_place
+                          , "on"
+                          , outbound_date]))
+
+    flights = air_search.get_itins( origin_place    = origin_place
+                                  , dest_place      = dest_place
+                                  , outbound_date   = outbound_date
+                                  # inbounddate     = '2016-10-31'
+                                  , country         = country
+                                  , currency        = currency
+                                  , locale          = locale
+                                  , includecarriers = includecarriers
+                                  , adults          = adults
+                                  , use_cache       = use_cache)
     if not use_cache:
-        insert_into_db(flights, dummy=dummy, depth=depth, direct_only=direct_only,
-                       depth_max=depth_max, existing_pairs=existing_pairs)
+        insert_into_db( flights
+                      , dummy          = dummy
+                      , depth          = depth
+                      , direct_only    = direct_only
+                      , depth_max      = depth_max
+                      , existing_pairs = existing_pairs )
     else:
-        insert_into_db_cache(flights, dummy=dummy, existing_pairs=existing_pairs)
+        insert_into_db_cache( flights
+                            , dummy          = dummy
+                            , existing_pairs = existing_pairs)
 
 
-def ao_db_fill(dep_date_l, dest_l=[], debug=True,
-               depth_max=0):
+def ao_db_fill( dep_date_l
+              , dest_l    = []
+              , depth_max = 0 ):
     """
     populates the database
     could use as dest_l: iata_codes.keys()
     :param dep_date_l: list of departure dates in the form 2016-10-28
     """
+
     for dep_date in dep_date_l:
         for orig in dest_l:
             for dest in dest_l:
                 if orig == dest:
                     break
                 try: 
-                    insert_flight(origin_place=orig, dest_place=dest, outbound_date=dep_date,
-                                  country='US', currency='USD', locale='en-US',
-                                  depth_max=depth_max)
-                    insert_flight(origin_place=dest, dest_place=orig, outbound_date=dep_date,
-                                  country='US', currency='USD', locale='en-US',
-                                  depth_max=depth_max)
+                    insert_flight( origin_place  = orig
+                                 , dest_place    = dest
+                                 , outbound_date = dep_date
+                                 , country       = 'US'
+                                 , currency      = 'USD'
+                                 , locale        = 'en-US'
+                                 , depth_max     = depth_max )
+                    insert_flight( origin_place  = dest
+                                 , dest_place    =orig
+                                 , outbound_date = dep_date
+                                 , country       = 'US'
+                                 , currency      = 'USD'
+                                 , locale        = 'en-US'
+                                 , depth_max     = depth_max)
                 except:  # catches all exception requests.HTTPError:
                     print "Incorrect location values", (orig, dest)
 
 
-def ao_db_fill_mt_f(inp):
-    """
-    function to produce multi-threading 
-    could use as dest_l: iata_codes.keys()
-
-    :param dep_date_l: list of departure dates in the form 2016-10-28
-    """
-
-    dep_date, dest_l, debug, dummy, depth_max, use_cache, existing_pairs = inp
-    for orig in dest_l:
-        for dest in dest_l:
-            if orig == dest:
-                break
-            try: 
-                insert_flight(origin_place=orig, dest_place=dest, outbound_date=dep_date,
-                              country='US', currency='USD', locale='en-US', dummy=dummy,
-                              depth_max=depth_max, use_cache=use_cache,
-                              existing_pairs=existing_pairs)
-                insert_flight(origin_place=dest, dest_place=orig, outbound_date=dep_date,
-                              country='US', currency='USD', locale='en-US', dummy=dummy,
-                              depth_max=depth_max, use_cache=use_cache,
-                              existing_pairs=existing_pairs)
-            except requests.HTTPError:
-                print "Incorrect location values ", (orig, dest)
-
-
-def ao_db_fill_mt(dep_date_l, dest_l=[], nb_cores=2, debug=True, dummy=False,
-                  mt_ind=True, depth_max=0, use_cache=False,
-                  existing_pairs=None):
-    """
-    makes the queries parallel with respect to departure date
-    number of cores can be larger than CPU count because the connections are so slow
-    """
-    nb_dates = len(dep_date_l)
-    f_args = zip(dep_date_l,
-                 [dest_l] * nb_dates,
-                 [debug] * nb_dates,
-                 [dummy] * nb_dates,
-                 [depth_max] * nb_dates,
-                 [use_cache] * nb_dates,
-                 [existing_pairs] * nb_dates)
-    if mt_ind:  # multi-threading part, if needed
-        pool = mp.Pool(processes=nb_cores)
-        pool.map(ao_db_fill_mt_f, f_args)
-        pool.close()
-    else:
-        map(ao_db_fill_mt_f, f_args)
-        
-
 def find_city_code(name_part):
-    """
-    finds code of a city where name_part is part of the name
-    """
-    return [iata_cities_codes[city] for city in iata_cities_codes if name_part in city]
-
-
-def find_airline_code(name_part):
     """
     finds code of a city where name_part is part of the name
 
     :param name_part: part of the airline name that one is searching
     :type name_part:  string
+    :returns:         list of airlines with that name
+    :rtype:           list of strings
     """
-    return [iata_airlines_codes[airline] for airline in iata_airlines_codes if name_part in airline]
+
+    return [iata_cities_codes[city]
+            for city in iata_cities_codes
+            if name_part in city]
+
+
+def find_airline_code(name_part):
+    """
+    finds code of an airline where name_part is part of that name
+
+    :param name_part: part of the airline name that one is searching
+    :type name_part:  string
+    :returns:         list of airlines with that name
+    :rtype:           list of strings
+    """
+
+    return [iata_airlines_codes[airline]
+            for airline in iata_airlines_codes
+            if name_part in airline]
