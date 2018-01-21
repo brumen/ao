@@ -464,7 +464,9 @@ def mc_mult_steps_ret( F_v
                 if d_v is not None:
                     F_sim_part = co.vtpm_cols_new_hd(d_v_used * T_diff, F_sim_part, tm_ind='p')
                 # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-                co.sin_cos_exp_d(F_sim_part, F_sim_part, sin_cos_exp='exp')
+                co.sin_cos_exp_d( F_sim_part
+                                , F_sim_part
+                                , sin_cos_exp='exp')
                 F_sim_next = F_sim_prev * F_sim_part
         else:  # normal model (not updated completely)
             if not cuda_ind:

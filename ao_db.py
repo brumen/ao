@@ -2,17 +2,14 @@
 import config
 
 import sqlite3
-import mysql.connector
-import pymysql
 from   skyscanner.skyscanner import Flights
 import time
 from   sets                  import Set
-import os
-import os.path
 import logging
 
 import ao_codes
-from   ao_codes              import iata_cities_codes, iata_airlines_codes
+from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
+                                    COUNTRY, CURRENCY, LOCALE
 import air_search
 import ds
 from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
@@ -35,34 +32,10 @@ logger = logging.getLogger(__name__)
 #      call insert_flights_live_into_flights_ord(): insert flights from flights_live db into flights_ord, historical db
 # 3. potentially delete sqlite db on rasp
 
-# Common properties
-COUNTRY = 'US'
-CURRENCY = 'USD'
-LOCALE   = 'en-US'
-
-# database connection properties
-DB_HOST  = 'odroid.local'  # localhost'
-DATABASE = 'ao'
-DB_USER  = 'brumen'
-
 
 # original sqlite db 
 SQLITE_FILE       = config.work_dir + 'ao.db'
 SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
-
-#conn_ao   = sqlite3.connect(file_orig)  # file_orig = SQLITE_FILE
-#c_ao      = conn_ao.cursor()
-# cloned sqlite database
-#db_clone      = config.work_dir + 'ao.db.clone'
-#conn_ao_clone = sqlite3.connect(db_clone)
-#c_ao_clone    = conn_ao_clone.cursor()
-#
-# mysql db
-#mysql_conn = mysql.connector.connect( host     = DB_HOST
-#                                    , database = DATABASE
-#                                    , user     = DB_USER
-#                                    , password = ao_codes.brumen_mysql_pass)
-#mysql_c    = mysql_conn.cursor()
 
 
 def run_db(s):
@@ -218,25 +191,20 @@ def update_flights_w_regs():
                 mysql_conn_local.commit()
 
     
-def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = SQLITE_FILE
-                                   , add_flight_ids           = True
+def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
                                    , delete_flights_in_sqlite = False):
     """
     copies the flights data from sqlite database on raspberry to mysql database 
     and at the same time updates the existing flights with month, dayofweek, hour 
 
-    :param sqlite_ao_file: file to the sqlite ao.db, by default, it takes from
-                           /home/brumen/rasp/work/mrds/ao.db
     :param add_flight_ids: whether to add new ids to the flights, should be True by default
     """
 
     # sqlite on raspberry
-    if os.path.isfile(sqlite_ao_file): 
-        conn_ao = sqlite3.connect(sqlite_ao_file)
-        c_ao = conn_ao.cursor()
-    else:
-        print "Fail to find the file " + sqlite_ao_file
-        return None
+    try:
+        c_ao = sqlite3.connect(SQLITE_FILE).cursor()
+    except:
+        raise
 
     # before this is executed do the following:
     # 1. clone the database (copy, there is a better way)
@@ -266,19 +234,42 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = SQLITE_FILE
         VALUES (%s, %s, %s, %s, %s, %s);
     """
 
-    with make_pymysql_conn() as mysql_conn_fid_rid:
-        mysql_c_fid_rid = mysql_conn_fid_rid.cursor()
+    # this for loop finds all the flight_ids not previously in the database
+    if add_flight_ids:
 
         with make_pymysql_conn() as mysql_conn_fid_ins:
             # cursor for inserting the flight_ids
             mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
 
-    # this for loop finds all the flight_ids not previously in the database
-    if add_flight_ids:
+            fids_new = Set()
+            fids_size = 0
 
-        fids_new = Set()
-        fids_size = 0
+            for row in c_ao.execute(all_flights):
 
+                dep_date, dep_time = row[3].split('T')  # departure date/time
+
+                if '+' not in dep_time:
+                    # find flight_id
+                    flight_id_long = row[7]
+                    mysql_c_fid_ins.execute(find_fid_str % flight_id_long)
+
+                    if len(mysql_c_fid_ins.fetchall()) == 0:  # nothing was found
+                        fids_new.add((flight_id_long, row[1], row[2], row[3], row[4], row[5]))
+                        fids_size += 1
+
+                    if fids_size > 1000:
+                        mysql_c_fid_ins.executemany(ins_new_fid_str, list(fids_new))
+                        mysql_conn_fid_ins.commit()
+                        fids_size = 0
+                        fids_new.clear()
+
+            mysql_c_fid_ins.executemany(ins_new_fid_str, list(fids_new))
+            mysql_conn_fid_ins.commit()
+
+    with make_pymysql_conn() as mysql_conn_fid_rid:
+        mysql_c_fid_rid = mysql_conn_fid_rid.cursor()
+
+        # this part inserts all the flight price data into the database
         for row in c_ao.execute(all_flights):
             dep_date, dep_time = row[3].split('T')  # departure date/time
             dep_date_dt = ds.convert_datedash_date(dep_date)
@@ -286,47 +277,23 @@ def copy_sqlite_to_mysql_by_carrier( sqlite_ao_file           = SQLITE_FILE
                 dep_time_dt = ds.convert_hour_time(dep_time)
                 month = dep_date_dt.month
                 dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)
+                # finds the reg_id (this will always return only 1 reg_id)
+                mysql_c_fid_rid.execute(find_rid_str % (month, dod, dof) )
+                reg_id_curr = mysql_c_fid_rid.fetchone()[0]
                 # find flight_id
                 flight_id_long = row[7]
-                mysql_c_fid_ins.execute(find_fid_str % flight_id_long)
-                if len(mysql_c_fid_ins.fetchall()) == 0:  # nothing was found
-                    fids_new.add((flight_id_long, row[1], row[2], row[3], row[4], row[5]))
-                    fids_size += 1
+                mysql_c_fid_rid.execute(find_fid_str % flight_id_long)
+                flight_id_curr = mysql_c_fid_rid.fetchone()[0]
+                ins_l.append((row[0], row[6], reg_id_curr, flight_id_curr))
 
-                if fids_size > 1000:
-                    mysql_c_fid_ins.executemany(ins_new_fid_str, list(fids_new))
-                    mysql_conn_fid_ins.commit() 
-                    fids_size = 0
-                    fids_new.clear()
+            if len(ins_l) > 10000:  # 1000 works for sure, maybe even larger
+                mysql_c_fid_rid.executemany(add_flights_str, ins_l)
+                ins_l = []
+                mysql_conn_fid_rid.commit()
 
-        mysql_c_fid_ins.executemany(ins_new_fid_str, list(fids_new))
-        mysql_conn_fid_ins.commit() 
-
-    # this part inserts all the flight price data into the database
-    for row in c_ao.execute(all_flights):
-        dep_date, dep_time = row[3].split('T')  # departure date/time
-        dep_date_dt = ds.convert_datedash_date(dep_date)
-        if '+' not in dep_time:
-            dep_time_dt = ds.convert_hour_time(dep_time)
-            month = dep_date_dt.month
-            dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)
-            # finds the reg_id (this will always return only 1 reg_id)
-            mysql_c_fid_rid.execute(find_rid_str % (month, dod, dof) )
-            reg_id_curr = mysql_c_fid_rid.fetchone()[0]
-            # find flight_id
-            flight_id_long = row[7]
-            mysql_c_fid_rid.execute(find_fid_str % flight_id_long)
-            flight_id_curr = mysql_c_fid_rid.fetchone()[0]
-            ins_l.append((row[0], row[6], reg_id_curr, flight_id_curr))
-
-        if len(ins_l) > 10000:  # 1000 works for sure, maybe even larger 
-            mysql_c_fid_rid.executemany(add_flights_str, ins_l)
-            ins_l = []
-            mysql_conn_fid_rid.commit()            
-
-    # flush the remaining ins_l
-    mysql_c_fid_rid.executemany(add_flights_str, ins_l)
-    mysql_conn_fid_rid.commit()  # final thing 
+        # flush the remaining ins_l
+        mysql_c_fid_rid.executemany(add_flights_str, ins_l)
+        mysql_conn_fid_rid.commit()  # final thing
 
     # delete flights from sqlite db
     if delete_flights_in_sqlite:

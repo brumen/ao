@@ -1,7 +1,6 @@
 # air option search and compute 
 
 import time
-import mysql.connector
 import datetime            as dt
 
 from requests              import ConnectionError
@@ -11,19 +10,13 @@ from skyscanner.skyscanner import FlightsCache
 # AirOption files
 import ds
 import ao_codes
-
-# common variables
-MYSQL_HOST = 'localhost'
-MYSQL_DB   = 'ao'
-MYSQL_USER = 'brumen'
+from   ao_codes            import COUNTRY, CURRENCY, LOCALE
+from   mysql_connector_env import MysqlConnectorEnv
 
 
 def get_itins(origin_place    = 'SIN',
               dest_place      = 'KUL',
               outbound_date   = '2017-02-05',
-              country         = 'US',
-              currency        = 'USD',
-              locale          = 'en-US',
               includecarriers = None,
               cabinclass      = 'Economy',
               adults          = 1,
@@ -47,9 +40,9 @@ def get_itins(origin_place    = 'SIN',
     origin_place_used = origin_place + '-sky'
     dest_place_used = dest_place + '-sky'
     
-    params_all = dict(country          = country,
-                      currency         = currency,
-                      locale           = locale,
+    params_all = dict(country          = COUNTRY,
+                      currency         = CURRENCY,
+                      locale           = LOCALE,
                       originplace      = origin_place_used,
                       destinationplace = dest_place_used,
                       outbounddate     = outbound_date,
@@ -68,7 +61,7 @@ def get_itins(origin_place    = 'SIN',
         # query_fct = flights_service.get_cheapest_quotes
         # query_fct = flights_service.get_cheapest_price_by_date
         # query_fct = flights_service.get_grid_prices_by_date
-        params_all['market'] = country  # add this field
+        params_all['market'] = COUNTRY  # add this field
         
     try:
         result = query_fct(**params_all).parsed
@@ -78,9 +71,6 @@ def get_itins(origin_place    = 'SIN',
             return get_itins( origin_place    = origin_place
                             , dest_place      = dest_place
                             , outbound_date   = outbound_date
-                            , country         = country
-                            , currency        = currency
-                            , locale          = locale
                             , includecarriers = includecarriers
                             , cabinclass      = cabinclass
                             , adults          = adults
@@ -113,18 +103,16 @@ def find_carrier(carrier_l, carrier_id):
 def get_ticket_prices(origin_place       = 'SIN',
                       dest_place         = 'KUL',  # possible NYCA-sky
                       outbound_date      = '2017-03-05',
-                      country            = 'US',
-                      currency           = 'USD',
-                      locale             = 'en-US',
-                      include_carriers   = None,  # possible 'SQ' - singapore airlines
+                      include_carriers   = None,
                       cabinclass         = 'Economy',
                       adults             = 1,
                       use_cache          = False,
-                      insert_into_livedb = False,
-                      use_mysql_conn     = None):
+                      insert_into_livedb = False):
     """
     returns the ticket prices for a flight 
 
+    :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
+    :type insert_into_livedb:  bool
     """
 
     # local time
@@ -138,21 +126,14 @@ def get_ticket_prices(origin_place       = 'SIN',
     FROM flights_live 
     WHERE orig = '{0}' AND dest = '{1}' AND dep_date = '{2}' AND cabin_class = '{3}' AND as_of > '{4}' 
     """.format(origin_place, dest_place, outbound_date, cabinclass, lt_adj)
+
     if include_carriers is not None:
-        flights_live_local += "  AND carrier = '{0}'".foramt(include_carriers)  # include_carriers is only 1 in this case
+        flights_live_local += "  AND carrier = '{0}'".format(include_carriers)  # include_carriers is only 1 in this case
 
-    # connect to the mysql and retrieve this 
-    if use_mysql_conn is None: 
-        mysql_conn = mysql.connector.connect( host     = MYSQL_HOST
-                                            , database = MYSQL_DB
-                                            , user     = MYSQL_USER
-                                            , password = ao_codes.brumen_mysql_pass)
-    else:
-        mysql_conn = use_mysql_conn
-
-    mysql_c = mysql_conn.cursor()
-    mysql_c.execute(flights_live_local)
-    flights_in_ldb = mysql_c.fetchall()
+    with MysqlConnectorEnv() as mysql_conn:
+        mysql_c = mysql_conn.cursor()
+        mysql_c.execute(flights_live_local)
+        flights_in_ldb = mysql_c.fetchall()
     
     if len(flights_in_ldb) > 0:  # we have this in the database
         # construct F_v, flights_v, reorg_flights_v
@@ -170,16 +151,13 @@ def get_ticket_prices(origin_place       = 'SIN',
         return F_v, flights_v_str, reorg_flights_v
 
     # otherwise continue here with skyscanner search 
-    result = get_itins(origin_place    = origin_place,
-                       dest_place      = dest_place,
-                       outbound_date   = outbound_date,
-                       country         = country,
-                       currency        = currency,
-                       locale          = locale,
-                       includecarriers = include_carriers,
-                       cabinclass      = cabinclass,
-                       adults          = adults,
-                       use_cache       = use_cache)
+    result = get_itins( origin_place    = origin_place
+                      , dest_place      = dest_place
+                      , outbound_date   = outbound_date
+                      , includecarriers = include_carriers
+                      , cabinclass      = cabinclass
+                      , adults          = adults
+                      , use_cache       = use_cache)
 
     # returns all one ways on that date
     if result is None:  # nothing out
@@ -222,15 +200,12 @@ def get_ticket_prices(origin_place       = 'SIN',
                 flight_nb = it[4][3:]  # next letters for flight_nb
                 live_fl_l.append((as_of, origin_place, dest_place, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
 
-            mysql_conn = mysql.connector.connect( host     = MYSQL_HOST
-                                                , database = MYSQL_DB
-                                                , user     = MYSQL_USER
-                                                , password = ao_codes.brumen_mysql_pass)
-            mysql_c = mysql_conn.cursor()
             insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
                             arr_date, carrier, flight_nb, cabin_class) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-            mysql_c.executemany(insert_str, live_fl_l)
-            mysql_conn.commit()
+            with MysqlConnectorEnv() as mysql_conn:
+                mysql_c = mysql_conn.cursor()
+                mysql_c.executemany(insert_str, live_fl_l)
+                mysql_conn.commit()
 
         return F_v, flights_v, reorg_flights_v
 
@@ -265,25 +240,21 @@ def reorganize_ticket_prices(itin):
     return reorgTickets
 
 
-def get_all_carriers(origin_place='SIN',
-                     dest_place='KUL',
-                     outbound_date='2017-02-05',
-                     country='US',
-                     currency='USD',
-                     locale='en-US',
-                     cabinclass='Economy'):
+def get_all_carriers( origin_place  = 'SIN'
+                    , dest_place    = 'KUL'
+                    , outbound_date = '2017-02-05'
+                    , cabinclass    = 'Economy'):
     """
     gets all carriers for a selected route and selected date (direct flights only)
 
     """
-    all_data = get_ticket_prices(origin_place  = origin_place,
-                                 dest_place    = dest_place,
-                                 outbound_date = outbound_date,
-                                 country       = country,
-                                 currency      = currency,
-                                 locale        = locale,
-                                 cabinclass    = cabinclass,
-                                 errors        = 'graceful')
 
-    carrier_set = set([flight[4][:2] for flight in all_data[1]])  # carrier names, a set
+    all_data = get_ticket_prices( origin_place  = origin_place
+                                , dest_place    = dest_place
+                                , outbound_date = outbound_date
+                                , cabinclass    = cabinclass)
+
+    carrier_set = set([flight[4][:2]
+                       for flight in all_data[1]])  # carrier names, a set
+
     return carrier_set

@@ -9,6 +9,11 @@ DB_HOST  = 'odroid.local'
 DATABASE = 'ao'
 DB_USER  = 'brumen'
 
+# Common properties
+COUNTRY = 'US'
+CURRENCY = 'USD'
+LOCALE   = 'en-US'
+
 # maximum flight ticket, used for reordering a list
 MAX_TICKET = 1000000.  # one million
 MIN_PRICE  = 50.       # minimum price of an air option
