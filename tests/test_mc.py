@@ -104,31 +104,31 @@ class TestMC(unittest.TestCase):
 
         self.assertTrue(True)
 
-    def test_4(self, cuda_ind=False):
+    def test_4( self
+              , cuda_ind = False):
         """
+        Testing the compute_option_raw function.
 
         """
 
         nb_dep, nb_ret = 50, 100
         F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
-        s_v = ([lambda arg: x for x in np.linspace(0.2, 0.4, nb_dep)],
-               [lambda arg: x for x in np.linspace(0.2, 0.4, nb_ret)])
-        d_v = ([lambda arg: x for x in np.linspace(0.2, 0.4, nb_dep)],
-               [lambda arg: x for x in np.linspace(0.2, 0.4, nb_ret)])
-        T_v_exp = (np.linspace(0.9, 1., nb_dep), np.linspace(1.1, 1.2, nb_ret))
-        T_l = (np.array([0.55, 0.62, 0.73]),  np.array([0.55, 0.62, 0.73]))
-        nb_sim = 50000
+        s_v = ( np.linspace(0.2, 0.4, nb_dep)
+              , np.linspace(0.2, 0.4, nb_ret) )
+        d_v = ( np.linspace(0.2, 0.4, nb_dep)
+              , np.linspace(0.2, 0.4, nb_ret) )
+        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
+                  , np.linspace(1.1, 1.2, nb_ret) )
+        T_l = ( np.array([0.55, 0.62, 0.73])
+              , np.array([0.55, 0.62, 0.73]) )
 
-        if not cuda_ind:
-            F_start = np.zeros((nb_dep, nb_sim))
-        else:
-            F_start = gpa.zeros((nb_dep, nb_sim), np.double)
+        res = ao.compute_option_raw( F_v
+                                   , s_v
+                                   , d_v
+                                   , T_l
+                                   , T_v_exp
+                                   , 150.  # K
+                                   , rho
+                                   , cuda_ind = cuda_ind)
 
-        return ao.compute_option_raw( F_v
-                                    , s_v
-                                    , d_v
-                                    , T_l
-                                    , T_v_exp
-                                    , 150.
-                                    , rho
-                                    , cuda_ind=cuda_ind)
+        self.assertTrue(True)

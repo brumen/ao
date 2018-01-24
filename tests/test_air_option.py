@@ -115,28 +115,6 @@ class TestAirOption(unittest.TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_32( self
-                  , nb_sim=10000):
-        """
-        tests the air option
-
-        """
-
-        tickets = np.linspace(450., 400., 50)
-        s_v = 100. * np.ones(len(tickets))
-        T_l = np.linspace(1./365., 180./365., 180)
-
-        print ao.air_option( tickets
-                           , s_v
-                           , s_v   # d_v = s_v
-                           , T_l
-                           , T_l + 0.05
-                           , 450.
-                           , ao_f   = ao.ao_f_arb
-                           , nb_sim = nb_sim)
-
-        self.assertTrue(True)
-
     def test_compute_vols( self
                          ,  airline='Alaska Airlines'):
         """
@@ -148,19 +126,20 @@ class TestAirOption(unittest.TestCase):
 
     def test_simple(self):
         """
-        Tests ???
+        Tests the compute_option_val function
+
         """
 
         v1 = ao.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
                                   , option_start_date     = '20180301'
-                                  , option_end_date       = '20161116'
-                                  , option_ret_start_date = '20161122'
-                                  , option_ret_end_date   = '20161123'
-                                  , outbound_date_start   = '201-11-05'
-                                  , outbound_date_end     = '2016-11-06'
-                                  , inbound_date_start    = '2016-12-12'
-                                  , inbound_date_end      = '2016-12-13'
+                                  , option_end_date       = '20180301'
+                                  , option_ret_start_date = '20180401'
+                                  , option_ret_end_date   = '20180402'
+                                  , outbound_date_start   = '2018-04-01'
+                                  , outbound_date_end     = '2018-04-01'
+                                  , inbound_date_start    = '2018-05-12'
+                                  , inbound_date_end      = '2018-05-13'
                                   , K                     = 200.0
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000
@@ -177,7 +156,8 @@ class TestAirOption(unittest.TestCase):
         print v1
         self. assertTrue(True)
 
-    def test_ao_new1(simplify_compute = 'take_last_only'):
+    def test_ao_new1( self
+                    , simplify_compute = 'take_last_only'):
 
         v1 = ao.compute_option_val( option_start_date     = '20161211'
                                   , option_end_date       = '20161212'
@@ -190,27 +170,35 @@ class TestAirOption(unittest.TestCase):
                                   , return_flight         = True)
         print v1[0]
 
-    def test_ao_new2(simplify_compute='take_last_only'):
-        v1 = ao.compute_option_val(option_start_date='20161201',
-                                   option_end_date='20170515',
-                                   outbound_date_start='2017-05-25',
-                                   outbound_date_end='2017-05-31',
-                                   K=800.0, penalty=100.0,
-                                   nb_sim=10000, rho=0.95,
-                                   simplify_compute=simplify_compute,
-                                   underlyer='ln',
-                                   return_flight=False)
+        self.assertTrue(True)
+
+    def test_ao_new2( self
+                    , simplify_compute = 'take_last_only' ):
+
+        v1 = ao.compute_option_val( option_start_date   = '20180202'
+                                  , option_end_date     = '20180202'
+                                  , outbound_date_start = '2018-03-01'
+                                  , outbound_date_end   = '2018-03-02'
+                                  , K                   = 150.0
+                                  , nb_sim              = 30000
+                                  , rho                 = 0.95
+                                  , simplify_compute    = simplify_compute
+                                  , return_flight       = False )
         print v1[0]
 
-    def test_ao_new3(simplify_compute='take_last_only', nb_sim=10000, cuda_ind=False):
+        self.assertTrue(True)
+
+    def test_ao_new3( self
+                    , simplify_compute = 'take_last_only'
+                    , nb_sim           = 10000
+                    , cuda_ind         = False):
 
         v1 = ao.compute_option_val( option_start_date     = '20180301'
                                   , option_end_date       = '20180301'
                                   , option_ret_start_date = '20180302'
                                   , option_ret_end_date   = '20180302'
-                                  , K                     = 900.0
-                                  , penalty               = 100.0
-                                  , nb_sim                = 10000
+                                  , K                     = 100.0
+                                  , nb_sim                = nb_sim
                                   , rho                   = 0.95
                                   , simplify_compute      = simplify_compute
                                   , underlyer             = 'n'
@@ -218,22 +206,6 @@ class TestAirOption(unittest.TestCase):
                                   , cuda_ind              = cuda_ind)
         print v1[0]
 
-    def test_ao_new5( self
-                    , simplify_compute = 'take_last_only'
-                    , nb_sim           = 10000
-                    , cuda_ind         = True):
-
-        v1 = ao.compute_option_val(option_start_date='20161215',
-                                   option_end_date='20161216',
-                                   option_ret_start_date='20161225',
-                                   option_ret_end_date='20161226',
-                                   K=900.0, penalty=100.0,
-                                   nb_sim=nb_sim, rho=0.95,
-                                   simplify_compute=simplify_compute,
-                                   underlyer='n',
-                                   return_flight=False,
-                                   cuda_ind=cuda_ind)
-        print v1
         self.assertTrue(True)
 
     def test_ao_rho(self):
@@ -242,10 +214,10 @@ class TestAirOption(unittest.TestCase):
 
         """
         rho_l               = [0.99, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.3, 0.2, -0.2, -0.3, -0.9]
-        outbound_date_start = '2017-06-07'
-        outbound_date_end   = '2017-06-09'
-        inbound_date_start  = '2017-06-20'
-        inbound_date_end    = '2017-06-21'
+        outbound_date_start = '2018-06-07'
+        outbound_date_end   = '2018-06-09'
+        inbound_date_start  = '2018-06-20'
+        inbound_date_end    = '2018-06-21'
         K                   = 1000.
         impact_rho = {}
         for rho in rho_l:
@@ -258,4 +230,6 @@ class TestAirOption(unittest.TestCase):
                                        rho                 = rho)
             impact_rho[rho] = k1[1]
             print "RHO ", rho, ":", k1[1]
-        return impact_rho
+            print "Impact:", impact_rho
+
+        self.assertTrue(True)

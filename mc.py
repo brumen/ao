@@ -8,7 +8,6 @@ import vtpm_cpu  # avx & omp analysis
 if config.CUDA_PRESENT:
     import cuda_ops as co
     import pycuda.gpuarray as gpa
-    import pycuda.cumath as cumath
     import curand
     rn_gen_global = curand.create_gen_simple()  # generator of random numbers
 else:
@@ -53,7 +52,7 @@ def ln_step( F_sim_prev
            , s_v_used
            , d_v_used
            , rn_sim_l
-           , cuda_ind   = False):
+           , cuda_ind = False):
     """
     log-normal step of one step monte carlo
 
@@ -81,10 +80,22 @@ def normal_step( F_sim_prev
                , s_v_used
                , d_v_used
                , rn_sim_l
-               , cuda_ind    = False):
+               , cuda_ind = False):
     """
     one time step of the normal model
 
+    :param F_sim_prev: previous simulated forward prices
+    :type F_sim_prev:  np.array, shape: (nb_contracts, nb_sim)
+    :param T_diff:     time difference between two simulation times
+    :type T_diff:      double
+    :param s_v_used:   volatilities
+    :type s_v_used:    np.array, shape = (nb_contracts, 1)
+    :param d_v_used:   drift of the contracts
+    :type d_v_used:    np.array, shape = (nb_contracts, 1)
+    :param rn_sim_l:   simulation numbers,
+    :type rn_sim_l:    np.array, shape = (nb_contracts, nb_sims)
+    :param cuda_ind:   indicator whether to use cuda or not
+    :type cuda_ind:    bool
     """
 
     F_sim_next = np.empty_like(F_sim_prev)
@@ -93,11 +104,15 @@ def normal_step( F_sim_prev
         # F_sim_next = F_sim_prev + s_v_used * np.sqrt(T_diff) * rn_sim_l
         # if d_v is not None:
         #    F_sim_next += d_v_used * T_diff
-        vtpm_cpu.vm_ao(F_sim_prev, d_v_used * T_diff,
-                       s_v_used * np.sqrt(T_diff), rn_sim_l, F_sim_next,
-                       F_sim_prev.shape[0], F_sim_prev.shape[1])
+        F_sim_cols, F_sim_rows = F_sim_prev.shape
+        vtpm_cpu.vm_ao( F_sim_prev
+                      , d_v_used * T_diff
+                      , s_v_used * np.sqrt(T_diff)
+                      , rn_sim_l
+                      , F_sim_next
+                      , F_sim_cols
+                      , F_sim_rows)
     else:
-        # addition
         F_sim_next = co.vtpm_cols_new_hd( s_v_used * np.sqrt(T_diff)
                                         , rn_sim_l
                                         , tm_ind = 't')
@@ -127,6 +142,7 @@ def mc_mult_steps( F_v
     :param F_v: list of forward values
     :type F_v:  list??/ numpy array of forward values 
     :param s_v: vector of vols for forward vals
+    :type s_v:  np.array
     :param T_l: list of time points at which all F_v should be simulated
     :param rho_m: correlation matrix
     :param nb_sim: number of sims
@@ -165,13 +181,15 @@ def mc_mult_steps( F_v
     if not cuda_ind:
         F_sim_prev = np.empty((nb_fwds, nb_sim))
     else:
-        F_sim_prev = gpa.empty((nb_fwds, nb_sim), np.double)
+        F_sim_prev = gpa.empty( (nb_fwds, nb_sim)
+                              , np.double)
 
     if ao_f is None:
         if not cuda_ind:
             F_sim_l = np.empty((len(T_l_local), nb_fwds, nb_sim))
         else:
-            F_sim_l = gpa.empty((len(T_l_local), nb_fwds, nb_sim), np.double)
+            F_sim_l = gpa.empty( (len(T_l_local), nb_fwds, nb_sim)
+                               , np.double)
     else:
         F_sim_l = None
 
@@ -195,18 +213,18 @@ def mc_mult_steps( F_v
         
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
         ttm_used = np.array(T_v_exp) - T_curr
-        s_v_used = np.array([integrate_fct( lambda s: s_vol
+        s_v_used = np.array([integrate_fct( lambda vol: s_vol
                                           , T_curr
                                           , T_curr + T_diff
                                           , ttm_curr
-                                          , drift_vol_ind='vol')
+                                          , drift_vol_ind = 'vol')
                              for (s_vol, ttm_curr) in zip(s_v, ttm_used)])  # volatility depends on time-to-maturity
 
         d_v_used = np.array([integrate_fct( lambda drift: d_v_curr
                                           , T_curr
                                           , T_curr + T_diff
                                           , ttm_curr
-                                          , drift_vol_ind='drift')
+                                          , drift_vol_ind = 'drift')
                              for (d_v_curr, ttm_curr) in zip(d_v, ttm_used)])
 
         if not cuda_ind:
@@ -230,17 +248,20 @@ def mc_mult_steps( F_v
             one_step_model = ln_step
         else:  # normal model
             one_step_model = normal_step
-        F_sim_next = one_step_model(*one_step_params, cuda_ind=cuda_ind)
+
+        F_sim_next = one_step_model( *one_step_params
+                                   , cuda_ind=cuda_ind)
 
         if ao_f is None:
+
             F_sim_l[T_ind+1, :, :] = F_sim_next
             if F_ret is not None:
                 F_sim_l[T_ind+1, :, :] += F_ret
-        else:  # relevant case 
+
+        else:  # relevant case
             if F_ret is None:  # no return flight given
                 F_sim_next_new = ao_f( F_sim_next
-                                     , F_sim_next_new
-                                     , cuda_ind       = cuda_ind)
+                                     , F_sim_next_new )
             else:
                 if not cuda_ind:
                     F_sim_next_used = F_sim_next + F_ret
@@ -252,8 +273,7 @@ def mc_mult_steps( F_v
                     F_sim_next_used = F_sim_next  # WRONG WRONG WRONG 
 
                 F_sim_next_new = ao_f( F_sim_next_used
-                                     , F_sim_next_new
-                                     , cuda_ind        = cuda_ind)
+                                     , F_sim_next_new )
         F_sim_prev = F_sim_next_new
 
     if ao_f is None:
@@ -515,7 +535,7 @@ def mc_mult_steps_ret( F_v
                                                     , T_l_ret
                                                     , ao_f
                                                     , ao_p
-                                                    , cuda_ind=False)
+                                                    , cuda_ind = False)
 
                     if not cuda_ind:
                         # ao_p_next['F_max_prev'] = max_fct_used(ao_p_tmp['F_max_prev'],

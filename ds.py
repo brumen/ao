@@ -124,6 +124,7 @@ def convert_datedash_date(dates):
     """
     converts date in form 2016-10-5 -> dt.date(..)
     """
+
     year, mon, day = dates.split('-')
     return dt.date(int(year), int(mon), int(day))
 
@@ -134,23 +135,36 @@ def convert_datedash_time_dt(date_i, hour_i):
     """
     year, mon, day = date_i.split('-')
     hour, minutes, sec = hour_i.split(':')
-    return dt.datetime(int(year), int(mon), int(day), int(hour), int(minutes))
+    return dt.datetime( int(year)
+                      , int(mon)
+                      , int(day)
+                      , int(hour)
+                      , int(minutes))
 
 
 def convert_hour_time(hour):
     """
     converts date in form 12:00:02 -> dt.time(..)
+
     """
     hour, minute, sec = hour.split(':')
+
     return dt.time(int(hour), int(minute), int(sec))
 
 
 def convert_dateslash_dash(dates):
     """
     converts date in form 10/5/2016 -> 2016-10-05
+
+    :param dates: date in 10/5/2016 format
+    :type dates:  str
+    :returns:     same date in the 2016-10-05 format
+    :rtype:       str
     """
+
     mon, day, year = dates.split('/')
-    return year + '-' + d2s(int(mon)) + '-' + d2s(int(day))    
+
+    return '-'.join([year, d2s(int(mon)), d2s(int(day))])
 
 
 def process_mm(m, year, month, day_b, day_e):
@@ -172,10 +186,15 @@ def process_mm(m, year, month, day_b, day_e):
 
 def construct_date_range(date_b, date_e):
     """
-    constructs the date range between date_b and date_e
+    constructs the date range between date_b and date_e, i.e.
+    every date between these two dates
 
-    :param date_b: begin date, in string format
-    :param date_e: end date, in string format
+    :param date_b: begin date (as in 20180317)
+    :type date_b:  str
+    :param date_e: end date (same as date_b
+    :type date_e:  str
+    :returns:      list of dates between date_b and date_e
+    :rtype:        list of datetime.date
     """
 
     date_b_dt = convert_str_date(date_b)

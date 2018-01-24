@@ -206,16 +206,16 @@ def construct_sim_times( date_start
     """
     Constructs the simulation times used in Monte Carlo
 
-    :param date_s:       date start
-    :type date_s:        datetime.date
-    :param date_e:       date end
-    :type date_e:        datetime.date
-    :param date_t_dt:    date today
-    :type date_today_dt: datetime.date
-    :param dcf:          day count factor
-    :type dcf:           double
-    :returns:            list of simulated dates
-    :rtype:              list of datetime.date
+    :param date_start:    date start
+    :type date_start:     str
+    :param date_end:      date end
+    :type date_end:       str
+    :param date_today_dt: date today
+    :type date_today_dt:  datetime.date
+    :param dcf:           day count factor
+    :type dcf:            double
+    :returns:             list of simulated dates
+    :rtype:               list of datetime.date
     """
     T_l = ds.construct_date_range(date_start, date_end)  # in date format
 
@@ -654,12 +654,14 @@ def get_flight_data( flights_include     = None
         F_v_dep_uns, F_mat_dep_uns,\
             s_v_dep_u_uns, d_v_dep_u_uns,\
             flights_v_dep_uns, reorg_flights_v_dep,\
-            valid_check = obtain_flights_f( out_dr_minus
+            valid_check = obtain_flights_f( origin_place
+                                          , dest_place
+                                          , carrier
+                                          , out_dr_minus
                                           , flights_include
                                           , io_ind                = 'out'
                                           , correct_drift         = correct_drift
-                                          , write_data_progress   = write_data_progress
-                                          , is_return_for_writing = True)
+                                          , write_data_progress   = write_data_progress)
 
         if valid_check != 'Valid':  # not valid, return immediately
             return [], [], [], [], [], [], False
@@ -673,8 +675,8 @@ def get_flight_data( flights_include     = None
 
         F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
         F_mat_dep = np.array(F_mat_dep)
-        s_v_dep = [lambda t: s_v_fct(s_v_u, t) for s_v_u in s_v_dep_u]
-        d_v_dep = [lambda t: d_v_fct(d_v_u, t) for d_v_u in d_v_dep_u]
+        s_v_dep = s_v_dep_u  # [lambda t: s_v_fct(s_v_u, t) for s_v_u in s_v_dep_u]
+        d_v_dep = s_v_dep_u  # [lambda t: d_v_fct(d_v_u, t) for d_v_u in d_v_dep_u]
 
     else:  # return flights handling
 
@@ -772,10 +774,10 @@ def get_flight_data( flights_include     = None
         valid_check = (valid_check_out == 'Valid') and (valid_check_in == 'Valid')
 
         if valid_check:
-            s_v_dep = [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_dep_raw]
-            d_v_dep = [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_dep_raw]
-            s_v_ret = [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_ret_raw]
-            d_v_ret = [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_ret_raw]
+            s_v_dep = s_v_dep_raw  # [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_dep_raw]
+            d_v_dep = d_v_dep_raw  # [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_dep_raw]
+            s_v_ret = s_v_ret_raw  # [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_ret_raw]
+            d_v_ret = d_v_ret_raw  # [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_ret_raw]
 
     if valid_check:
         if not return_flight:
@@ -853,16 +855,15 @@ def compute_option_val( origin_place          = 'SFO'
     computes the flight option
 
     :param origin_place:        IATA code of the origin airport ('SFO')
-    :type origin_place:         String
+    :type origin_place:         str
     :param dest_place:          IATA code of the destination airport ('EWR')
-    :type dest_place:           String
+    :type dest_place:           str
     :param flights_include:
     :type flights_include:
-    :param option_start_date:   the date when you can start changing the outbound flight
-    :type option_start_date:    string in the format '20170522'
-    :param option_end_date:     the date when you stop changing the outbound flight
-    :type option_end_date:      string in the format '20170522'
-
+    :param option_start_date:   the date when you can start changing the outbound flight (such as '20170522')
+    :type option_start_date:    str
+    :param option_end_date:     the date when you stop changing the outbound flight (e.g. '20170522')
+    :type option_end_date:      str
     :param simplify_compute:    simplifies the computation in that it only simulates the last simulation date
     :type simplify_compute:     string, options are: "take_last_only", "all_sim_dates"
 
@@ -870,7 +871,8 @@ def compute_option_val( origin_place          = 'SFO'
                                 if filename given, then write into that filename the progress 
     """
     # date today 
-    date_today_dt = date_today()
+    date_today_dt  = date_today()
+    date_today_str = ds.convert_datetime_str(date_today_dt)
 
     if res_supplied is None:  # no flights are supplied, find them
         res = get_flight_data( flights_include       = flights_include
@@ -951,9 +953,11 @@ def compute_option_val( origin_place          = 'SFO'
     if price_by_range and compute_all:  # compute_all guarantees there is something to compute
         complete_set_options = 3  # how many options to compute (default = 3)
         for ri in range(complete_set_options):
-            outbound_date_consid = compute_date_by_fraction(date_today_dt, outbound_date_start,
-                                                            complete_set_options-ri, complete_set_options)
-            T_l_dep_num = construct_sim_times( date_today
+            outbound_date_consid = compute_date_by_fraction( date_today_dt
+                                                           , outbound_date_start
+                                                           , complete_set_options-ri
+                                                           , complete_set_options)
+            T_l_dep_num = construct_sim_times( date_today_str
                                              , outbound_date_consid
                                              , date_today_dt
                                              , simplify_compute = simplify_compute)
@@ -962,9 +966,11 @@ def compute_option_val( origin_place          = 'SFO'
                 T_l_used = T_l_dep_num
                 key_ind = ds.convert_str_dateslash(outbound_date_consid)
             else:
-                inbound_date_consid = compute_date_by_fraction(date_today_dt, inbound_date_start,
-                                                               complete_set_options-ri, complete_set_options)
-                T_l_ret_num = construct_sim_times( date_today
+                inbound_date_consid = compute_date_by_fraction( date_today_dt
+                                                              , inbound_date_start
+                                                              , complete_set_options-ri
+                                                              , complete_set_options)
+                T_l_ret_num = construct_sim_times( date_today_str
                                                  , inbound_date_consid
                                                  , date_today_dt
                                                  , simplify_compute = simplify_compute)
