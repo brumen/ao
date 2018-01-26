@@ -1,8 +1,11 @@
 # testing framework for air options
 
-import numpy as np
+import numpy    as np
+import datetime as dt
 import unittest
 
+
+import ds
 import air_option  as ao
 import ao_estimate as aoe
 
@@ -55,13 +58,17 @@ class TestAirOption(unittest.TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_25(self, nb_sim=50000):
+    def test_ao_25(self):
         """
         tests the air option
+
         """
+
+        nb_sim = 50000
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 180./365., 180)
+
         print ao.air_option( tickets
                            , s_v
                            , s_v
@@ -70,6 +77,7 @@ class TestAirOption(unittest.TestCase):
                            , 100.
                            , 0.2
                            , nb_sim = nb_sim)
+
         self.assertTrue(True)
 
     def test_ao_26(self, nb_sim=10000):
@@ -231,5 +239,23 @@ class TestAirOption(unittest.TestCase):
             impact_rho[rho] = k1[1]
             print "RHO ", rho, ":", k1[1]
             print "Impact:", impact_rho
+
+        self.assertTrue(True)
+
+    def test_get_flight_data(self):
+        """
+        Tests whether the get_flight_data function even executes
+        """
+
+        # outbound date
+        date_out_dash = ds.convert_date_datedash(ao.date_today() + dt.timedelta(days=30))
+        # inbound date
+        date_in_dash  = ds.convert_date_datedash(ao.date_today() + dt.timedelta(days=45))
+
+        res = ao.get_flight_data( outbound_date_start = date_out_dash
+                                , outbound_date_end   = date_out_dash
+                                , inbound_date_start  = date_in_dash
+                                , inbound_date_end    = date_in_dash )
+        print res
 
         self.assertTrue(True)

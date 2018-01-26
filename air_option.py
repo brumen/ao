@@ -603,7 +603,6 @@ def get_flight_data( flights_include     = None
                    , cabinclass          = 'Economy'
                    , adults              = 1
                    , errors              = 'graceful'
-                   , mt_ind              = True
                    , return_flight       = False
                    , recompute_ind       = False
                    , correct_drift       = True
@@ -629,11 +628,6 @@ def get_flight_data( flights_include     = None
     :type inbound_date_end:      string in the form '2017-05-05'
     :param carrier:              IATA code of the carrier, e.g. 'UA'
     :type carrier:               string
-    :param country:              country used for data fetch, usually 'US',
-                                   for other possibilities check the skyscanner API
-    :type country:               string
-    :param currency:             which currency to display prices in, e.g. 'USD', 'GBP'
-    :type currency:              string
 
     :param write_data_progress: write progress of fetching data into the filename given 
     """
@@ -651,14 +645,18 @@ def get_flight_data( flights_include     = None
         
     # departure flights, always establish
     if not return_flight:
+
         F_v_dep_uns, F_mat_dep_uns,\
             s_v_dep_u_uns, d_v_dep_u_uns,\
             flights_v_dep_uns, reorg_flights_v_dep,\
             valid_check = obtain_flights_f( origin_place
                                           , dest_place
                                           , carrier
-                                          , out_dr_minus
+                                          , out_dr_minus  # outbound data range w/ -
                                           , flights_include
+                                          , cabinclass            = cabinclass
+                                          , adults                = adults
+                                          , insert_into_livedb    = insert_into_livedb
                                           , io_ind                = 'out'
                                           , correct_drift         = correct_drift
                                           , write_data_progress   = write_data_progress)
@@ -689,6 +687,7 @@ def get_flight_data( flights_include     = None
                                     , correct_drift         = correct_drift
                                     , write_data_progress   = write_data_progress
                                     , is_return_for_writing = True)
+
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
@@ -698,9 +697,9 @@ def get_flight_data( flights_include     = None
                                         , s_v_dep_raw_uns
                                         , d_v_dep_raw_uns
                                         , flights_v_dep_uns )
-            F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back 
-            F_mat_dep = np.array(F_mat_dep)
 
+            F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
+            F_mat_dep = np.array(F_mat_dep)
 
             F_v_ret_uns, F_mat_ret_uns,\
                 s_v_ret_raw_uns, d_v_ret_raw_uns, \
@@ -886,7 +885,6 @@ def compute_option_val( origin_place          = 'SFO'
                              , cabinclass            = cabinclass
                              , adults                = adults
                              , errors                = errors
-                             , mt_ind                = mt_ind
                              , return_flight         = return_flight
                              , recompute_ind         = recompute_ind
                              , correct_drift         = correct_drift

@@ -346,33 +346,38 @@ def mc_mult_steps_ret( F_v
     """
     Simulates ticket prices for a return flight.
 
-    :param F_v: tuple of list of forward values, first for departure, second for return
-    :type F_v:  tuple of 1-dimensional np.array
-    :param s_v: tuple of IMPROVE HERE vector of vols for forward vals
-    :param T_l: list of time points at which all F_v should be simulated
-    :param rho_m: correlation matrix
-    :param nb_sim: number of sims
+    :param F_v:     tuple of list of forward values, first for departure, second for return
+    :type F_v:      tuple of 1-dimensional np.array
+    :param s_v:     tuple of list of vols for tickets, first departure, then return
+    :type s_v:      tuple of 1-dimensional np.array (np.array([]), np.array([]))
+    :param T_l:     list of time points at which all F_v should be simulated
+    :param rho_m:   correlation matrix
+    :type rho_m:    2-dimensional np.array
+    :param nb_sim:  number of sims
+    :type nb_sim:   int
     :param T_v_exp: expiry of forward contracts
     :param ao_f: function to compute new vals from old ones
     :param ao_p: initial parameters
-    :param d_v: drift of the process, drift is a function of 
+    :param d_v: drift of the process, drift
        d_v[i] is a function of (ttm, params)
     :param cva_vals: None ... everything is regenerated anew
                      a list of random numbers generated which can be reused all the time
-    :param model: model 'ln' or 'n' for normal
-    :param cuda_ind: whether cuda or cpu is used 
+    :param model:   model 'ln' or 'n' for normal
+    :type model:    str
+    :param cuda_ind: whether cuda or cpu is used
+    :type cuda_ind:  bool
     :param gen_first: generates the return simulations first, then only runs over them 
-    returns:
-       matrix [time_step, simulation, fwd] or new parameters
+    :returns:        matrix [time_step, simulation, fwd] or ticket prices
     """
+
     if not cuda_ind:
         mn = mn_cpu
     else:
         mn = mn_gpu
 
     F_v_dep, F_v_ret = F_v
-    s_v_dep, s_v_ret = s_v  # a function
-    d_v_dep, d_v_ret = d_v  # a function  TODO: CHECK IF THIS IS THE CASE
+    s_v_dep, s_v_ret = s_v
+    d_v_dep, d_v_ret = d_v
     T_l_dep, T_l_ret = add_zero_to_Tl(T_l[0]), add_zero_to_Tl(T_l[1])
     T_v_exp_dep, T_v_exp_ret = T_v_exp  # expiry values 
     rho_m_dep, rho_m_ret = rho_m

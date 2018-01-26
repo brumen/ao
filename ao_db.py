@@ -1,5 +1,4 @@
-# air option database construction 
-import config
+# air option database construction functions
 
 import sqlite3
 from   skyscanner.skyscanner import Flights
@@ -10,7 +9,7 @@ import logging
 import ao_codes
 from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
                                     COUNTRY, CURRENCY, LOCALE,\
-                                    SQLITE_FILE, SQLITE_FILE_CLONE
+                                    SQLITE_FILE
 import air_search
 import ds
 from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
@@ -297,8 +296,7 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
         c_ao.close()
     
 
-def insert_into_itin( db_name          = SQLITE_FILE
-                    , originplace      = 'SIN-sky'
+def insert_into_itin( originplace      = 'SIN-sky'
                     , destinationplace = 'KUL-sky'
                     , date_today       = '2016-08-25'
                     , outbounddate     = '2016-10-28'
@@ -325,7 +323,7 @@ def insert_into_itin( db_name          = SQLITE_FILE
                                        , includecarriers  = includecarriers
                                        , adults           = adults).parsed
 
-    with sqlite3.connect(db_name) as conn:
+    with sqlite3.connect(SQLITE_FILE) as conn:
         c = conn.cursor()
         # returns all one ways on that date
         ri = result['Itineraries']
@@ -366,8 +364,6 @@ def insert_into_db( flights
 
     :param flights: flights object as generated
     :param direct_only: consider only direct flights 
-    :param conn_ao: connection to ao
-    :param c_ao: cursor to ao
     :param dummy: if True, don't insert into database, just print
     :param depth: depth of the recursive search
     """
@@ -484,8 +480,10 @@ def insert_into_db( flights
             ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
 
     if not dummy:  # TO BE FURTHER CORRECTED 
-        c_ao.executemany('INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', ins_l)
-        conn_ao.commit()
+        with sqlite3.connect(SQLITE_FILE) as conn_ao:
+            conn_ao.executemany( 'INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                               , ins_l)
+            conn_ao.commit()
 
         logger.debug(str(as_of) + "," + orig + "," + dest + "," + dep_date + "\n")
     else:
@@ -527,8 +525,11 @@ def commit_insert( as_of
     mysql_c.execute(reg_id_str % (month, dod, dof))
 
     # insert into db
-    logger.debug( str(as_of) + "," + orig + "," + dest + "," + dep_date + \
-                  "," + outbound_leg_id + "\n" )
+    logger.debug( ",".join([ str(as_of)
+                           , orig
+                           , dest
+                           , dep_date
+                           , outbound_leg_id]) + "\n" )
     
 
 def insert_into_db_cache( flights

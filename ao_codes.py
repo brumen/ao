@@ -22,6 +22,12 @@ LOCALE   = 'en-US'
 MAX_TICKET = 1000000.  # one million
 MIN_PRICE  = 50.       # minimum price of an air option
 
+# large drifts
+LARGE_DRIFT = 500.
+
+# DAY COUNT FACTOR
+DCF = 365.
+
 # api keys
 skyscanner_api_key    = 'pe941949487693197945430744449137'
 hotwire_api_key       = "vxkjbx6j7jzvpt97grskk5bu"
@@ -70,15 +76,17 @@ amount_charged_below = 0.95
 
 def get_tod(time_str):
     """
-    gets the tod if given time string 
+    gets the time of day if given time string
 
     :param time_str:   TODO: ????
     """
     hour_dt = ds.convert_hour_time(time_str)
-    morning_ind = hour_dt > morning_dt[0] and hour_dt < morning_dt[1]
-    afternoon_ind = hour_dt > afternoon_dt[0] and hour_dt < afternoon_dt[1]
-    evening_ind = hour_dt > evening_dt[0] and hour_dt < evening_dt[1]
-    night_ind = hour_dt > night_dt[0] and hour_dt < night_dt[1]
+
+    morning_ind = morning_dt[0] < hour_dt < morning_dt[1]
+    afternoon_ind = afternoon_dt[0] < hour_dt < afternoon_dt[1]
+    evening_ind = evening_dt[0] < hour_dt < evening_dt[1]
+    # night_ind = night_dt[0] < hour_dt < night_dt[1]
+
     if morning_ind:
         time_of_day_res = 'morning'
     elif afternoon_ind:
@@ -95,6 +103,10 @@ def get_weekday_ind(week_day_int):
     """
     returns whether the week_day in integer format is a week day or a weekend day
 
+    :param week_day_int: integer value of the week day
+    :type week_day_int:  int
+    :returns:            weekday, weekend
+    :rtype:              str
     """
 
     if week_day_int in weekday_days:
@@ -104,15 +116,15 @@ def get_weekday_ind(week_day_int):
 
 
 # clusters of airports that can be considered together
-clusters = {'NYCA': ('JFK', 'EWR', 'LGA'),
-            'HOUA': ('HOU', 'IAH')}
+clusters = { 'NYCA': ('JFK', 'EWR', 'LGA'),
+             'HOUA': ('HOU', 'IAH') }
 # ticket fees
-fees = {"Airtran":   {"ticket_change": 150.,
+fees = {"Airtran"  : {"ticket_change": 150.,
                       "same day": 50.},
-        "Alaska":    {"ticket_change": 125.,
+        "Alaska"   : {"ticket_change": 125.,
                       "same day": 25.},
         "Allegiant": {"ticket_change": 50.},
-        "American":  {"ticket_change": 200.,
+        "American" : {"ticket_change": 200.,
                       "same day": 75.},
         "Delta":     {"ticket_change": 200.,
                       "same day": 50.},
@@ -126,20 +138,21 @@ fees = {"Airtran":   {"ticket_change": 150.,
 def import_iata_codes(iata_file=iata_dir + 'iata_codes_work.csv'):
     """
     import iata codes from the file specified
+
     """
     iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
     iata_cities_codes = {city: code for code, country, city in iata_reader}
     iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
     iata_codes_cities = {code: city for code, country, city in iata_reader}
     # read iata airlines
-    iata_airlines_reader = csv.reader(open(iata_dir + 'iata_airlines.csv', 'r'),
-                                      delimiter=',')
-    iata_codes_airlines = {code: airline for airline, code, three_digit, icao, country in
-                           iata_airlines_reader}
-    iata_airlines_reader = csv.reader(open(iata_dir + 'iata_airlines.csv', 'r'),
-                                      delimiter=',')
-    iata_airlines_codes = {airline: code for airline, code, three_digit, icao, country in
-                           iata_airlines_reader}
+    iata_airlines_reader = csv.reader( open(iata_dir + 'iata_airlines.csv', 'r')
+                                     , delimiter=',')
+    iata_codes_airlines = { code: airline
+                            for airline, code, three_digit, icao, country in iata_airlines_reader }
+    iata_airlines_reader = csv.reader( open(iata_dir + 'iata_airlines.csv', 'r')
+                                     , delimiter=',')
+    iata_airlines_codes = { airline: code
+                            for airline, code, three_digit, icao, country in iata_airlines_reader }
 
     return iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
 

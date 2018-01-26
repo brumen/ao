@@ -70,12 +70,14 @@ def convert_str_date(date_):
 
 def d2s(i):
     """
-    digit to string conversion, adding 0 if < 10
+    digit to string conversion, adding 0 if the digit i < 10
+    :param i: digit to be converted
+    :type i:  int
+    :returns: digit w/ possibly 0 prepended
+    :rtype:   str
     """
-    if i < 10:
-        return "0" + str(i)
-    else:
-        return str(i)
+
+    return "0" + str(i) if i < 10 else str(i)
 
 
 def convert_datetime_str(date_):
@@ -85,7 +87,7 @@ def convert_datetime_str(date_):
     :param date_: date in datetime.date format
     :type date_:  datetime.date
     :returns:     same date in string format '20170502'
-    :rtype:       string
+    :rtype:       str
     """
 
     return str(date_.year) + d2s(date_.month) + d2s(date_.day)
@@ -142,11 +144,24 @@ def convert_datedash_time_dt(date_i, hour_i):
                       , int(minutes))
 
 
+def convert_date_datedash(_date):
+    """
+    Convert from datetime.date format to the same date in '2017-02-03' format.
+
+    :param _date: date to be converted
+    :type _date:  datetime.date
+    :returns:     date in datedash format
+    :rtype:       str
+    """
+    return str(_date.year) + d2s(_date.month) + d2s(_date.day)
+
+
 def convert_hour_time(hour):
     """
     converts date in form 12:00:02 -> dt.time(..)
 
     """
+
     hour, minute, sec = hour.split(':')
 
     return dt.time(int(hour), int(minute), int(sec))
