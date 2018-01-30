@@ -433,9 +433,6 @@ def insert_into_db( flights
                             insert_flight(origin_place     = leg_orig_2,
                                           dest_place       = leg_dest_2,
                                           outbound_date    = dep_date_2,
-                                          country          = COUNTRY,
-                                          currency         = CURRENCY,
-                                          locale           = LOCALE,
                                           includecarriers  = None,
                                           adults           = 1,
                                           dummy            = dummy,
@@ -594,10 +591,6 @@ def insert_into_db_cache( flights
 def insert_flight(origin_place    = 'SIN',
                   dest_place      = 'KUL',
                   outbound_date   = '2016-10-28',
-                  # inbounddate   = '2016-10-31',
-                  country         = 'US',
-                  currency        = 'USD',
-                  locale          = 'en-US',
                   includecarriers = None,
                   adults          = 1,
                   dummy           = False,
@@ -617,10 +610,6 @@ def insert_flight(origin_place    = 'SIN',
     flights = air_search.get_itins( origin_place    = origin_place
                                   , dest_place      = dest_place
                                   , outbound_date   = outbound_date
-                                  # inbounddate     = '2016-10-31'
-                                  , country         = country
-                                  , currency        = currency
-                                  , locale          = locale
                                   , includecarriers = includecarriers
                                   , adults          = adults
                                   , use_cache       = use_cache)
@@ -638,41 +627,50 @@ def insert_flight(origin_place    = 'SIN',
 
 
 def ao_db_fill( dep_date_l
-              , dest_l    = []
+              , dest_l
+              , dummy     = False
               , depth_max = 0 ):
     """
-    populates the database
-    could use as dest_l: iata_codes.keys()
+    Inserts into database all flights that can be found between
+    IATA codes in the dep_date_l
+
     :param dep_date_l: list of departure dates in the form 2016-10-28
+    :type dep_date_l:  list of str
+    :param dest_l:     list of IATA codes destinations, could use as iata_codes.keys()
+    :type dest_l:      list of str
+    :param depth_max:  depth of searches, i.e. EWR - SFO goes over DFW, then start again
+                          from DFW, this shouldnt be larger than 2
+    :type depth_max:   int
+    :param dummy:      whether to do a database insert or just print out
+    :type dummy:       bool
+    :returns:          inserts into database what is found
+    :rtype:            None
     """
 
     for dep_date in dep_date_l:
         for orig in dest_l:
             for dest in dest_l:
+
                 if orig == dest:
                     break
-                try: 
+                try:
                     insert_flight( origin_place  = orig
                                  , dest_place    = dest
                                  , outbound_date = dep_date
-                                 , country       = 'US'
-                                 , currency      = 'USD'
-                                 , locale        = 'en-US'
-                                 , depth_max     = depth_max )
+                                 , depth_max     = depth_max
+                                 , dummy         = dummy )
                     insert_flight( origin_place  = dest
-                                 , dest_place    =orig
+                                 , dest_place    = orig
                                  , outbound_date = dep_date
-                                 , country       = 'US'
-                                 , currency      = 'USD'
-                                 , locale        = 'en-US'
-                                 , depth_max     = depth_max)
+                                 , depth_max     = depth_max
+                                 , dummy         = dummy )
                 except:  # catches all exception requests.HTTPError:
                     print "Incorrect location values", (orig, dest)
 
 
 def find_city_code(name_part):
     """
-    finds code of a city where name_part is part of the name
+    Finds code of a city where name_part is part of the name
 
     :param name_part: part of the airline name that one is searching
     :type name_part:  string
@@ -687,7 +685,7 @@ def find_city_code(name_part):
 
 def find_airline_code(name_part):
     """
-    finds code of an airline where name_part is part of that name
+    Finds code of an airline where name_part is part of that name
 
     :param name_part: part of the airline name that one is searching
     :type name_part:  string
@@ -698,3 +696,19 @@ def find_airline_code(name_part):
     return [iata_airlines_codes[airline]
             for airline in iata_airlines_codes
             if name_part in airline]
+
+
+def perform_db_maintenance(action_list):
+    """
+    Performs the database maintanance.
+
+    :param action_list: list of actions to perform
+    :type action_list:  list of str
+    :returns:           None
+    :rtype:             None
+    """
+
+    with MysqlConnectorEnv() as mysql_conn:
+        if "insert_live_flights_into_db" in action_list:
+            mysql_conn.cursor().execute("CALL insert_flight_ids_from_flights_live\(\);")
+            mysql_conn.cursor().execute("CALL insert_flights_live_into_flights_ord\(\);")

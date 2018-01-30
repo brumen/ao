@@ -399,6 +399,7 @@ def mc_mult_steps_ret( F_v
             F_sim_l = gpa.empty((len(T_l_dep), nb_fwds_dep, nb_sim), np.double)
     else:
         F_sim_l = None
+
     F_v_shape = F_v_dep.shape
 
     # assumption F_v and s_v are in the same format

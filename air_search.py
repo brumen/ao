@@ -100,9 +100,9 @@ def find_carrier(carrier_l, carrier_id):
     return None  # None indicates failure
 
 
-def get_ticket_prices( origin_place       = 'SIN'
-                     , dest_place         = 'KUL'  # possible NYCA-sky
-                     , outbound_date      = '2017-03-05'
+def get_ticket_prices( origin_place
+                     , dest_place
+                     , outbound_date
                      , include_carriers   = None
                      , cabinclass         = 'Economy'
                      , adults             = 1
@@ -111,6 +111,12 @@ def get_ticket_prices( origin_place       = 'SIN'
     """
     returns the ticket prices for a flight 
 
+    :param origin_place:  IATA code of the origin airport 'SIN'
+    :type origin_place:   str
+    :param dest_place:    IATA code of the destination airport 'KUL'
+    :type dest_place:     str
+    :param outbound_date: outbound date in dash format '2017-02-15'
+    :type outbound_date:  str
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
     :type insert_into_livedb:  bool
     """
@@ -240,12 +246,19 @@ def reorganize_ticket_prices(itin):
     return reorgTickets
 
 
-def get_all_carriers( origin_place  = 'SIN'
-                    , dest_place    = 'KUL'
-                    , outbound_date = '2017-02-05'
+def get_all_carriers( origin_place
+                    , dest_place
+                    , outbound_date
                     , cabinclass    = 'Economy'):
     """
     gets all carriers for a selected route and selected date (direct flights only)
+
+    :param origin_place: IATA code of the origin airport
+    :type origin_place:  str
+    :param dest_place:   IATA code of the destination airport
+    :type dest_place:    str
+    :param outbound_date: date of the flights between origin, destination
+    :type outbound_date:  str (in '2017-02-05') format
 
     """
 

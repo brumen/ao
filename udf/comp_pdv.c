@@ -19,7 +19,8 @@
 
 typedef unsigned long long ulonglong;
 typedef long long longlong;
-static pthread_mutex_t LOCK_hostname;
+
+static  pthread_mutex_t LOCK_hostname;
 
 
 /*
@@ -41,7 +42,8 @@ typedef struct {
 typedef std::vector<ts_price> tsp_vec;
 
 struct by_ts { 
-  bool operator()(ts_price const &a, ts_price const &b) { 
+  bool operator()( ts_price const &a
+		 , ts_price const &b) { 
     return a.ts < b.ts;
   }
 };
@@ -53,45 +55,58 @@ my_bool drift_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
 my_bool counti_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
 my_bool vol_1_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
 my_bool vol_2_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
-void drift_deinit(UDF_INIT* initid);
-void vol_1_deinit(UDF_INIT* initid);
-void vol_2_deinit(UDF_INIT* initid);
-void counti_deinit(UDF_INIT* initid);
-void drift_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
+void    drift_deinit(UDF_INIT* initid);
+void    vol_1_deinit(UDF_INIT* initid);
+void    vol_2_deinit(UDF_INIT* initid);
+void    counti_deinit(UDF_INIT* initid);
+void    drift_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
 		   char* message MY_ATTRIBUTE((unused)));
-void vol_1_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
+void    vol_1_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
 		   char* message MY_ATTRIBUTE((unused)));
-void vol_2_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
+void    vol_2_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
 		   char* message MY_ATTRIBUTE((unused)));
-void counti_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
+void    counti_clear(UDF_INIT* initid, char* is_null MY_ATTRIBUTE((unused)),
 		    char* message MY_ATTRIBUTE((unused)));
-void drift_add(UDF_INIT* initid, UDF_ARGS* args,
+void    drift_add(UDF_INIT* initid, UDF_ARGS* args,
 		 char* is_null MY_ATTRIBUTE((unused)),
 		 char* message MY_ATTRIBUTE((unused)));
-void vol_1_add(UDF_INIT* initid, UDF_ARGS* args,
+void    vol_1_add(UDF_INIT* initid, UDF_ARGS* args,
 		 char* is_null MY_ATTRIBUTE((unused)),
 		 char* message MY_ATTRIBUTE((unused)));
-void vol_2_add(UDF_INIT* initid, UDF_ARGS* args,
+void    vol_2_add(UDF_INIT* initid, UDF_ARGS* args,
 		 char* is_null MY_ATTRIBUTE((unused)),
 		 char* message MY_ATTRIBUTE((unused)));
-void counti_add(UDF_INIT* initid, UDF_ARGS* args,
-		  char* is_null MY_ATTRIBUTE((unused)),
-		  char* message MY_ATTRIBUTE((unused)));
-double drift(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
+
+void    counti_add( UDF_INIT* initid, UDF_ARGS* args
+		  , char* is_null MY_ATTRIBUTE((unused))
+		  , char* message MY_ATTRIBUTE((unused)));
+
+double  drift(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
 	       char* is_null, char* error MY_ATTRIBUTE((unused)));
-double vol_1(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
+
+double  vol_1(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
 	       char* is_null, char* error MY_ATTRIBUTE((unused)));
-double vol_2(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
-	       char* is_null, char* error MY_ATTRIBUTE((unused)));
-ulonglong counti(UDF_INIT* initid, UDF_ARGS* args MY_ATTRIBUTE((unused)),
-		 char* is_null, char* error MY_ATTRIBUTE((unused)));
+
+double  vol_2( UDF_INIT* initid
+	     , UDF_ARGS* args MY_ATTRIBUTE((unused))
+	     , char* is_null
+	     , char* error MY_ATTRIBUTE((unused)) );
+
+ulonglong counti( UDF_INIT* initid
+		, UDF_ARGS* args MY_ATTRIBUTE((unused))
+		, char* is_null
+		, char* error MY_ATTRIBUTE((unused)) );
+
 C_MODE_END;
 
 
 /*
 ** Drift Aggregate Function.
 */
-my_bool drift_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
+my_bool drift_init( UDF_INIT* initid
+		  , UDF_ARGS* args
+		  , char*     message ) {
+
   tsp_vec* data;
   
   if (args->arg_count != 2) {
@@ -116,8 +131,12 @@ my_bool drift_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
   return 0;
 }
 
-my_bool counti_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
+my_bool counti_init( UDF_INIT* initid
+		   , UDF_ARGS* args
+		   , char*     message ) {
+
   tsp_vec *data;
+
   if (args->arg_count != 1) {
     strcpy(message, "wrong number of arguments: COUNTI() requires one argument");
     return 1;
@@ -142,10 +161,17 @@ my_bool counti_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
 }
 
 
-my_bool vol_1_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
+my_bool vol_1_init( UDF_INIT* initid
+		  , UDF_ARGS* args
+		  , char*     message) {
+
   return drift_init(initid, args, message);
 }
-my_bool vol_2_init(UDF_INIT* initid, UDF_ARGS* args, char* message) {
+
+my_bool vol_2_init( UDF_INIT* initid
+		  , UDF_ARGS* args
+		  , char*     message) {
+
   return drift_init(initid, args, message);
 }
 

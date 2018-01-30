@@ -153,7 +153,10 @@ def convert_date_datedash(_date):
     :returns:     date in datedash format
     :rtype:       str
     """
-    return str(_date.year) + d2s(_date.month) + d2s(_date.day)
+
+    return '-'.join([ str(_date.year)
+                    , d2s(_date.month)
+                    , d2s(_date.day)])
 
 
 def convert_hour_time(hour):

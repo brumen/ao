@@ -6,14 +6,12 @@ import pandas as pd
 import datetime as dt
 import time
 import sqlite3
-import pymysql
 import matplotlib.pyplot as plt
 from scipy.stats import norm  # quantiles of normal distr. norm.ppf(x)
 from Tkinter     import Frame, Button, Label
 
 import ds
 import ao_db
-import ao_codes
 from   ao_db               import SQLITE_FILE
 from   ao_codes            import LARGE_DRIFT, DCF
 from   mysql_connector_env import MysqlConnectorEnv
