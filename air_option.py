@@ -679,14 +679,17 @@ def get_flight_data( flights_include     = None
     else:  # return flights handling
 
         if flights_include is None:
+
             F_v_dep_uns, F_mat_dep_uns, s_v_dep_raw_uns, d_v_dep_raw_uns, \
                 flights_v_dep_uns, reorg_flights_v_dep, valid_check_out = \
-                    obtain_flights_f( out_dr_minus
+                    obtain_flights_f( origin_place
+                                    , dest_place
+                                    , carrier
+                                    , out_dr_minus
                                     , flights_include
                                     , io_ind = 'out'
                                     , correct_drift         = correct_drift
-                                    , write_data_progress   = write_data_progress
-                                    , is_return_for_writing = True)
+                                    , write_data_progress   = write_data_progress )
 
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -704,12 +707,14 @@ def get_flight_data( flights_include     = None
             F_v_ret_uns, F_mat_ret_uns,\
                 s_v_ret_raw_uns, d_v_ret_raw_uns, \
                 flights_v_ret_uns, reorg_flights_v_ret,\
-                valid_check_in = obtain_flights_f( in_dr_minus
+                valid_check_in = obtain_flights_f( origin_place
+                                                 , dest_place
+                                                 , carrier
+                                                 , in_dr_minus
                                                  , flights_include
                                                  , io_ind                = 'in'
                                                  , correct_drift         = correct_drift
-                                                 , write_data_progress   = write_data_progress
-                                                 , is_return_for_writing = True)
+                                                 , write_data_progress   = write_data_progress)
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -728,12 +733,14 @@ def get_flight_data( flights_include     = None
             F_v_dep_uns, F_mat_dep_uns, \
                 s_v_dep_raw_uns, d_v_dep_raw_uns, \
                 flights_v_dep_uns, reorg_flights_v_dep, \
-                valid_check_out = obtain_flights_f( out_dr_minus
+                valid_check_out = obtain_flights_f( origin_place
+                                                  , dest_place
+                                                  , carrier
+                                                  , out_dr_minus
                                                   , flights_include[0]
                                                   , io_ind                = 'out'
                                                   , correct_drift         = correct_drift
-                                                  , write_data_progress   = write_data_progress
-                                                  , is_return_for_writing = True)
+                                                  , write_data_progress   = write_data_progress)
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
@@ -749,12 +756,14 @@ def get_flight_data( flights_include     = None
             F_v_ret_uns, F_mat_ret_uns, \
                 s_v_ret_raw_uns, d_v_ret_raw_uns, \
                 flights_v_ret_uns, reorg_flights_v_ret,\
-                valid_check_in = obtain_flights_f( in_dr_minus
+                valid_check_in = obtain_flights_f( origin_place
+                                                 , dest_place
+                                                 , carrier
+                                                 , in_dr_minus
                                                  , flights_include[1]
                                                  , io_ind                ='in'
                                                  , correct_drift         = correct_drift
-                                                 , write_data_progress   = write_data_progress
-                                                 , is_return_for_writing = True)
+                                                 , write_data_progress   = write_data_progress)
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -842,7 +851,6 @@ def compute_option_val( origin_place          = 'SFO'
                       , errors                = 'graceful'
                       , simplify_compute      = 'take_last_only' # 'all_sim_dates'
                       , underlyer             = 'n'
-                      , mt_ind                = False
                       , price_by_range        = True
                       , return_flight         = False
                       , res_supplied          = None
