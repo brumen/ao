@@ -1,26 +1,19 @@
-#!/usr/bin/env python
-import sys
-import cgi
-import cgitb  # for troubleshooting
-cgitb.enable(display=0, logdir="/home/brumen/public_html/inquiry")  # for troubleshooting
+# Payment procedure
+
 import json
-import httplib
-import uuid 
+import uuid
 import unirest
-
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
-
 
 
 def print_for_js(return_l):
     """
     writes the list in json format
+
     """
+
     body = json.dumps(return_l)
-    # this needs to be here so that JSON parser in JavaScript succeeds 
+
+    # this needs to be here so that JSON parser in JavaScript succeeds
     print "Content-Type: application/json"
     print "Length:", len(body)
     print ""

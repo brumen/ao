@@ -1,43 +1,43 @@
-#!/usr/bin/env python
-
 # updates the carrier field from the origin -> destination (that's the only criterion)
-import sys
-import cgi
-import cgitb  # for troubleshooting
-cgitb.enable(display=0, logdir="/home/brumen/work/ao/inquiry/")  # for troubleshooting
 import json
 
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
-from ao_codes import iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
+# ao local modules
+from ao_codes import iata_airlines_codes, iata_codes_airlines
 
 
 def print_for_js(return_l):
     """
     writes the list in json format
+
     """
+
     body = json.dumps(return_l)
-    # this needs to be here so that JSON parser in JavaScript succeeds 
+
+    # this needs to be here so that JSON parser in JavaScript succeeds
     print "Content-Type: application/json"
     print "Length:", len(body)
     print ""
     print body
 
 
-def find_all_carriers(orig, dest, outgoing_date):
+def find_all_carriers( orig
+                     , dest
+                     , outgoing_date ):
     """
     returns the list of all carriers between orig -> dest on an outgoing_date
+
     """
+
     verify(orig)
     verify(dest)
     
     term_upper = term.upper()
+
     filter_fct = lambda x: x.upper().startswith(term_upper)
     search_l = iata_airlines_codes.keys()
     search_l.extend(iata_codes_airlines.keys())
     ret_cand_1 = filter(filter_fct, search_l)
+
     return not len(ret_cand_1) == 0
 
 

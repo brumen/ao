@@ -1,31 +1,26 @@
-#!/usr/bin/env python
-
-# finds the relevant carriers 
-import sys
-import cgi
-import cgitb  # for troubleshooting
+# finds the relevant carriers
 import json
 import getpass  # for username 
 import pandas as pd
 
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
 import get_data
-import ao_codes
-from ao_codes import iata_codes_airlines
 import ao_estimate as aoe
-cgitb.enable(display=0, logdir=ao_codes.debug_dir)  # for troubleshooting
-log_file = ao_codes.error_log + '_' + getpass.getuser()
+
+from ao_codes import iata_codes_airlines, error_log
 
 
-def print_for_js(is_valid, return_l):
+log_file = error_log + '_' + getpass.getuser()
+
+
+def print_for_js( is_valid
+                , return_l):
     """
     writes the list of carriers in json format
+
     """
-    body = json.dumps({'is_valid': is_valid,
-                       'list_carriers': return_l})
+
+    body = json.dumps({ 'is_valid'     : is_valid
+                      , 'list_carriers': return_l})
 
     # this needs to be here so that JSON parser in JavaScript succeeds 
     print "Content-Type: application/json"
@@ -37,6 +32,7 @@ def print_for_js(is_valid, return_l):
 def get_carrier_l(origin, dest):
     """
     gets the list from the params database
+
     """
     # get the three letter codes from origin, dest
     origin_upper, origin_valid = get_data.validate_airport(origin)

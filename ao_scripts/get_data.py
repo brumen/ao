@@ -1,18 +1,9 @@
-from contextlib import contextmanager
-import sys, os
-import cgi
-import cgitb
-import json
+# getting data from the webpage
 from dateutil.parser import parse
 
 # ao modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
-import air_option as ao
 import ds
 from ao_codes import iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
-cgitb.enable(display=0, logdir=config.prod_dir + "debug/")  # for troubleshooting
 
 
 def validate_airport(airport):
@@ -20,10 +11,14 @@ def validate_airport(airport):
     extract the code from the airport if code not given
     1. if code given, return code, 
     2. if airport name given, look into db 
+
     """
+
     airport_upper = airport.upper()
+
     if airport_upper in iata_codes_cities.keys():  # airport is in IATA code give
         return airport_upper, True
+
     else:  # airport has a name
         airport_keys_upper = [x.upper() for x in iata_cities_codes.keys()]
         if airport_upper in airport_keys_upper:
@@ -37,10 +32,14 @@ def validate_airport(airport):
 def validate_airline(airline):
     """
     same as above, just for airlines 
+
     """
+
     airline_upper = airline.upper()
+
     if airline_upper in iata_codes_airlines.keys():
         return airline_upper, True
+
     else:
         iata_airlines_upper = [x.upper() for x in iata_airlines_codes.keys()]
         if airline_upper in iata_airlines_upper:
@@ -53,8 +52,10 @@ def validate_airline(airline):
 
 def validate_outbound_dates(date_):
     """
-    validates whether date is in the 1/2/2017 format, and converts it into - format 
+    validates whether date is in the 1/2/2017 format, and converts it into - format
+
     """
+
     try:
         parse(date_)
     except ValueError:
@@ -65,7 +66,9 @@ def validate_outbound_dates(date_):
 def validate_option_dates(date_):
     """
     validates whether date is in the 1/2/2017 format
+
     """
+
     try:
         parse(date_)
     except ValueError:
@@ -74,6 +77,7 @@ def validate_option_dates(date_):
 
 
 def validate_strike(strike_i):
+
     try:
         float(strike_i)
         return float(strike_i), True
@@ -84,14 +88,17 @@ def validate_strike(strike_i):
 def get_data(form):
     """
     obtains data from the form and returns them 
+
     """
-    all_valid = True 
+
+    all_valid = True
     origin_place,   origin_valid = validate_airport(form.getvalue("origin_place"))
     dest_place,     dest_valid   = validate_airport(form.getvalue("dest_place"))
     option_start,   os_valid     = validate_option_dates(form.getvalue("option_start"))
     option_end,     oe_valid     = validate_option_dates(form.getvalue("option_end"))
     outbound_start, obs_valid    = validate_outbound_dates(form.getvalue("outbound_start"))  # "10/1/2016"
     outbound_end,   obe_valid    = validate_outbound_dates(form.getvalue("outbound_end"))  #  "10/2/2016"
+
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
        outbound_start_dt = parse(outbound_start)
@@ -148,6 +155,7 @@ def get_data_final(form, start_date):
     option_end, oe_valid = validate_option_dates(form.getvalue('opt_end_dep_final'))  # '2/3/2016
     outbound_start, obs_valid = validate_outbound_dates(form.getvalue("dep_start_final"))
     outbound_end, obe_valid = validate_outbound_dates(form.getvalue("dep_end_final"))
+
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
        outbound_start_dt = parse(outbound_start)
@@ -192,6 +200,7 @@ def get_data_final(form, start_date):
                 outbound_start, outbound_end, strike, carrier_used,
                 option_start_ret, option_end_ret, inbound_start, inbound_end,
                 return_ow, cabin_class, nb_people, client_email_addr)
+
 
 def get_data_dict(form):
     """

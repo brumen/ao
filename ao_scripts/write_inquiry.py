@@ -1,28 +1,17 @@
-#!/usr/bin/env python
+# AirOption inquiry module
+import sys
 
-from contextlib import contextmanager
-import sys, os
-import cgi
-import numpy as np
-import cgitb
 import json
 import time 
 import subprocess
-cgitb.enable(display=0, logdir="/home/brumen/public_html/inquiry")  # for troubleshooting
-
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
-import ds
-from get_data import get_data
 
 
 def display_flights(all_flights, fo):
     """
-    display flights 
+    display flights
+
     :param fo: file where to write the flights 
-    :param all_flights: flights info 
+    :param all_flights: flights info
     """
     ow_ind = all_flights['is_one_way']
     outbound_flights = all_flights['outbound']
@@ -100,38 +89,3 @@ print "Content-Type: application/json"
 print "Length:", len(body)
 print ""
 print body
-
-
-
-# data_very_raw = get_data_dict(form)
-# is_one_way = form['return_ow'] != 'return'  # is the flight return or one-way
-# if is_one_way:  # one-way flight
-#     origin_place, dest_place, option_start, option_end, \
-#         outbound_start, outbound_end, strike, carrier_used, return_ow = get_data(form)
-#     # add None
-#     inbound_start, inbound_end, option_start_ret, option_end_ret = None, None, None, None
-# else:
-#     origin_place, dest_place, option_start, option_end, \
-#         outbound_start, outbound_end, strike, carrier_used, \
-#         option_start_ret, option_end_ret, inbound_start, inbound_end, \
-#         return_ow = get_data(form)
-# outbound_flights = form.getvalue('outbound_flights')
-# all_flights = {'outbound': outbound_flights,
-#                'is_one_way': True}
-# if return_ow:  # if there is a return flight
-#     inbound_flights = form.getvalue('inbound_flights')
-#     all_flights['is_one_way'] = False
-#     all_flights['inbound'] = inbound_flights
-
-# price = form.getvalue('price')
-# message_str = form.getvalue('message')
-# write_inquiry_raw(is_one_way, origin_place, dest_place,
-#                   outbound_start, outbound_end,
-#                   option_start, option_end,
-#                   inbound_start=None, inbound_end=None,
-#                   option_start_ret=None, option_end_ret=None,
-#                   strike=strike, carrier=carrier_used,
-#                   price=price, message_str=message_str,
-#                   all_flights=all_flights)
-
-

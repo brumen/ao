@@ -1,43 +1,30 @@
-#!/usr/bin/env python
+# re-computes the option from the forwards given
 
-# re-computes the option from the forwards given 
 from contextlib import contextmanager
-import sys, os
-import cgi
+import sys
 import numpy as np
-import cgitb
 import json
 import time 
-import subprocess
 
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
+# ao local modules
 import ao_codes
-cgitb.enable(display=0, logdir=ao_codes.debug_dir)  # for troubleshooting
-import ds
 import air_option as ao
-from get_data import get_data, get_data_dict
+from get_data import get_data_dict
 
 
-@contextmanager
-def suppress_stdout():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:  
-            yield
-        finally:
-            sys.stdout = old_stdout
-
-
-def print_for_js(valid_inp, return_ind, output, price_range,
-                 flights_v, reorg_flights_v, minmax_v,
-                 do_nothing=False):
+def print_for_js( valid_inp
+                , return_ind
+                , output
+                , price_range
+                , flights_v
+                , reorg_flights_v
+                , minmax_v
+                , do_nothing = False ):
     """
-    reorganizes the data so that JavaScript can reorganize them better 
+    reorganizes the data so that JavaScript can reorganize them better
+
     """
+
     ret_dict = {'valid_inp': valid_inp,
                 'return_ind': return_ind,
                 'price': output,
@@ -56,13 +43,7 @@ def print_for_js(valid_inp, return_ind, output, price_range,
 
 # complete web generation
 form = json.load(sys.stdin)  # form is a dict
-# form = json.load(open('/home/brumen/public_html/cgi-bin/t1.txt', 'r'))
 
-# this case below is handled in javascript 
-# if not form.has_key('flights_selected'):
-#    print_for_js(False, '-1', '-1', '-1', '-1', '-1', True)  # dont do anything
-# else:
-    
 data_very_raw = get_data_dict(form)
 is_one_way = len(data_very_raw) == 12  # is the flight return or one-way
 if is_one_way:  # one-way flight
@@ -99,37 +80,37 @@ else:
     # with suppress_stdout():
     if is_one_way:
         result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                ao.compute_option_val(origin_place=origin_place,
-                                      dest_place=dest_place,
-                                      flights_include=sel_flights_dict,
-                                      option_start_date=option_start,
-                                      option_end_date=option_end,
-                                      outbound_date_start=outbound_start,
-                                      outbound_date_end=outbound_end,
-                                      carrier=carrier_used,
-                                      cabinclass=cabin_class,
-                                      adults=np.int(nb_people),
-                                      K=np.double(strike),
-                                      recompute_ind=True)
+                ao.compute_option_val(origin_place        = origin_place,
+                                      dest_place          = dest_place,
+                                      flights_include     = sel_flights_dict,
+                                      option_start_date   = option_start,
+                                      option_end_date     = option_end,
+                                      outbound_date_start = outbound_start,
+                                      outbound_date_end   = outbound_end,
+                                      carrier             = carrier_used,
+                                      cabinclass          = cabin_class,
+                                      adults              = np.int(nb_people),
+                                      K                   = np.double(strike),
+                                      recompute_ind       = True )
     else:
         result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                ao.compute_option_val(origin_place=origin_place,
-                                      dest_place=dest_place,
-                                      flights_include=sel_flights_dict,
-                                      option_start_date=option_start,
-                                      option_end_date=option_end,
-                                      outbound_date_start=outbound_start,
-                                      outbound_date_end=outbound_end,
-                                      option_ret_start_date=option_start_ret,
-                                      option_ret_end_date=option_end_ret,
-                                      inbound_date_start=inbound_start,
-                                      inbound_date_end=inbound_end,
-                                      carrier=carrier_used,
-                                      cabinclass=cabin_class,
-                                      adults=np.int(nb_people),
-                                      K=np.double(strike),
-                                      return_flight=True,
-                                      recompute_ind=True)
+                ao.compute_option_val(origin_place          = origin_place,
+                                      dest_place            = dest_place,
+                                      flights_include       = sel_flights_dict,
+                                      option_start_date     = option_start,
+                                      option_end_date       = option_end,
+                                      outbound_date_start   = outbound_start,
+                                      outbound_date_end     = outbound_end,
+                                      option_ret_start_date = option_start_ret,
+                                      option_ret_end_date   = option_end_ret,
+                                      inbound_date_start    = inbound_start,
+                                      inbound_date_end      = inbound_end,
+                                      carrier               = carrier_used,
+                                      cabinclass            = cabin_class,
+                                      adults                = np.int(nb_people),
+                                      K                     = np.double(strike),
+                                      return_flight         = True,
+                                      recompute_ind         = True )
 
     if result == 'Invalid':
         print_for_js(False, False, '-1', [], [], [], [], True)  # invalid entries
