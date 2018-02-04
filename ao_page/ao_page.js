@@ -708,6 +708,33 @@ function handle_computation(get_string) {
 }
 
 
+function handle_computation2(get_string) {
+    // Handles the computation of the option w/ server side events 
+    
+    // clean notification_messages
+    var nm = document.getElementById("notification_messages");
+    while (nm.hasChildNodes())
+	nm.removeChild(nm.lastChild);
+    var fp = document.getElementById("flights_presented")
+    while (fp.hasChildNodes())
+	fp.removeChild(fp.lastChild);
+    // delete options-display
+    var od = document.getElementById("options-display")
+    while (od.hasChildNodes())
+	od.removeChild(od.lastChild);
+
+    // compte everything 
+    handleMessage(get_string, timestamp, pcs_id);
+
+    var eventSource = new EventSource("myapp/compute_option", get_string ); // GET REQUEST
+    eventSource.onmessage = handleMessage2;
+
+    
+    return -100.; //  price, not important;  // TO FIX FIX FIX FIX FIX 
+}
+
+
+
 function handleMessage(gs, ts, pcs) {
     // function handles the communication between the server to retrieve flight data
     var new_ts, progress_notice;

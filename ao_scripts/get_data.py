@@ -3,7 +3,8 @@ from dateutil.parser import parse
 
 # ao modules 
 import ds
-from ao_codes import iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
+from ao_codes import iata_cities_codes, iata_codes_cities, \
+                     iata_airlines_codes, iata_codes_airlines
 
 
 def validate_airport(airport):
@@ -12,6 +13,10 @@ def validate_airport(airport):
     1. if code given, return code, 
     2. if airport name given, look into db 
 
+    :param airport: IATA code or the full airport name
+    :type airport:  str
+    :returns:       tuple of (IATA name, True/False if the airport was found)
+    :rtype:         tuple of (str, bool)
     """
 
     airport_upper = airport.upper()
@@ -21,18 +26,26 @@ def validate_airport(airport):
 
     else:  # airport has a name
         airport_keys_upper = [x.upper() for x in iata_cities_codes.keys()]
+
         if airport_upper in airport_keys_upper:
             airport_idx = airport_keys_upper.index(airport_upper)
             airport_name = iata_cities_codes.keys()[airport_idx]
             return iata_cities_codes[airport_name], True  # return the code
+
         else:
-            return "Invalid", False
+            return 'Invalid', False
 
 
 def validate_airline(airline):
     """
-    same as above, just for airlines 
+    extract the code from the airline if code not given
+    1. if code given, return code,
+    2. if airline name given, look into db
 
+    :param airline: IATA code or the full airport name
+    :type airline:  str
+    :returns:       tuple of (IATA name, True/False if the airport was found)
+    :rtype:         tuple of (str, bool)
     """
 
     airline_upper = airline.upper()
@@ -42,12 +55,13 @@ def validate_airline(airline):
 
     else:
         iata_airlines_upper = [x.upper() for x in iata_airlines_codes.keys()]
+
         if airline_upper in iata_airlines_upper:
             airline_idx = iata_airlines_upper.index(airline_upper)
             airline_name = iata_airlines_codes.keys()[airline_idx]
             return iata_airlines_codes[airline_name], True
         else:
-            return "Invalid", False
+            return 'Invalid', False
 
 
 def validate_outbound_dates(date_):
@@ -59,7 +73,7 @@ def validate_outbound_dates(date_):
     try:
         parse(date_)
     except ValueError:
-        return "", False
+        return '', False
     return ds.convert_dateslash_dash(date_), True  # if everything OK, then convert
 
 
@@ -72,7 +86,7 @@ def validate_option_dates(date_):
     try:
         parse(date_)
     except ValueError:
-        return "", False
+        return '', False
     return ds.convert_dateslash_str(date_), True  # if everything OK, then convert
 
 
@@ -92,12 +106,12 @@ def get_data(form):
     """
 
     all_valid = True
-    origin_place,   origin_valid = validate_airport(form.getvalue("origin_place"))
-    dest_place,     dest_valid   = validate_airport(form.getvalue("dest_place"))
-    option_start,   os_valid     = validate_option_dates(form.getvalue("option_start"))
-    option_end,     oe_valid     = validate_option_dates(form.getvalue("option_end"))
-    outbound_start, obs_valid    = validate_outbound_dates(form.getvalue("outbound_start"))  # "10/1/2016"
-    outbound_end,   obe_valid    = validate_outbound_dates(form.getvalue("outbound_end"))  #  "10/2/2016"
+    origin_place,   origin_valid = validate_airport(form['origin_place'])
+    dest_place,     dest_valid   = validate_airport(form['dest_place'])
+    option_start,   os_valid     = validate_option_dates(form['option_start'])
+    option_end,     oe_valid     = validate_option_dates(form['option_end'])
+    outbound_start, obs_valid    = validate_outbound_dates(form['outbound_start'])  # '10/1/2016'
+    outbound_end,   obe_valid    = validate_outbound_dates(form['outbound_end'])  #  '10/2/2016'
 
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
@@ -105,19 +119,19 @@ def get_data(form):
        outbound_end_dt = parse(outbound_end)
        all_valid = all_valid and (outbound_start_dt <= outbound_end_dt)
 
-    strike, strike_valid = validate_strike(form.getvalue("ticket_price"))
-    carrier, carrier_valid = validate_airline(form.getvalue("airline_name"))
+    strike, strike_valid = validate_strike(form['ticket_price'])
+    carrier, carrier_valid = validate_airline(form['airline_name'])
     # getting the return flight information
-    return_ow = form.getvalue("return_ow")  # this is either 'return' or 'one-way'
-    cabin_class = form.getvalue("cabin_class")  # cabin class 
-    nb_people = form.getvalue("nb_people")
+    return_ow = form['return_ow']  # this is either 'return' or 'one-way'
+    cabin_class = form['cabin_class']  # cabin class
+    nb_people = form['nb_people']
     all_valid = all_valid and origin_valid and dest_valid and obs_valid and obe_valid and carrier_valid and strike_valid
 
     if return_ow == 'return':
-        option_start_ret, ors_valid = validate_option_dates(form.getvalue("option_ret_start"))
-        option_end_ret, ore_valid = validate_option_dates(form.getvalue("option_ret_end"))
-        inbound_start, ibs_valid = validate_outbound_dates(form.getvalue("outbound_start_ret"))  # "10/1/2016"
-        inbound_end, ibe_valid = validate_outbound_dates(form.getvalue("outbound_end_ret"))  #  "10/2/2016"
+        option_start_ret, ors_valid = validate_option_dates(form['option_ret_start'])
+        option_end_ret, ore_valid = validate_option_dates(form['option_ret_end'])
+        inbound_start, ibs_valid = validate_outbound_dates(form['outbound_start_ret'])  # "10/1/2016"
+        inbound_end, ibe_valid = validate_outbound_dates(form['outbound_end_ret'])  #  "10/2/2016"
         # check that inbound_start < inbound_end
         if ibs_valid and ibe_valid:
             inbound_start_dt = parse(inbound_start)
@@ -128,7 +142,7 @@ def get_data(form):
             
         all_valid = all_valid and ibs_valid and ibe_valid
         
-    if carrier == "":
+    if carrier == '':
         carrier_used = None
     else:
         carrier_used = carrier
@@ -149,12 +163,12 @@ def get_data_final(form, start_date):
     obtains data from the form (from form _final for booking) and returns them 
     """
     all_valid = True 
-    origin_place, origin_valid = validate_airport(form.getvalue("origin_final"))
-    dest_place, dest_valid = validate_airport(form.getvalue("dest_final"))
+    origin_place, origin_valid = validate_airport(form['origin_final'])
+    dest_place, dest_valid = validate_airport(form['dest_final'])
     option_start, os_valid = start_date, True  # '1/1/2017 ??? 
-    option_end, oe_valid = validate_option_dates(form.getvalue('opt_end_dep_final'))  # '2/3/2016
-    outbound_start, obs_valid = validate_outbound_dates(form.getvalue("dep_start_final"))
-    outbound_end, obe_valid = validate_outbound_dates(form.getvalue("dep_end_final"))
+    option_end, oe_valid = validate_option_dates(form['opt_end_dep_final'])  # '2/3/2016
+    outbound_start, obs_valid = validate_outbound_dates(form['dep_start_final'])
+    outbound_end, obe_valid = validate_outbound_dates(form['dep_end_final'])
 
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
@@ -162,20 +176,20 @@ def get_data_final(form, start_date):
        outbound_end_dt = parse(outbound_end)
        all_valid = all_valid and (outbound_start_dt <= outbound_end_dt)
 
-    strike, strike_valid = validate_strike(form.getvalue("ticket_price_final"))
-    carrier, carrier_valid = validate_airline(form.getvalue("carrier_final"))
+    strike, strike_valid = validate_strike(form['ticket_price_final'])
+    carrier, carrier_valid = validate_airline(form['carrier_final'])
     # getting the return flight information
-    return_ow = form.getvalue("return_ow_final")  # this is either 'return' or 'one-way'
-    cabin_class = form.getvalue("class_travel")  # cabin class 
-    nb_people = form.getvalue("nb_persons")
-    client_email_addr = form.getvalue("email-addr")
+    return_ow = form['return_ow_final']  # this is either 'return' or 'one-way'
+    cabin_class = form['class_travel']  # cabin class
+    nb_people = form['nb_persons']
+    client_email_addr = form['email-addr']
     all_valid = all_valid and origin_valid and dest_valid and obs_valid and obe_valid and carrier_valid and strike_valid
     
     if return_ow == 'return':
         option_start_ret, ors_valid = start_date, True  # '2017-03-01'
-        option_end_ret, ore_valid = validate_option_dates(form.getvalue('opt_end_ret_final'))  # '2017-04-01', True
-        inbound_start, ibs_valid = validate_outbound_dates(form.getvalue("ret_start_final"))
-        inbound_end, ibe_valid = validate_outbound_dates(form.getvalue("ret_end_final"))
+        option_end_ret, ore_valid = validate_option_dates(form['opt_end_ret_final'])  # '2017-04-01', True
+        inbound_start, ibs_valid = validate_outbound_dates(form['ret_start_final'])
+        inbound_end, ibe_valid = validate_outbound_dates(form['ret_end_final'])
         # check that inbound_start < inbound_end
         if ibs_valid and ibe_valid:
             inbound_start_dt = parse(inbound_start)
@@ -186,7 +200,7 @@ def get_data_final(form, start_date):
             
         all_valid = all_valid and ibs_valid and ibe_valid
         
-    if carrier == "":
+    if carrier == '':
         carrier_used = None
     else:
         carrier_used = carrier
@@ -210,30 +224,30 @@ def get_data_dict(form):
     :type form:  TODO: FINISH HERE. 
     """
     all_valid = True
-    origin_place,   origin_valid  = validate_airport(form["origin_place"])
-    dest_place,     dest_valid    = validate_airport(form["dest_place"])
-    option_start,   os_valid      = validate_option_dates(form["option_start"])
-    option_end,     oe_valid      = validate_option_dates(form["option_end"])
-    outbound_start, obs_valid     = validate_outbound_dates(form["outbound_start"])  # "10/1/2016"
-    outbound_end,   obe_valid     = validate_outbound_dates(form["outbound_end"])  #  "10/2/2016"
-    strike,         strike_valid  = validate_strike(form["ticket_price"])
-    carrier,        carrier_valid = validate_airline(form["airline_name"])
+    origin_place,   origin_valid  = validate_airport(form['origin_place'])
+    dest_place,     dest_valid    = validate_airport(form['dest_place'])
+    option_start,   os_valid      = validate_option_dates(form['option_start'])
+    option_end,     oe_valid      = validate_option_dates(form['option_end'])
+    outbound_start, obs_valid     = validate_outbound_dates(form['outbound_start'])  # '10/1/2016'
+    outbound_end,   obe_valid     = validate_outbound_dates(form['outbound_end'])  #  '10/2/2016'
+    strike,         strike_valid  = validate_strike(form['ticket_price'])
+    carrier,        carrier_valid = validate_airline(form['airline_name'])
     if obs_valid and obe_valid:
         outbound_start_dt = parse(outbound_start)
         outbound_end_dt   = parse(outbound_end)
         all_valid         = all_valid and (outbound_start_dt <= outbound_end_dt)
 
     # getting the return flight information
-    return_ow   = form["return_ow"]  # this is either 'return' or 'one-way'
-    cabin_class = form["cabin_class"]  # cabin class
-    nb_people   = form["nb_people"]
+    return_ow   = form['return_ow']  # this is either 'return' or 'one-way'
+    cabin_class = form['cabin_class']  # cabin class
+    nb_people   = form['nb_people']
     all_valid   = all_valid and origin_valid and dest_valid and obs_valid and obe_valid and carrier_valid and strike_valid
 
     if return_ow == 'return':
-        option_start_ret, osr_valid = validate_option_dates(form["option_ret_start"])
-        option_end_ret,   oer_valid = validate_option_dates(form["option_ret_end"])
-        inbound_start,    ibs_valid = validate_outbound_dates(form["outbound_start_ret"])  # "10/1/2016"
-        inbound_end,      ibe_valid = validate_outbound_dates(form["outbound_end_ret"])  #  "10/2/2016"
+        option_start_ret, osr_valid = validate_option_dates(form['option_ret_start'])
+        option_end_ret,   oer_valid = validate_option_dates(form['option_ret_end'])
+        inbound_start,    ibs_valid = validate_outbound_dates(form['outbound_start_ret'])  # '10/1/2016'
+        inbound_end,      ibe_valid = validate_outbound_dates(form['outbound_end_ret'])  #  '10/2/2016'
         if ibs_valid and ibe_valid:
             inbound_start_dt = parse(inbound_start)
             inbound_end_dt   = parse(inbound_end)

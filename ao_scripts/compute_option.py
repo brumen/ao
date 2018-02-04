@@ -4,9 +4,9 @@ from contextlib import contextmanager
 import time
 import sys, os
 import os.path
-import cgi
 import numpy as np
 import json
+from flask import jsonify
 
 # local path import first 
 import config
@@ -30,22 +30,17 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
             
-def print_only_progress(is_complete, progress_notice, new_timestamp):
+def print_only_progress( is_complete
+                       , progress_notice
+                       , new_timestamp):
     """
     server response
 
     """
-    ret_dict = { 'is_complete'    : is_complete
-               , 'new_timestamp'  : new_timestamp
-               , 'progress_notice': progress_notice}
 
-    body = json.dumps(ret_dict)
-
-    # writing the response back 
-    print "Content-Type: application/json"
-    print "Length:", len(body)
-    print ""
-    print body
+    return jsonify({ 'is_complete'    : is_complete
+                   , 'new_timestamp'  : new_timestamp
+                   , 'progress_notice': progress_notice})
 
 
 def print_query( valid_inp
@@ -118,8 +113,7 @@ def print_to_file( valid_inp
     fo.close()
 
     
-def compute_price( is_one_way
-                 , all_valid
+def compute_price( all_valid
                  , origin_place
                  , dest_place
                  , option_start
@@ -146,117 +140,127 @@ def compute_price( is_one_way
         print_to_file(False, False, 0, {}, {}, {}, {}, file_used)
         print_query(False, False, 0, {}, {}, {}, {})
     else:
+
+        way_args = { "origin_place": origin_place
+                   , "dest_place": dest_place
+                   , "option_start_date": option_start
+                   , "option_end_date": option_end
+                   , "outbound_date_start": outbound_start
+                   , "outbound_date_end": outbound_end
+                   , "carrier": carrier_used
+                   , "cabinclass": cabin_class
+                   , "adults": nb_people
+                   , "K": np.double(strike)
+                   , "write_data_progress": file_used
+                   , "errors": 'ignore'}
+
+        if return_ow != 'one-way':
+            way_args.update( { "option_ret_start_dat": option_start_ret
+                             , "option_ret_end_date" : option_end_ret
+                             , "inbound_date_start"  : inbound_start
+                             , "inbound_date_end"    : inbound_end
+                             , "return_flight"       : True } )
+
         with suppress_stdout():
-            if return_ow == 'one-way':
-                result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                    ao.compute_option_val(origin_place=origin_place,
-                                          dest_place=dest_place,
-                                          option_start_date=option_start,
-                                          option_end_date=option_end,
-                                          outbound_date_start=outbound_start,
-                                          outbound_date_end=outbound_end,
-                                          carrier=carrier_used,
-                                          cabinclass=cabin_class,
-                                          adults=nb_people,
-                                          K=np.double(strike),
-                                          write_data_progress=file_used,
-                                          errors='ignore')  # ignore errors here 
-            else:
-                result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                    ao.compute_option_val(origin_place=origin_place,
-                                          dest_place=dest_place,
-                                          option_start_date=option_start,
-                                          option_end_date=option_end,
-                                          outbound_date_start=outbound_start,
-                                          outbound_date_end=outbound_end,
-                                          option_ret_start_date=option_start_ret,
-                                          option_ret_end_date=option_end_ret,
-                                          inbound_date_start=inbound_start,
-                                          inbound_date_end=inbound_end,
-                                          carrier=carrier_used,
-                                          cabinclass=cabin_class,
-                                          adults=nb_people,
-                                          K=np.double(strike),
-                                          return_flight=True,
-                                          write_data_progress=file_used,
-                                          errors='ignore')  # ignore errors here
+            result, price_range, flights_v, reorg_flights_v, minmax_v = \
+                ao.compute_option_val(way_args)
 
         if result == 'Invalid':
             print_to_file(False, [], -1., [], [], [], [], file_used)  # invalid entries 
             print_query(False, [], -1., [], [], [], [])  # logging only 
+
         else:  # actual display
             result_ref = str(np.int(result['avg']))
             # logging the query
-            is_one_way = return_ow == 'one-way'
-            print_to_file(True, return_ow, result_ref, price_range,
-                          flights_v, reorg_flights_v, minmax_v, file_used)
+            print_to_file( True
+                         , return_ow
+                         , result_ref
+                         , price_range
+                         , flights_v
+                         , reorg_flights_v
+                         , minmax_v
+                         , file_used)
             # next is for loggin only 
-            print_query(True, return_ow, result_ref, price_range,
-                        flights_v, reorg_flights_v, minmax_v)
+            print_query( True
+                       , return_ow
+                       , result_ref
+                       , price_range
+                       , flights_v
+                       , reorg_flights_v
+                       , minmax_v )
             
 
-def read_and_reply(file_used, timestamp):
-    fo = open(file_used, 'r')
-    new_timestamp = os.path.getmtime(file_used)
-    progress_notice = fo.read().replace('\n', '')  # file in a string
-    fo.close()
+def read_and_reply( file_used
+                  , timestamp ):
+
+    with open(file_used, 'r') as fo:
+        new_timestamp = os.path.getmtime(file_used)
+        progress_notice = fo.read().replace('\n', '')  # file in a string
 
     if progress_notice != '':  # file is not empty
-        fo = open(file_used, 'r')
-        progress_obj = json.load(fo)
-        fo.close()
+        with open(file_used, 'r') as fo:
+            progress_obj = json.load(fo)
+
     # progress_notice can be empty string, or a json dump w/ is_complete descriptor
 
     if timestamp == 'null':  # this special case 
-        progress_notice = json.dumps({'is_complete': False,
+        progress_notice = json.dumps({'is_complete'    : False,
                                       'progress_notice': 'Initiating flight fetch.'})
-        print_only_progress(False, progress_notice, new_timestamp)  # sure to continue
+        print_only_progress( False
+                           , progress_notice
+                           , new_timestamp )  # sure to continue
     else:
         if progress_notice != '':  # not empty
             is_complete = progress_obj['is_complete']
-        print_only_progress(is_complete, json.dumps(progress_obj), new_timestamp)
+
+        print_only_progress( is_complete
+                           , json.dumps(progress_obj)
+                           , new_timestamp)
 
 
-# server response logic 
-form = cgi.FieldStorage()
-data_very_raw = get_data(form)
-is_one_way = len(data_very_raw) == 12
+def compute_option(form):
+    """
 
-if is_one_way:  # one-way flight
-    all_valid, origin_place, dest_place, option_start, option_end, \
-        outbound_start, outbound_end, strike, carrier_used, return_ow, \
-        cabin_class, nb_people = get_data(form)
-    inbound_start, inbound_end, option_start_ret, option_end_ret = None, None, None, None
-else:
-    all_valid, origin_place, dest_place, option_start, option_end, \
-        outbound_start, outbound_end, strike, carrier_used, \
-        option_start_ret, option_end_ret, inbound_start, inbound_end, \
-        return_ow, cabin_class, nb_people = get_data(form)
+    """
 
-timestamp = form.getvalue('timestamp')
-pcs_id = str(form.getvalue('pcs_id'))  # process id, used for file communication 
-file_used = config.prod_dir + 'inquiry/compute/' + pcs_id
-if not os.path.exists(file_used):  # create file, otherwise nothing 
-    interactive_file = open(file_used, 'a')  # interactive file is emtpy here
-    interactive_file.close()
+    # server response logic
+    data_very_raw = get_data(form)
+    is_one_way = len(data_very_raw) == 12
 
-    
-if timestamp == 'null':  # daemonize the computation
+    if is_one_way:  # one-way flight
+        all_valid, origin_place, dest_place, option_start, option_end, \
+            outbound_start, outbound_end, strike, carrier_used, return_ow, \
+            cabin_class, nb_people = get_data(form)
+        inbound_start, inbound_end, option_start_ret, option_end_ret = None, None, None, None
+    else:
+        all_valid, origin_place, dest_place, option_start, option_end, \
+            outbound_start, outbound_end, strike, carrier_used, \
+            option_start_ret, option_end_ret, inbound_start, inbound_end, \
+            return_ow, cabin_class, nb_people = get_data(form)
 
-    # flush null response immediately
-    read_and_reply(file_used, 'null')
-    sys.stdout.flush()
+    timestamp = form.getvalue('timestamp')
+    pcs_id = str(form.getvalue('pcs_id'))  # process id, used for file communication
+    file_used = config.prod_dir + 'inquiry/compute/' + pcs_id
+    if not os.path.exists(file_used):  # create file, otherwise nothing
+        interactive_file = open(file_used, 'a')  # interactive file is emtpy here
+        interactive_file.close()
 
-    # fork the process 
-    params = is_one_way, \
-             all_valid, origin_place, dest_place, option_start, option_end, \
-             outbound_start, outbound_end, strike, carrier_used, return_ow, \
-             cabin_class, nb_people, \
-             inbound_start, inbound_end, option_start_ret, option_end_ret, \
-             file_used
-    cod = AoDaemon(compute_price, params)
-    cod.start()
+    if timestamp == 'null':  # daemonize the computation
 
-else:  # successive attempt at finishing 
+        # flush null response immediately
+        read_and_reply(file_used, 'null')
+        sys.stdout.flush()
 
-    read_and_reply(file_used, timestamp)
+        # fork the process
+        params = is_one_way, \
+                 all_valid, origin_place, dest_place, option_start, option_end, \
+                 outbound_start, outbound_end, strike, carrier_used, return_ow, \
+                 cabin_class, nb_people, \
+                 inbound_start, inbound_end, option_start_ret, option_end_ret, \
+                 file_used
+        cod = AoDaemon(compute_price, params)
+        cod.start()
+
+    else:  # successive attempt at finishing
+
+        read_and_reply(file_used, timestamp)

@@ -1,6 +1,5 @@
 # re-computes the option from the forwards given
 
-import sys
 import numpy as np
 import json
 import time 
@@ -36,11 +35,10 @@ def print_for_js( valid_inp
 
 
 # TODO: FIX THIS PART HERE.
-def recompute_option():
+def recompute_option(form):
+    """
 
-    # complete web generation
-    # TODO: THIS BELOW HAS TO CHANGE
-    form = json.load(sys.stdin)  # form is a dict
+    """
 
     data_very_raw = get_data_dict(form)  # TODO: THIS NEEDS TO CHANGE
 
