@@ -41,7 +41,7 @@ class TestAirOption(unittest.TestCase):
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 62./365., 62)
-        print ao.air_option( tickets
+        res = ao.air_option( tickets
                            , s_v
                            , s_v
                            , T_l
@@ -85,7 +85,7 @@ class TestAirOption(unittest.TestCase):
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 180./365., 180)
 
-        print ao.air_option( tickets
+        res = ao.air_option( tickets
                            , s_v
                            , s_v
                            , T_l
@@ -105,7 +105,7 @@ class TestAirOption(unittest.TestCase):
         T_l = np.linspace(1./365., 180./365., 180)
         T_mat = T_l + 0.01  # some increase over T_l
 
-        print ao.air_option( tickets
+        res = ao.air_option( tickets
                            , s_v
                            , s_v
                            , T_l
@@ -128,7 +128,7 @@ class TestAirOption(unittest.TestCase):
         T_l = np.linspace(1./365., 180./365., 2)
         d_v = 0.2 * np.ones(len(tickets))
 
-        print ao.air_option( tickets
+        res = ao.air_option( tickets
                            , s_v
                            , d_v
                            , T_l
@@ -177,7 +177,6 @@ class TestAirOption(unittest.TestCase):
                                   , price_by_range        = False
                                   , return_flight         = True )
 
-        print v1
         self. assertTrue(True)
 
     def test_ao_new2( self
@@ -194,7 +193,6 @@ class TestAirOption(unittest.TestCase):
                                   , simplify_compute    = simplify_compute
                                   , return_flight       = False
                                   , cuda_ind            = cuda_ind )
-        print v1
 
         self.assertTrue(True)
 
@@ -219,8 +217,6 @@ class TestAirOption(unittest.TestCase):
                                       , return_flight       = True
                                       , rho                 = rho )
             impact_rho[rho] = k1[1]
-            print "RHO ", rho, ":", k1[1]
-            print "Impact:", impact_rho
 
         self.assertTrue(True)
 
@@ -234,6 +230,5 @@ class TestAirOption(unittest.TestCase):
                                 , outbound_date_end   = ds.convert_date_datedash(self.outDatePlusOne)
                                 , inbound_date_start  = ds.convert_date_datedash(self.retDate)
                                 , inbound_date_end    = ds.convert_date_datedash(self.retDatePlusOne) )
-        print res
 
         self.assertTrue(True)

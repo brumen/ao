@@ -100,8 +100,6 @@ class TestMC(unittest.TestCase):
                                   , cva_vals = None
                                   , model    = 'n')
 
-        print "r", res['F_max_prev']
-
         self.assertTrue(True)
 
     def test_4( self

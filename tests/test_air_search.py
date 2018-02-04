@@ -17,8 +17,7 @@ class TestAirSearch(unittest.TestCase):
 
         """
 
-        res = aos.get_itins(outbound_date=self.today_date_plus_2m)
-        print res
+        res = aos.get_itins(outbound_date = self.today_date_plus_2m)
 
         self.assertTrue(True)
 
@@ -36,7 +35,7 @@ class TestAirSearch(unittest.TestCase):
 
         """
         future_date = ds.convert_date_datedash(ao.date_today() + dt.timedelta(days=30))
-        print aos.get_all_carriers( 'EWR'
+        res = aos.get_all_carriers( 'EWR'
                                   , 'SFO'
                                   , future_date )
 
@@ -50,7 +49,5 @@ class TestAirSearch(unittest.TestCase):
         res2 = aos.get_ticket_prices( 'EWR'
                                     , 'SFO'
                                     , self.today_date_plus_2m)
-
-        print "RES1: ", res1, res2
 
         self.assertTrue(True)
