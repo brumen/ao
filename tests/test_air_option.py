@@ -32,11 +32,12 @@ class TestAirOption(unittest.TestCase):
                                                   , ds.convert_date_datedash(self.outDatePlusOne))
 
     def test_ao_2( self
-                 , nb_sim=50000):
+                 , nb_sim = 50000):
         """
         tests the air option
 
         """
+
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 62./365., 62)
