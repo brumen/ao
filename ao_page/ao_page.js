@@ -73,7 +73,10 @@ function select_deselect_all_below(elt, button_id, checked_ind) {
 }
 
 
-function create_button_accordion(element_to_append, button_text, div_id, button_id) {
+function create_button_accordion(element_to_append
+				 , button_text
+				 , div_id
+				 , button_id) {
     // button_id: this is in the form of '2017-02-26' or '2017-02-26_night'
     // creates the button and the accordion in the lower buckets
     var outgoing_routes = document.createElement("button");
@@ -137,8 +140,8 @@ function present_price_ranges(price_range) {
 	    option_range = (dates_sorted[ord].getMonth() + 1) + '/' + dates_sorted[ord].getDate() + '/' + dates_sorted[ord].getFullYear();
 	else {
 	    var out_option_range = (dates_sorted[ord][0].getMonth() + 1) + '/' + dates_sorted[ord][0].getDate() + '/' + dates_sorted[ord][0].getFullYear();
-	    var in_option_range = (dates_sorted[ord][1].getMonth() + 1) + '/' + dates_sorted[ord][1].getDate() + '/' + dates_sorted[ord][1].getFullYear();
-	    option_range = out_option_range + ' - ' + in_option_range;
+	    var in_option_range  = (dates_sorted[ord][1].getMonth() + 1) + '/' + dates_sorted[ord][1].getDate() + '/' + dates_sorted[ord][1].getFullYear();
+	    option_range         = out_option_range + ' - ' + in_option_range;
 	}
 	var curr_val = price_range[option_range];
 	var li_item = document.createElement("li");
@@ -182,11 +185,11 @@ function display_results_init(response) {
 	flights_presented.textContent = "No flights found matching selected conditions.";
 	return price;  // else continue w/ this
     }
-    var return_ind = obj.return_ind;
-    var flights = obj.flights;
+    var return_ind    = obj.return_ind;
+    var flights       = obj.flights;
     var reorg_flights = obj.reorg_flights;
-    var minmax = obj.minmax;  // minmax over subsets
-    var price_range = obj.price_range;  // price range
+    var minmax        = obj.minmax;  // minmax over subsets
+    var price_range   = obj.price_range;  // price range
 
     // present price ranges:
     present_price_ranges(price_range);
@@ -194,39 +197,51 @@ function display_results_init(response) {
     
     // store data to localStorage
     localStorage.clear();
-    localStorage.setItem("flights_found", "true");
-    localStorage.setItem("option_start", document.getElementById("option-start-date").value);
-    localStorage.setItem("option_end", document.getElementById("option-end-date").value);
-    localStorage.setItem("dep_start", document.getElementById("js-depart-input").value);
-    localStorage.setItem("dep_end", document.getElementById("js-return-input").value);
-    localStorage.setItem("carrier", document.getElementById("airline-name").value);
-    localStorage.setItem("strike", document.getElementById("ticket-price").value);
-    localStorage.setItem("flights_curr", JSON.stringify(obj.flights));
-    localStorage.setItem("reorg_flights_curr", JSON.stringify(obj.reorg_flights));
-    localStorage.setItem("minmax", JSON.stringify(obj.minmax));
+    localStorage.setItem("flights_found"     , "true"                                            );
+    localStorage.setItem("option_start"      , document.getElementById("option-start-date").value);
+    localStorage.setItem("option_end"        , document.getElementById("option-end-date").value  );
+    localStorage.setItem("dep_start"         , document.getElementById("js-depart-input").value  );
+    localStorage.setItem("dep_end"           , document.getElementById("js-return-input").value  );
+    localStorage.setItem("carrier"           , document.getElementById("airline-name").value     );
+    localStorage.setItem("strike"            , document.getElementById("ticket-price").value     );
+    localStorage.setItem("flights_curr"      , JSON.stringify(obj.flights)                       );
+    localStorage.setItem("reorg_flights_curr", JSON.stringify(obj.reorg_flights)                 );
+    localStorage.setItem("minmax"            , JSON.stringify(obj.minmax)                        );
     
     var origin_station = document.getElementById('js-origin-input').value;
-    var dest_station = document.getElementById('js-destination-input').value;
+    var dest_station   = document.getElementById('js-destination-input').value;
     
     // add All/None selector - THIS ONE WORKS 
     // create_cb_sel_all(flights_presented, 'cb_sel_all', sel_all_flights);
     if (return_ind == "one-way") {
 	mm = minmax['min_max']
-	create_button_accordion(flights_presented, "Departing flights: " + origin_station + " -> " +
-				dest_station + ": from " + mm[0] + " USD to " + mm[1] + " USD.",
-				"outgoing_flights", "outgoing_all");
-	reorganize_results_ow(flights, reorg_flights, minmax, "outgoing_flights", "outgoing");
+	create_button_accordion(flights_presented
+				, "Departing flights: " + origin_station + " -> " + dest_station + ": from " + mm[0] + " USD to " + mm[1] + " USD."
+				, "outgoing_flights", "outgoing_all" );
+	reorganize_results_ow( flights
+			       , reorg_flights
+			       , minmax
+			       , "outgoing_flights"
+			       , "outgoing" );
     } else {
 	mm_out = minmax[0]['min_max'];
-	mm_in = minmax[1]['min_max'];
-	create_button_accordion(flights_presented, "Departing flights: " + origin_station + " -> " +
-				dest_station + ": from " + mm_out[0] + " USD to " + mm_out[1] + " USD.",
-				"outgoing_flights", "outgoing_all");
-	reorganize_results_ow(flights[0], reorg_flights[0], minmax[0], "outgoing_flights", "outgoing");
-	create_button_accordion(flights_presented, "Return flights: " + dest_station + " -> " +
-				origin_station + ": from " + mm_in[0] + " USD to " + mm_in[1] + " USD.",
-				"incoming_flights", "incoming_all");
-	reorganize_results_ow(flights[1], reorg_flights[1], minmax[1], "incoming_flights", "incoming");
+	mm_in  = minmax[1]['min_max'];
+	create_button_accordion(flights_presented
+				, "Departing flights: " + origin_station + " -> " + dest_station + ": from " + mm_out[0] + " USD to " + mm_out[1] + " USD."
+				, "outgoing_flights", "outgoing_all" );
+	reorganize_results_ow(flights[0]
+			      , reorg_flights[0]
+			      , minmax[0]
+			      , "outgoing_flights"
+			      , "outgoing" );
+	create_button_accordion(flights_presented
+				, "Return flights: " + dest_station + " -> " + origin_station + ": from " + mm_in[0] + " USD to " + mm_in[1] + " USD."
+				, "incoming_flights", "incoming_all" );
+	reorganize_results_ow(flights[1]
+			      , reorg_flights[1]
+			      , minmax[1]
+			      , "incoming_flights"
+			      , "incoming" );
     }
 
     // accordion function onclick
@@ -242,7 +257,11 @@ function display_results_init(response) {
 }
 
 
-function reorganize_results_ow(flights, reorg_flights, minmax, top_dom, out_in_ind) {
+function reorganize_results_ow(flights
+			       , reorg_flights
+			       , minmax
+			       , top_dom
+			       , out_in_ind) {
     // displays the flights from the search query in the designaated window (from one-way)
     // top_dom: top object to which this is subordinated
     // minmax: information about the minimum and maximum flight 
@@ -259,8 +278,10 @@ function reorganize_results_ow(flights, reorg_flights, minmax, top_dom, out_in_i
     for (var flight_date in reorg_flights) {  // iteration over dates 
 	var curr_date = reorg_flights[flight_date];
 	var mm_local = minmax[flight_date]; 
-	li_dates = create_button_accordion(dates_selector, flight_date + ": from " + mm_local['min_max'][0] + " USD to " + mm_local['min_max'][1] + " USD.",
-					   flight_date + "_div", flight_date);
+	li_dates = create_button_accordion(dates_selector
+					   , flight_date + ": from " + mm_local['min_max'][0] + " USD to " + mm_local['min_max'][1] + " USD."
+					   , flight_date + "_div"
+					   , flight_date );
 	
 	var time_of_day_selector = document.createElement("ol");
 	time_of_day_selector.id = "time_of_day_selectable"; 
@@ -268,18 +289,21 @@ function reorganize_results_ow(flights, reorg_flights, minmax, top_dom, out_in_i
 
 	for (var time_of_day in curr_date) {
 	    // here are times of day 
-	    var curr_time_of_day = curr_date[time_of_day];
-	    var mm_local_2 = mm_local[time_of_day];
+	    var mm_local_2       = mm_local[time_of_day];
 
 	    var li_time_of_day = document.createElement("li");
 	    li_time_of_day.class = "ui-widget-content";
 	    li_time_of_day.style = "list-style-type: none; border: 2px solid black; border-radius: 5px; margin-bottom: 5px; margin-right: 3px; margin-left:-20px;";
 	    time_of_day_selector.appendChild(li_time_of_day);
 	    
-	    flight_selector = create_button_accordion(li_time_of_day, time_of_day + ": from " + mm_local_2[0] + " USD to " + mm_local_2[1] + " USD.",
-						      flight_date + '_' + time_of_day + '_div', flight_date + '_' + time_of_day);
+	    flight_selector = create_button_accordion(li_time_of_day
+						      , time_of_day + ": from " + mm_local_2[0] + " USD to " + mm_local_2[1] + " USD."
+						      , flight_date + '_' + time_of_day + '_div', flight_date + '_' + time_of_day );
 	    li_time_of_day.appendChild(flight_selector);
-	    display_flights_inner(flight_date, curr_time_of_day, flight_selector, out_in_ind); // display flights 
+	    display_flights_inner(flight_date
+				  , curr_date[time_of_day]
+				  , flight_selector
+				  , out_in_ind); // display flights 
 	}
     }
 }
@@ -366,6 +390,7 @@ function update_minmax_in_accordion(minmax_o, out_in_ind) {
 	var outgoing_level_button = document.getElementById('outgoing_all'); // highest button
     else
 	var outgoing_level_button = document.getElementById('incoming_all'); // highest button
+
     var outgoing_level_txt = outgoing_level_button.textContent.split(':'); // we update just [2] one
     var mm_top = minmax_o['min_max'];
     var outgoing_level_new_txt;
@@ -376,6 +401,7 @@ function update_minmax_in_accordion(minmax_o, out_in_ind) {
 	String(mm_top[1]) + ' USD.';
     //outgoing_level_button.textContent = outgoing_level_new_txt;
     replace_text_in_button(outgoing_level_button, outgoing_level_new_txt);
+
     // descend to date level
     var mm_u;
     var date_button_txt_new;
@@ -412,15 +438,15 @@ function update_minmax_in_accordion(minmax_o, out_in_ind) {
 function update_minmax_upwards(elt) {
     // checkbox element was clicked - update the reorg_list and flights_list and minmax on localStorage 
     // remove/add  the flight to the selection
-    var one_way_ind = document.getElementById('js-one-way-input').checked;  // true if one-way
-    var out_in_ind = elt.name;  // 'outgoing' or 'incoming' 
-    var date_flight = elt.id.split(':');
-    var date_used = date_flight[0];
-    var flight_used = date_flight[1];
+    var one_way_ind        = document.getElementById('js-one-way-input').checked;  // true if one-way
+    var out_in_ind         = elt.name;  // 'outgoing' or 'incoming' 
+    var date_flight        = elt.id.split(':');
+    var date_used          = date_flight[0];
+    var flight_used        = date_flight[1];
     var reorg_flights_curr = JSON.parse(localStorage.reorg_flights_curr);
-    var reorg_flights_used_now;
-    var minmax_old = JSON.parse(localStorage.minmax);
-    var minmax_new;
+    var minmax_old         = JSON.parse(localStorage.minmax);
+    var reorg_flights_used_now, minmax_new;
+    
     if (one_way_ind)
 	remove_add_flight_from_reorg(reorg_flights_curr, date_used, flight_used, elt.checked);
     else {  // return flights 
@@ -429,9 +455,13 @@ function update_minmax_upwards(elt) {
 	else
 	    reorg_flights_used_now = reorg_flights_curr[1];
 	
-	remove_add_flight_from_reorg(reorg_flights_used_now, date_used, flight_used, elt.checked);
+	remove_add_flight_from_reorg( reorg_flights_used_now
+				      , date_used
+				      , flight_used
+				      , elt.checked );
     }
-    localStorage.setItem('reorg_flights_curr', JSON.stringify(reorg_flights_curr));  // updating the reorg elt. 
+    localStorage.setItem('reorg_flights_curr'
+			 , JSON.stringify(reorg_flights_curr) );  // updating the reorg elt. 
     if (one_way_ind) {
 	minmax_new = reconst_minmax_in_reorg(reorg_flights_curr); // this is an object
 	localStorage.setItem('minmax', JSON.stringify(minmax_new));  // updating the minmax elt.
@@ -445,6 +475,7 @@ function update_minmax_upwards(elt) {
 	}
 	localStorage.setItem('minmax', JSON.stringify(minmax_old));  // updating the minmax elt.
     }
+    
     if (out_in_ind == 'outgoing') {
 	if (one_way_ind) 
 	    update_minmax_in_accordion(minmax_new, out_in_ind);
@@ -461,11 +492,10 @@ function display_flights_inner(flight_date, curr_time_of_day, flight_selector, o
 	if (curr_flight_date != 'min_max') {
 	    var curr_flight = curr_time_of_day[curr_flight_date];
 	    var checkbox_elt = document.createElement("input");
-	    checkbox_elt.type = "checkbox";
-	    checkbox_elt.id = flight_date + ":" + curr_flight[6];  // node id: flight_date : flight_id 
-	    checkbox_elt.name = out_in_ind; //+ flight_date + "_" + time_of_day;
+	    checkbox_elt.type    = "checkbox";
+	    checkbox_elt.id      = flight_date + ":" + curr_flight[6];  // node id: flight_date : flight_id 
+	    checkbox_elt.name    = out_in_ind;
 	    checkbox_elt.checked = true;
-	    // checkbox_elt.onclick = function() {update_minmax_upwards(this);}
 	    checkbox_elt.onclick = function() {update_minmax_upwards(this);}
 	    var li_flight = document.createElement("li");
 	    li_flight.appendChild(checkbox_elt);
@@ -477,10 +507,10 @@ function display_flights_inner(flight_date, curr_time_of_day, flight_selector, o
 
 
 function create_checkbox() {
-    var checkbox_elt = document.createElement("input");
-    checkbox_elt.type = "checkbox";
-    checkbox_elt.id = flight_date + ":" + curr_flight[6];  // node id: flight_date : flight_id 
-    checkbox_elt.name = out_in_ind; //+ flight_date + "_" + time_of_day;
+    var checkbox_elt     = document.createElement("input");
+    checkbox_elt.type    = "checkbox";
+    checkbox_elt.id      = flight_date + ":" + curr_flight[6];  // node id: flight_date : flight_id 
+    checkbox_elt.name    = out_in_ind;
     checkbox_elt.checked = true;
     checkbox_elt.onclick = function() {update_minmax_upwards(this);}
 }
@@ -507,7 +537,7 @@ function reorganize_results_inquiry(response) {
 function get_ow_ret(elt_name) {
     // gets the return/one-way key from elt_name
     var trip_options = document.getElementsByName(elt_name);
-    var return_ow;  
+    var return_ow;
     for(var i = 0; i < trip_options.length; i++){
 	if(trip_options[i].checked) {
             return_ow = trip_options[i].value;
@@ -534,8 +564,8 @@ function get_nb_people(elt_name) {
     // gets the cabin class key from elt_name
     var nb_people_options = document.getElementsByName(elt_name)[0];
     var return_nb_people;  
-    for(var i = 0; i < nb_people_options.length; i++){
-	if(nb_people_options[i].selected) {
+    for(var i = 0; i < nb_people_options.length; i++) {
+	if (nb_people_options[i].selected) {
             return_nb_people = nb_people_options[i].value;
 	}
     }
@@ -545,57 +575,61 @@ function get_nb_people(elt_name) {
 
 function get_basic_info() {
     // constructs the object with the basic flight info 
-    var return_ow = get_ow_ret("trip-type");
-    var cabin_class = get_cabin_class("cabin-class-type");
-    var nb_people = get_nb_people("nb-people");
-    var origin_place = document.getElementById("js-origin-input").value;
-    var dest_place = document.getElementById("js-destination-input").value;
-    var option_start = document.getElementById("option-start-date").value;
-    var option_end = document.getElementById("option-end-date").value;
+    var return_ow      = get_ow_ret("trip-type");
+    var cabin_class    = get_cabin_class("cabin-class-type");
+    var nb_people      = get_nb_people("nb-people");
+    var origin_place   = document.getElementById("js-origin-input").value;
+    var dest_place     = document.getElementById("js-destination-input").value;
+    var option_start   = document.getElementById("option-start-date").value;
+    var option_end     = document.getElementById("option-end-date").value;
     var outbound_start = document.getElementById("js-depart-input").value;
-    var outbound_end = document.getElementById("js-return-input").value;
-    var strike = document.getElementById("ticket-price").value;
-    var carrier = document.getElementById("airline-name").value;
+    var outbound_end   = document.getElementById("js-return-input").value;
+    var strike         = document.getElementById("ticket-price").value;
+    var carrier        = document.getElementById("airline-name").value;
+
     return_obj = new FormData();
-    return_obj['return_ow'] = return_ow;
-    return_obj['cabin_class'] = cabin_class;
-    return_obj['nb_people'] = nb_people;
-    return_obj['origin_place'] = origin_place;
-    return_obj['dest_place'] = dest_place;
-    return_obj['option_start'] = option_start;
-    return_obj['option_end'] = option_end;
+    return_obj['return_ow'     ] = return_ow;
+    return_obj['cabin_class'   ] = cabin_class;
+    return_obj['nb_people'     ] = nb_people;
+    return_obj['origin_place'  ] = origin_place;
+    return_obj['dest_place'    ] = dest_place;
+    return_obj['option_start'  ] = option_start;
+    return_obj['option_end'    ] = option_end;
     return_obj['outbound_start'] = outbound_start;
-    return_obj['outbound_end'] = outbound_end;
-    return_obj['ticket_price'] = strike;
-    return_obj['airline_name'] = carrier;
+    return_obj['outbound_end'  ] = outbound_end;
+    return_obj['ticket_price'  ] = strike;
+    return_obj['airline_name'  ] = carrier;
+
     if (return_ow == 'return') {
 	// get the return data
-	var option_ret_start = document.getElementById("option-start-date-return").value;
-	var option_ret_end = document.getElementById("option-end-date-return").value;
+	var option_ret_start   = document.getElementById("option-start-date-return").value;
+	var option_ret_end     = document.getElementById("option-end-date-return").value;
 	var outbound_start_ret = document.getElementById("js-depart-input-return").value;
-	var outbound_end_ret = document.getElementById("js-return-input-return").value;
-	return_obj['option_ret_start'] = option_ret_start;
-	return_obj['option_ret_end'] = option_ret_end;
+	var outbound_end_ret   = document.getElementById("js-return-input-return").value;
+	return_obj['option_ret_start'  ] = option_ret_start;
+	return_obj['option_ret_end'    ] = option_ret_end;
 	return_obj['outbound_start_ret'] = outbound_start_ret;
-	return_obj['outbound_end_ret'] = outbound_end_ret;
+	return_obj['outbound_end_ret'  ] = outbound_end_ret;
     }
+
     return return_obj;
 }
 
 
 function construct_get_req_string(basic_info_obj) {
     var return_ow = basic_info_obj['return_ow'];
-    var get_string = "?origin_place=" + basic_info_obj['origin_place'];
-    get_string += "&dest_place=" + basic_info_obj['dest_place'];
-    get_string += "&option_start=" + basic_info_obj['option_start'];
-    get_string += "&option_end=" + basic_info_obj['option_end'];
-    get_string += "&outbound_start=" + basic_info_obj['outbound_start'];
-    get_string += "&outbound_end=" + basic_info_obj['outbound_end'];
-    get_string += "&ticket_price=" + basic_info_obj['ticket_price'];
-    get_string += "&airline_name=" + basic_info_obj['airline_name'];
-    get_string += "&return_ow=" + return_ow;
-    get_string += "&cabin_class=" + basic_info_obj['cabin_class'];
-    get_string += "&nb_people=" + basic_info_obj['nb_people'];
+
+    var get_string = "?origin_place="   + basic_info_obj['origin_place'];
+    get_string +=    "&dest_place="     + basic_info_obj['dest_place'];
+    get_string +=    "&option_start="   + basic_info_obj['option_start'];
+    get_string +=    "&option_end="     + basic_info_obj['option_end'];
+    get_string +=    "&outbound_start=" + basic_info_obj['outbound_start'];
+    get_string +=    "&outbound_end="   + basic_info_obj['outbound_end'];
+    get_string +=    "&ticket_price="   + basic_info_obj['ticket_price'];
+    get_string +=    "&airline_name="   + basic_info_obj['airline_name'];
+    get_string +=    "&return_ow="      + return_ow;
+    get_string +=    "&cabin_class="    + basic_info_obj['cabin_class'];
+    get_string +=    "&nb_people="      + basic_info_obj['nb_people'];
 
     if (return_ow == 'return') {
 	get_string += "&option_ret_start=" + basic_info_obj['option_ret_start']
@@ -603,11 +637,14 @@ function construct_get_req_string(basic_info_obj) {
 	get_string += "&outbound_start_ret=" + basic_info_obj['outbound_start_ret']
 	get_string += "&outbound_end_ret=" + basic_info_obj['outbound_end_ret']
     }
+
     return get_string;
 }
 
 
-function change_button_to_searching(btn, replace_txt, left_or_after_ind) {
+function change_button_to_searching( btn
+				     , replace_txt
+				     , left_or_after_ind ) {
     // change the button to a different class 
     btn.textContent = "";  // remove all text 
     if (left_or_after_ind == 'left')
@@ -616,14 +653,16 @@ function change_button_to_searching(btn, replace_txt, left_or_after_ind) {
 	btn.className = 'js-search-button wc-button-large-left-after btn btn-default btn-md';
     var i_elt = document.createElement('i');
     i_elt.className = 'fa fa-circle-o-notch fa-spin';
-    i_elt.id = 'spinning_btn';
+    i_elt.id        = 'spinning_btn';
     btn.appendChild(i_elt);
-    var txt_elt = document.createTextNode(replace_txt);
-    btn.appendChild(txt_elt);
+    btn.appendChild(document.createTextNode(replace_txt));
 }
 
 
-function change_button_back(btn, replace_txt, left_or_after_ind) {
+function change_button_back( btn
+			     , replace_txt
+			     , left_or_after_ind) {
+
     // left_or_after indicator is whether the button receives left or left_after class 
     if (left_or_after_ind == 'left')
 	btn.className = 'js-search-button wc-button-large-left';
@@ -759,12 +798,9 @@ function close_inquiry() {
 
 
 function send_inquiry() {
-    var info_o = get_basic_info();
-    var message_text = document.getElementById("inquiry_text_form").value;
-    var email_text = document.getElementById("inquiry_email").value;
-    var ow_ind = info_o['return_ow'];  // 'one_way' or 'return' indicator
-    info_o['message_text'] = message_text;
-    info_o['email_text'] = email_text;
+    var info_o             = get_basic_info();
+    info_o['message_text'] = document.getElementById("inquiry_text_form").value;
+    info_o['email_text'  ] = document.getElementById("inquiry_email").value;
 
     if (typeof localStorage.reorg_flights_curr !== "undefined")
 	info_o['flights_sel'] = JSON.parse(localStorage.reorg_flights_curr)
@@ -839,26 +875,27 @@ function copy_basics(btn_elt, opt_val) {
     // final flights that are selected
     var flights_sel_final = document.getElementById('flights_sel_final');  
     flights_sel_final.value = localStorage.reorg_flights_curr; 
+
     // origin, destination copy
     origin_final = document.getElementById('origin_final');
-    dest_final = document.getElementById('dest_final');
+    dest_final   = document.getElementById('dest_final');
     origin_final.value = document.getElementById('js-origin-input').value;
     dest_final.value = document.getElementById('js-destination-input').value;
-    var dep_start_final = document.getElementById('dep_start_final');
-    var dep_end_final = document.getElementById('dep_end_final');
-    var ret_start_final = document.getElementById('ret_start_final');
-    var ret_end_final = document.getElementById('ret_end_final');
-    var carrier_final = document.getElementById('carrier_final');
+    var dep_start_final    = document.getElementById('dep_start_final');
+    var dep_end_final      = document.getElementById('dep_end_final');
+    var ret_start_final    = document.getElementById('ret_start_final');
+    var ret_end_final      = document.getElementById('ret_end_final');
+    var carrier_final      = document.getElementById('carrier_final');
     var ticket_price_final = document.getElementById('ticket_price_final');
     dep_start_final.value = document.getElementById('js-depart-input').value;
-    dep_end_final.value = document.getElementById('js-return-input').value;
+    dep_end_final.value   = document.getElementById('js-return-input').value;
     ret_start_final.value = document.getElementById('js-depart-input-return').value;
-    ret_end_final.value = document.getElementById('js-return-input-return').value;
+    ret_end_final.value  = document.getElementById('js-return-input-return').value;
     // carrier
-    carrier_final.value = document.getElementById('airline-name').value;
+    carrier_final.value      = document.getElementById('airline-name').value;
     ticket_price_final.value = document.getElementById('ticket-price').value;
     // set number of people, class
-    var cabin_class = get_cabin_class('cabin-class-type');
+    var cabin_class     = get_cabin_class('cabin-class-type');
     var cabin_class_set = document.getElementById('class_travel');
     cabin_class_set.value = cabin_class;
     var nb_people = get_nb_people('nb-people');
@@ -921,11 +958,19 @@ function disable_paybutton() {
 }
 
 
-function verify_origin() {
-    var origin_inp = document.getElementById('js-origin-input');
+// verifies if the origin or destination or airline is changed 
+function verify_origin_dest(orig_dest) {
+    if (orig_dest == 'origin') 
+	var origin_inp = document.getElementById('js-origin-input');
+    else if (orig_dest == 'dest')
+	var origin_inp = document.getElementById('js-destination-input');
+    else if (orig_dest == 'airline')
+	var origin_inp = document.getElementById('airline-name');
+	
     var req = new XMLHttpRequest();
     var origin_name = origin_inp.value;
-    //req.onreadystatechange = function() {
+    // TODO: CHECK HERE WHICH IS MORE APPROPRIATE
+    // req.onreadystatechange = function() {
     req.onload = function() {
 	close_flights_booking();
 	var is_valid = JSON.parse(req.responseText).found;
@@ -934,44 +979,27 @@ function verify_origin() {
 	else
 	    origin_inp.style.color = "red";
     }
-    req.open("GET", "cgi-bin/verify_origin.py" + encodeURI("?origin=" + origin_name), true);
+    if (orig_dest == 'airline')
+	req.open("GET", "verify_airline" + encodeURI("?airline=" + origin_name), true);
+    else
+	req.open("GET", "verify_origin" + encodeURI("?origin=" + origin_name), true);
+
     req.send();
+}
+
+
+function verify_origin() {
+    verify_origin_dest('origin');
 }
 
 
 function verify_dest() {
-    var origin_inp = document.getElementById('js-destination-input');
-    var req = new XMLHttpRequest();
-    var origin_name = origin_inp.value;
-    //req.onreadystatechange = function() {
-    req.onload = function() {
-	close_flights_booking();
-	var is_valid = JSON.parse(req.responseText).found;
-	if (is_valid)
-	    origin_inp.style.color = "black";
-	else
-	    origin_inp.style.color = "red";
-    }
-    req.open("GET", "cgi-bin/verify_origin.py" + encodeURI("?origin=" + origin_name), true);
-    req.send();
+    verify_origin_dest('dest');
 }
 
 
 function verify_airline() {
-    var origin_inp = document.getElementById('airline-name');
-    var req = new XMLHttpRequest();
-    var origin_name = origin_inp.value;
-    //req.onreadystatechange = function() {  // onload is more appropriate here
-    req.onload = function() {
-	close_flights_booking();
-	var is_valid = JSON.parse(req.responseText).found;
-	if (is_valid)
-	    origin_inp.style.color = "black";
-	else
-	    origin_inp.style.color = "red";
-    }
-    req.open("GET", "cgi-bin/verify_airline.py" + encodeURI("?airline=" + origin_name), true);
-    req.send();
+    verify_origin_dest('airline')
 }
 
 
@@ -1019,7 +1047,6 @@ function populate_carriers() {
 
 function max_dates(d1, d2) {
     // takes the maximum of 2 dates
-    //if (d1.getTime() <= d2.getTime())
     if (d2 - d1 >= 0)
 	return d2;
     else
@@ -1042,8 +1069,8 @@ function convert_date_to_mm_dd_yyyy(d) {
     var mm = d.getMonth() + 1; // getMonth() is zero-based
     var dd = d.getDate();
     return [d.getFullYear(),
-	    (mm>9 ? '' : '0') + mm,
-	    (dd>9 ? '' : '0') + dd
+	    (mm > 9 ? '' : '0') + mm,
+	    (dd > 9 ? '' : '0') + dd
            ].join('');
 }
 
