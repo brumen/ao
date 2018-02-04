@@ -713,7 +713,7 @@ function handleMessage(gs, ts, pcs) {
     var new_ts, progress_notice;
     $.ajax({
  	type: "GET",
- 	url: "cgi-bin/compute_option.py" + encodeURI(gs) + "&timestamp=" + ts
+ 	url: "compute_option" + encodeURI(gs) + "&timestamp=" + ts
  	    + "&pcs_id=" + String(pcs),
  	async: true,
  	cache: false,
@@ -775,7 +775,7 @@ function recompute_option_post() {
 	    document.getElementById("option_price_frame").value = new_price;
 	change_button_back(recomp_button, 'Recompute', 'left-after');
     }
-    req.open("POST", "cgi-bin/recompute_option.py", true);
+    req.open("POST", "recompute_option", true);
     req.setRequestHeader("Content-type", "application/json");
     req.send(JSON.stringify(info_o));
 }
@@ -808,7 +808,7 @@ function send_inquiry() {
 	info_o['flights_sel'] = "undefined";
     
     var req = new XMLHttpRequest();
-    req.open("POST", "cgi-bin/write_inquiry.py", true);
+    req.open("POST", "write_inquiry", true);
     req.setRequestHeader("Content-type", "application/json");
     req.send(JSON.stringify(info_o));
     
@@ -980,9 +980,9 @@ function verify_origin_dest(orig_dest) {
 	    origin_inp.style.color = "red";
     }
     if (orig_dest == 'airline')
-	req.open("GET", "verify_airline" + encodeURI("?airline=" + origin_name), true);
+	req.open("GET", "myapp/verify_airline" + encodeURI("?airline=" + origin_name), true);
     else
-	req.open("GET", "verify_origin" + encodeURI("?origin=" + origin_name), true);
+	req.open("GET", "myapp/verify_origin" + encodeURI("?origin=" + origin_name), true);
 
     req.send();
 }
@@ -1039,7 +1039,7 @@ function populate_carriers() {
 	    }); 
 	}
     }
-    req.open("GET", "cgi-bin/find_relevant_carriers.py" + encodeURI("?origin=" + origin_name +
+    req.open("GET", "myapp/find_relevant_carriers" + encodeURI("?origin=" + origin_name +
 								    "&dest=" + dest_name), true);
     req.send();
 }

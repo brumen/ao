@@ -1,8 +1,9 @@
-# Flask imports
+# Handling the requests of the webpage
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
 from ao_scripts.verify_airline         import is_valid_airline
 from ao_scripts.verify_origin          import is_valid_origin
+from ao_scripts.recompute_option       import recompute_option
 
 from flask import Flask, request, jsonify
 
@@ -49,7 +50,7 @@ def find_relevant_carriers():
 def recompute_option():
 
     # TODO LOTS OF TODO HERE
-    return 1
+    return recompute_option()  # TODO: THIS HAS TO CHANGE
 
 
 @app.route('/write_inquiry', methods=['POST'])

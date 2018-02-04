@@ -2,7 +2,7 @@
 
 import json
 
-from ao_codes import iata_airlines_codes
+from ao_codes import iata_airlines_codes as IATA_AIRLINES_CODES
 
 
 def print_for_js(return_l):
@@ -20,15 +20,14 @@ def print_for_js(return_l):
     print body
 
 
-def compute_return_l( term
-                    , iata_airlines_codes = iata_airlines_codes ):
+def compute_return_l(term):
     """
     returns the list of places from term
 
     """
 
     ret_cand_1 = filter( lambda x: term.upper() in x.upper()
-                       , iata_airlines_codes.keys())
+                       , IATA_AIRLINES_CODES.keys())
 
     if len(ret_cand_1) < 10:
         return ret_cand_1

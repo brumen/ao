@@ -20,9 +20,7 @@ def print_for_js(return_l):
     print body
 
 
-def compute_return_l( term
-                    , iata_cities_codes =iata_cities_codes
-                    , iata_codes_cities =iata_codes_cities ):
+def compute_return_l(term):
     """
     returns the list of places from term 
 
