@@ -1,5 +1,9 @@
 # Handling the requests of the webpage
 from time import sleep
+import json
+import uuid
+import unirest
+
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
 from ao_scripts.verify_airline         import is_valid_airline
@@ -119,3 +123,29 @@ def ao_auto_fill_airline():
     # TODO: WHERE DO WE NEED found_ind
     return_l, found_ind = show_airline_l(request.args.get("term"))
     return jsonify(return_l)
+
+
+# TODO: FIX THIS ROUTE HERE
+@app.route('ao_payment', methods = ['GET'])
+def ao_payment():
+    # The following variables need to be assigned:
+    #   card_nonce
+    #   location_id
+    #   access_token
+
+    card_nonce = request.args.get('card_nonce', '')
+    location_id = request.args.get('location_id', '')
+    access_token = request.args.get('access_token', '')
+
+    # work that is done
+    response = unirest.post( 'https://connect.squareup.com/v2/locations/' + location_id + '/transactions'
+                           , headers = { 'Accept': 'application/json'
+                                       , 'Content-Type': 'application/json'
+                                       , 'Authorization': 'Bearer ' + access_token
+                                       ,}
+                           , params = json.dumps({ 'card_nonce': card_nonce
+                                                 , 'amount_money': { 'amount': 100
+                                                                   , 'currency': 'USD' }
+                                                 , 'idempotency_key': str(uuid.uuid1()) }) )
+
+    return response.body

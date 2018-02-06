@@ -783,6 +783,46 @@ function handleMessage(gs, ts, pcs) {
 }
 
 
+function handleMessage2(e) {
+    // function handles the communication between the server to retrieve flight data
+
+    var data = e.data;  // THIS IS WRONG 
+    
+    if (e.data == 'success')  // FIX THIS HERE
+    {  // success logic - data object with fields as defined 
+ 	if (data['is_complete']) {  // finished, display stuff 
+ 	    var price = display_results_init(data['progress_notice']);
+	    // close the notification messages
+	    var nm = document.getElementById("notification_messages");
+	    nm.style = "display:none;";
+ 	    document.getElementById("option_price_frame").value = price;
+ 	    var ff_button = document.getElementById('find_flights_button');
+ 	    change_button_back(ff_button, 'Find flights', 'left');
+ 	    // change the type of checkbox accorions 
+ 	    $('.accordion input[type="checkbox"]').click(function(e) {
+ 		e.stopPropagation();
+ 	    });
+ 	} else {  // not finished, add a part in the flights  
+ 	    new_ts = data['new_timestamp'];
+ 	    progress_notice = JSON.parse(data['progress_notice'])['progress_notice'];
+ 	    // showing the style 
+ 	    var fps = document.getElementById("flights-section");
+ 	    fps.style = "";  // display this section 
+ 	    var fp = document.getElementById("notification_messages")
+ 	    if (data['progress']) { // progress in the data acquisition 
+ 		var new_p = document.createElement("p");
+ 		new_p.appendChild(document.createTextNode(progress_notice));
+ 		fp.appendChild(new_p);
+ 	    }
+ 	}
+    },
+    error: function(XMLHttpRequest, textStatus, errorThrown) {
+ 	alert("error: " + textStatus + " (" + errorThrown + ")");
+    }
+});  // end of Ajax
+}
+
+
 function recompute_option_post() {
     // recompute option but with a post command 
     if (localStorage.flights_found != "true")  // this guarantees that flights_selected exists
