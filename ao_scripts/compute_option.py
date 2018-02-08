@@ -1,23 +1,18 @@
 # Compute script
 
 from contextlib import contextmanager
-import time
 import sys, os
 import os.path
 import numpy as np
-import json
-from flask import jsonify
 import logging
 
 # local path import first 
-import config
-import ao_codes  # definition files 
+import ao_codes  # definition files
 log_file = ao_codes.error_log
 
 # ao modules
 import air_option as ao
 from get_data     import get_data
-from daemon_local import AoDaemon
 
 # logger declaration
 logger = logging.getLogger(__name__)
@@ -38,89 +33,6 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
             
-def print_only_progress( is_complete
-                       , progress_notice
-                       , new_timestamp):
-    """
-    server response
-
-    """
-
-    return jsonify({ 'is_complete'    : is_complete
-                   , 'new_timestamp'  : new_timestamp
-                   , 'progress_notice': progress_notice})
-
-
-def print_query( valid_inp
-               , return_ind
-               , output
-               , price_range
-               , flights_v
-               , reorg_flights_v
-               , minmax_v ):
-    """
-    reorganizes the data so that JavaScript can reorganize them better
-
-    """
-
-    ret_dict = {'is_complete'      : True
-                # I BELIEVE I DONT NEED THE NEXT 2 LINES
-               , 'new_timestamp'   : '2017--'  # irrelevant
-               , 'progress_notice' : 'finished'  # also irrelevant
-               , 'valid_inp'       : valid_inp
-               , 'return_ind'      : return_ind
-               , 'price'           : output
-               , 'flights'         : flights_v
-               , 'reorg_flights'   : reorg_flights_v
-               , 'minmax'          : minmax_v
-               , 'price_range'     : price_range}
-
-    body = json.dumps(ret_dict)
-
-    # writes to a file
-    lt          = time.localtime()
-    as_of       = str(lt.tm_year) + '_' + str(lt.tm_mon) + '_' + str(lt.tm_mday) + '_' + \
-                  str(lt.tm_hour) + '_' + str(lt.tm_min) + '_' + str(lt.tm_sec)
-    inquiry_dir = ao_codes.inquiry_dir + 'inquiry_solo/'
-    query_file  = inquiry_dir + 'query_' + as_of + '.txt'
-
-    fo = open(query_file, 'w')
-    fo.write(body)
-    fo.close()
-
-
-def print_to_file( valid_inp
-                 , return_ind
-                 , output
-                 , price_range
-                 , flights_v
-                 , reorg_flights_v
-                 , minmax_v
-                 , file_used ):
-    """
-    reorganizes the data so that JavaScript can reorganize them better 
-
-    """
-
-    ret_dict = {'is_complete': True,
-                # I BELIEVE I DONT NEED THE NEXT 2 LINES 
-                'new_timestamp': '2017--',  # irrelevant
-                'progress_notice': 'finished',  # also irrelevant 
-                'valid_inp': valid_inp,
-                'return_ind': return_ind,
-                'price': output,
-                'flights': flights_v,
-                'reorg_flights': reorg_flights_v,
-                'minmax': minmax_v,
-                'price_range': price_range}
-
-    body = json.dumps(ret_dict)
-    # writes the results in a communicating file 
-    fo = open(file_used, 'w')
-    fo.write(body)
-    fo.close()
-
-    
 def compute_price( all_valid
                  , origin_place
                  , dest_place
@@ -136,17 +48,19 @@ def compute_price( all_valid
                  , inbound_start
                  , inbound_end
                  , option_start_ret
-                 , option_end_ret
-                 , file_used ):
+                 , option_end_ret ):
     """
     computes the price and responds to client (both)
     this is the routine forked off in a parent 
 
+    :returns: tuple indicating whether the result was successful,
+                 and the return data
+    :rtype:   tuple (bool, RETURN_DATA) TODO
     """
 
     if not all_valid:  # dont compute, inputs are wrong
-        print_to_file(False, False, 0, {}, {}, {}, {}, file_used)
-        print_query(False, False, 0, {}, {}, {}, {})
+        logger.info('Invalid input data')
+        return False, {}
     else:
 
         way_args = { "origin_place":        origin_place
@@ -159,7 +73,6 @@ def compute_price( all_valid
                    , "cabinclass":          cabin_class
                    , "adults":              nb_people
                    , "K":                   np.double(strike)
-                   , "write_data_progress": file_used
                    , "errors":              'ignore' }
 
         if return_ow != 'one-way':
@@ -169,61 +82,28 @@ def compute_price( all_valid
                              , "inbound_date_end"    : inbound_end
                              , "return_flight"       : True } )
 
+        logger.info('Starting option computation.')
+
         with suppress_stdout():
             result, price_range, flights_v, reorg_flights_v, minmax_v = \
                 ao.compute_option_val(way_args)
 
         if result == 'Invalid':
-            print_to_file(False, [], -1., [], [], [], [], file_used)  # invalid entries 
-            print_query(False, [], -1., [], [], [], [])  # logging only 
+            logger.info('Something went wrong - Invalid results.')
+            return False, {}
 
         else:  # actual display
             result_ref = str(np.int(result['avg']))
-            # logging the query
-            print_to_file( True
-                         , return_ow
-                         , result_ref
-                         , price_range
-                         , flights_v
-                         , reorg_flights_v
-                         , minmax_v
-                         , file_used)
-            # next is for loggin only 
-            print_query( True
-                       , return_ow
-                       , result_ref
-                       , price_range
-                       , flights_v
-                       , reorg_flights_v
-                       , minmax_v )
-            
-
-def read_and_reply( file_used
-                  , timestamp ):
-
-    with open(file_used, 'r') as fo:
-        new_timestamp = os.path.getmtime(file_used)
-        progress_notice = fo.read().replace('\n', '')  # file in a string
-
-    if progress_notice != '':  # file is not empty
-        with open(file_used, 'r') as fo:
-            progress_obj = json.load(fo)
-
-    # progress_notice can be empty string, or a json dump w/ is_complete descriptor
-
-    if timestamp == 'null':  # this special case 
-        progress_notice = json.dumps({'is_complete'    : False,
-                                      'progress_notice': 'Initiating flight fetch.'})
-        print_only_progress( False
-                           , progress_notice
-                           , new_timestamp )  # sure to continue
-    else:
-        if progress_notice != '':  # not empty
-            is_complete = progress_obj['is_complete']
-
-        print_only_progress( is_complete
-                           , json.dumps(progress_obj)
-                           , new_timestamp)
+            # next is for loggin only
+            return True, {'is_complete': True
+                   , 'progress_notice': 'finished'  # also irrelevant
+                   , 'valid_inp': True
+                   , 'return_ind': return_ind
+                   , 'price': output
+                   , 'flights': flights_v
+                   , 'reorg_flights': reorg_flights_v
+                   , 'minmax': minmax_v
+                   , 'price_range': price_range}
 
 
 def compute_option(form):
@@ -246,29 +126,13 @@ def compute_option(form):
             option_start_ret, option_end_ret, inbound_start, inbound_end, \
             return_ow, cabin_class, nb_people = get_data(form)
 
-    timestamp = form.getvalue('timestamp')
-    pcs_id = str(form.getvalue('pcs_id'))  # process id, used for file communication
-    file_used = config.prod_dir + 'inquiry/compute/' + pcs_id
-    if not os.path.exists(file_used):  # create file, otherwise nothing
-        interactive_file = open(file_used, 'a')  # interactive file is emtpy here
-        interactive_file.close()
+    # fork the process
+    params = is_one_way, \
+             all_valid, origin_place, dest_place, option_start, option_end, \
+             outbound_start, outbound_end, strike, carrier_used, return_ow, \
+             cabin_class, nb_people, \
+             inbound_start, inbound_end, option_start_ret, option_end_ret
 
-    if timestamp == 'null':  # daemonize the computation
+    logger.info('Initiating flight fetch.')
 
-        # flush null response immediately
-        read_and_reply(file_used, 'null')
-        sys.stdout.flush()
-
-        # fork the process
-        params = is_one_way, \
-                 all_valid, origin_place, dest_place, option_start, option_end, \
-                 outbound_start, outbound_end, strike, carrier_used, return_ow, \
-                 cabin_class, nb_people, \
-                 inbound_start, inbound_end, option_start_ret, option_end_ret, \
-                 file_used
-        cod = AoDaemon(compute_price, params)
-        cod.start()
-
-    else:  # successive attempt at finishing
-
-        read_and_reply(file_used, timestamp)
+    return compute_price(params)
