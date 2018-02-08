@@ -7,6 +7,7 @@ import os.path
 import numpy as np
 import json
 from flask import jsonify
+import logging
 
 # local path import first 
 import config
@@ -15,9 +16,16 @@ log_file = ao_codes.error_log
 
 # ao modules
 import air_option as ao
-from get_data import get_data
+from get_data     import get_data
 from daemon_local import AoDaemon
 
+# logger declaration
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
+
+# TODO: FINISH HERE
+# logger.addHandler(OutputHandler())
 
 @contextmanager
 def suppress_stdout():
@@ -141,18 +149,18 @@ def compute_price( all_valid
         print_query(False, False, 0, {}, {}, {}, {})
     else:
 
-        way_args = { "origin_place": origin_place
-                   , "dest_place": dest_place
-                   , "option_start_date": option_start
-                   , "option_end_date": option_end
+        way_args = { "origin_place":        origin_place
+                   , "dest_place":          dest_place
+                   , "option_start_date":   option_start
+                   , "option_end_date":     option_end
                    , "outbound_date_start": outbound_start
-                   , "outbound_date_end": outbound_end
-                   , "carrier": carrier_used
-                   , "cabinclass": cabin_class
-                   , "adults": nb_people
-                   , "K": np.double(strike)
+                   , "outbound_date_end":   outbound_end
+                   , "carrier":             carrier_used
+                   , "cabinclass":          cabin_class
+                   , "adults":              nb_people
+                   , "K":                   np.double(strike)
                    , "write_data_progress": file_used
-                   , "errors": 'ignore'}
+                   , "errors":              'ignore' }
 
         if return_ow != 'one-way':
             way_args.update( { "option_ret_start_dat": option_start_ret
