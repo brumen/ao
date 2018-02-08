@@ -8,10 +8,9 @@ import logging
 
 # local path import first 
 import ao_codes  # definition files
-log_file = ao_codes.error_log
 
 # ao modules
-import air_option as ao
+from air_option   import compute_option_val
 from get_data     import get_data
 
 # logger declaration
@@ -86,7 +85,7 @@ def compute_price( all_valid
 
         with suppress_stdout():
             result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                ao.compute_option_val(way_args)
+                compute_option_val(**way_args)
 
         if result == 'Invalid':
             logger.info('Something went wrong - Invalid results.')

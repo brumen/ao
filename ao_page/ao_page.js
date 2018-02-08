@@ -445,6 +445,7 @@ function update_minmax_upwards(elt) {
     var flight_used        = date_flight[1];
     var reorg_flights_curr = JSON.parse(localStorage.reorg_flights_curr);
     var minmax_old         = JSON.parse(localStorage.minmax);
+
     var reorg_flights_used_now, minmax_new;
     
     if (one_way_ind)
@@ -503,16 +504,6 @@ function display_flights_inner(flight_date, curr_time_of_day, flight_selector, o
 	    flight_selector.appendChild(li_flight);  // adding the flight
 	}
     }
-}
-
-
-function create_checkbox() {
-    var checkbox_elt     = document.createElement("input");
-    checkbox_elt.type    = "checkbox";
-    checkbox_elt.id      = flight_date + ":" + curr_flight[6];  // node id: flight_date : flight_id 
-    checkbox_elt.name    = out_in_ind;
-    checkbox_elt.checked = true;
-    checkbox_elt.onclick = function() {update_minmax_upwards(this);}
 }
 
 
@@ -575,41 +566,25 @@ function get_nb_people(elt_name) {
 
 function get_basic_info() {
     // constructs the object with the basic flight info 
-    var return_ow      = get_ow_ret("trip-type");
-    var cabin_class    = get_cabin_class("cabin-class-type");
-    var nb_people      = get_nb_people("nb-people");
-    var origin_place   = document.getElementById("js-origin-input").value;
-    var dest_place     = document.getElementById("js-destination-input").value;
-    var option_start   = document.getElementById("option-start-date").value;
-    var option_end     = document.getElementById("option-end-date").value;
-    var outbound_start = document.getElementById("js-depart-input").value;
-    var outbound_end   = document.getElementById("js-return-input").value;
-    var strike         = document.getElementById("ticket-price").value;
-    var carrier        = document.getElementById("airline-name").value;
-
     return_obj = new FormData();
-    return_obj['return_ow'     ] = return_ow;
-    return_obj['cabin_class'   ] = cabin_class;
-    return_obj['nb_people'     ] = nb_people;
-    return_obj['origin_place'  ] = origin_place;
-    return_obj['dest_place'    ] = dest_place;
-    return_obj['option_start'  ] = option_start;
-    return_obj['option_end'    ] = option_end;
-    return_obj['outbound_start'] = outbound_start;
-    return_obj['outbound_end'  ] = outbound_end;
-    return_obj['ticket_price'  ] = strike;
-    return_obj['airline_name'  ] = carrier;
+    return_obj['return_ow'     ] = get_ow_ret("trip-type");
+    return_obj['cabin_class'   ] = get_cabin_class("cabin-class-type");
+    return_obj['nb_people'     ] = get_nb_people("nb-people");
+    return_obj['origin_place'  ] = document.getElementById("js-origin-input").value;
+    return_obj['dest_place'    ] = document.getElementById("js-destination-input").value;
+    return_obj['option_start'  ] = document.getElementById("option-start-date").value;
+    return_obj['option_end'    ] = document.getElementById("option-end-date").value;
+    return_obj['outbound_start'] = document.getElementById("js-depart-input").value;
+    return_obj['outbound_end'  ] = document.getElementById("js-return-input").value;
+    return_obj['ticket_price'  ] = document.getElementById("ticket-price").value;
+    return_obj['airline_name'  ] = document.getElementById("airline-name").value;
 
     if (return_ow == 'return') {
 	// get the return data
-	var option_ret_start   = document.getElementById("option-start-date-return").value;
-	var option_ret_end     = document.getElementById("option-end-date-return").value;
-	var outbound_start_ret = document.getElementById("js-depart-input-return").value;
-	var outbound_end_ret   = document.getElementById("js-return-input-return").value;
-	return_obj['option_ret_start'  ] = option_ret_start;
-	return_obj['option_ret_end'    ] = option_ret_end;
-	return_obj['outbound_start_ret'] = outbound_start_ret;
-	return_obj['outbound_end_ret'  ] = outbound_end_ret;
+	return_obj['option_ret_start'  ] = document.getElementById("option-start-date-return").value;
+	return_obj['option_ret_end'    ] = document.getElementById("option-end-date-return").value;
+	return_obj['outbound_start_ret'] = document.getElementById("js-depart-input-return").value;
+	return_obj['outbound_end_ret'  ] = document.getElementById("js-return-input-return").value;
     }
 
     return return_obj;
@@ -617,25 +592,26 @@ function get_basic_info() {
 
 
 function construct_get_req_string(basic_info_obj) {
+    // constructs the request string from the FormData object basic_info_obj 
     var return_ow = basic_info_obj['return_ow'];
 
-    var get_string = "?origin_place="   + basic_info_obj['origin_place'];
-    get_string +=    "&dest_place="     + basic_info_obj['dest_place'];
-    get_string +=    "&option_start="   + basic_info_obj['option_start'];
-    get_string +=    "&option_end="     + basic_info_obj['option_end'];
-    get_string +=    "&outbound_start=" + basic_info_obj['outbound_start'];
-    get_string +=    "&outbound_end="   + basic_info_obj['outbound_end'];
-    get_string +=    "&ticket_price="   + basic_info_obj['ticket_price'];
-    get_string +=    "&airline_name="   + basic_info_obj['airline_name'];
-    get_string +=    "&return_ow="      + return_ow;
-    get_string +=    "&cabin_class="    + basic_info_obj['cabin_class'];
-    get_string +=    "&nb_people="      + basic_info_obj['nb_people'];
+    var get_string = "?origin_place="   + basic_info_obj['origin_place']
+	           + "&dest_place="     + basic_info_obj['dest_place']
+	           + "&option_start="   + basic_info_obj['option_start']
+	           + "&option_end="     + basic_info_obj['option_end']
+	           + "&outbound_start=" + basic_info_obj['outbound_start']
+	           + "&outbound_end="   + basic_info_obj['outbound_end']
+	           + "&ticket_price="   + basic_info_obj['ticket_price']
+	           + "&airline_name="   + basic_info_obj['airline_name']
+	           + "&return_ow="      + return_ow
+	           + "&cabin_class="    + basic_info_obj['cabin_class']
+	           + "&nb_people="      + basic_info_obj['nb_people'];
 
     if (return_ow == 'return') {
 	get_string += "&option_ret_start=" + basic_info_obj['option_ret_start']
-	get_string += "&option_ret_end=" + basic_info_obj['option_ret_end']
-	get_string += "&outbound_start_ret=" + basic_info_obj['outbound_start_ret']
-	get_string += "&outbound_end_ret=" + basic_info_obj['outbound_end_ret']
+	            + "&option_ret_end=" + basic_info_obj['option_ret_end']
+	            + "&outbound_start_ret=" + basic_info_obj['outbound_start_ret']
+	            + "&outbound_end_ret=" + basic_info_obj['outbound_end_ret'];
     }
 
     return get_string;
@@ -676,39 +652,13 @@ function change_button_back( btn
 
 function compute_option_from_init() {
     // computes the option value and displays flights 
-    basic_info_obj = get_basic_info();
-    get_string = construct_get_req_string(basic_info_obj);
-    var return_ow = basic_info_obj['return_ow'];
-    var ff_button = document.getElementById('find_flights_button');
-    change_button_to_searching(ff_button, '  Searching...', 'left');
-    var price = handle_computation(get_string);
+    change_button_to_searching(document.getElementById('find_flights_button')
+			       , '  Searching...', 'left');
+    var price = handle_computation(construct_get_req_string(get_basic_info()));
 }
 
 
 function handle_computation(get_string) {
-    // handles the ajax response for it 
-    var timestamp = null;
-    var max = Math.floor(10**15);  // random number 
-    var pcs_id = Math.floor(Math.random() * max); // process identifier
-    // clean notification_messages
-    var nm = document.getElementById("notification_messages");
-    while (nm.hasChildNodes())
-	nm.removeChild(nm.lastChild);
-    var fp = document.getElementById("flights_presented")
-    while (fp.hasChildNodes())
-	fp.removeChild(fp.lastChild);
-    // delete options-display
-    var od = document.getElementById("options-display")
-    while (od.hasChildNodes())
-	od.removeChild(od.lastChild);
-
-    // compte everything 
-    handleMessage(get_string, timestamp, pcs_id);
-    return -100.; //  price, not important;  // TO FIX FIX FIX FIX FIX 
-}
-
-
-function handle_computation2(get_string) {
     // Handles the computation of the option w/ server side events 
     
     // clean notification_messages
@@ -724,102 +674,45 @@ function handle_computation2(get_string) {
 	od.removeChild(od.lastChild);
 
     // compte everything 
-    handleMessage(get_string, timestamp, pcs_id);
-
-    var eventSource = new EventSource("myapp/compute_option", get_string ); // GET REQUEST
-    eventSource.onmessage = handleMessage2;
+    var eventSource = new EventSource("myapp/compute_option" + get_string );
+    eventSource.onmessage = handleMessage;  // how to handle the response from server 
 
     
     return -100.; //  price, not important;  // TO FIX FIX FIX FIX FIX 
 }
 
 
-
-function handleMessage(gs, ts, pcs) {
-    // function handles the communication between the server to retrieve flight data
-    var new_ts, progress_notice;
-    $.ajax({
- 	type: "GET",
- 	url: "compute_option" + encodeURI(gs) + "&timestamp=" + ts
- 	    + "&pcs_id=" + String(pcs),
- 	async: true,
- 	cache: false,
-
- 	success: function(data) {  // success logic - data object with fields as defined 
- 	    if (data['is_complete']) {  // finished, display stuff 
- 		console.log("COMPLETE");
- 		var price = display_results_init(data['progress_notice']);
-		// close the notification messages
-		var nm = document.getElementById("notification_messages");
-		nm.style = "display:none;";
- 		document.getElementById("option_price_frame").value = price;
- 		var ff_button = document.getElementById('find_flights_button');
- 		change_button_back(ff_button, 'Find flights', 'left');
- 		// change the type of checkbox accorions 
- 		$('.accordion input[type="checkbox"]').click(function(e) {
- 		    e.stopPropagation();
- 		});
- 	    } else {  // not finished, add a part in the flights  
- 		console.log("WORKING");
- 		new_ts = data['new_timestamp'];
- 		progress_notice = JSON.parse(data['progress_notice'])['progress_notice'];
- 		// showing the style 
- 		var fps = document.getElementById("flights-section");
- 		fps.style = "";  // display this section 
- 		var fp = document.getElementById("notification_messages")
- 		if (new_ts > ts) { // only add if there is a change to timestamp
- 		    var new_p = document.createElement("p");
- 		    new_p.appendChild(document.createTextNode(progress_notice));
- 		    fp.appendChild(new_p);
- 		}
-		// wait 3 secs 
- 		setTimeout(function() {handleMessage(gs, new_ts, pcs)}, 3000);
- 	    }
- 	},
- 	error: function(XMLHttpRequest, textStatus, errorThrown) {
- 	    alert("error: " + textStatus + " (" + errorThrown + ")");
- 	}
-    });  // end of Ajax
-}
-
-
-function handleMessage2(e) {
-    // function handles the communication between the server to retrieve flight data
+function handleMessage(server_message) {
+    // function handles the message from server
 
     var data = e.data;  // THIS IS WRONG 
+    console.log(data);  // for debugging 
     
     if (e.data == 'success')  // FIX THIS HERE
     {  // success logic - data object with fields as defined 
  	if (data['is_complete']) {  // finished, display stuff 
- 	    var price = display_results_init(data['progress_notice']);
 	    // close the notification messages
-	    var nm = document.getElementById("notification_messages");
-	    nm.style = "display:none;";
- 	    document.getElementById("option_price_frame").value = price;
- 	    var ff_button = document.getElementById('find_flights_button');
- 	    change_button_back(ff_button, 'Find flights', 'left');
+	    document.getElementById("notification_messages").style = "display:none;";
+ 	    document.getElementById("option_price_frame").value = display_results_init(data['progress_notice']);
+ 	    change_button_back(document.getElementById('find_flights_button')
+			       , 'Find flights', 'left');
  	    // change the type of checkbox accorions 
  	    $('.accordion input[type="checkbox"]').click(function(e) {
  		e.stopPropagation();
  	    });
  	} else {  // not finished, add a part in the flights  
- 	    new_ts = data['new_timestamp'];
  	    progress_notice = JSON.parse(data['progress_notice'])['progress_notice'];
  	    // showing the style 
- 	    var fps = document.getElementById("flights-section");
- 	    fps.style = "";  // display this section 
- 	    var fp = document.getElementById("notification_messages")
+ 	    document.getElementById("flights-section").style = "";
  	    if (data['progress']) { // progress in the data acquisition 
- 		var new_p = document.createElement("p");
- 		new_p.appendChild(document.createTextNode(progress_notice));
- 		fp.appendChild(new_p);
+ 		document.createElement("p").appendChild(document.createTextNode(progress_notice));
+ 		document.getElementById("notification_messages").appendChild(new_p);
  	    }
  	}
     },
-    error: function(XMLHttpRequest, textStatus, errorThrown) {
- 	alert("error: " + textStatus + " (" + errorThrown + ")");
-    }
-});  // end of Ajax
+    //error: function(XMLHttpRequest, textStatus, errorThrown) {
+ //	alert("error: " + textStatus + " (" + errorThrown + ")");
+ //   }
 }
 
 

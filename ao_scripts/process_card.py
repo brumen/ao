@@ -1,50 +1,47 @@
-#!/usr/bin/env python
-from __future__ import print_function 
-import sys, os
+
+from __future__ import print_function
+import os
 import uuid
-import cgi
-import cgitb
 import json
 import time
 import numpy as np
-import subprocess
-import getpass 
-# the following 4 modules are for sending e-mail w/ pdf attached 
+import getpass
+
+# for sending e-mail w/ pdf attached
 import smtplib
-import mimetypes
 import email
 import email.mime.application
-# square modules 
-import squareconnect
-from squareconnect.rest import ApiException
+
+# square modules
+from squareconnect.rest                 import ApiException
 from squareconnect.apis.transaction_api import TransactionApi
-# my local modules 
-sys.path.append('/home/brumen/work/ao/')
-sys.path.append('/home/brumen/public_html/cgi-bin/')
-import config
+
+# my local modules
 import ds
-import datetime as dt
 import ao_codes
-cgitb.enable(display=0, logdir=ao_codes.debug_dir)  # for troubleshooting
+import air_option as ao
+
 from ao_codes import iata_codes_cities, iata_cities_codes
 from ao_codes import airoptions_gmail_pass, airoptions_gmail_acct
 from get_data import get_data_final
-import air_option as ao
-# error file 
-log_file = ao_codes.error_log
 
 
-def check_inputs(return_ow_final, card_name, sq_postal_code, city_state):
+def check_inputs(card_name, sq_postal_code, city_state):
     """
-    checks that the inputs are alphanumeric
+    checks that the card_name, sq_postal_code and city are alphanumeric
+
+    :param card_name:
+
     """
+
     city_state_alnum = city_state.replace(",", "")  # city, state can be New York, NY
+
     inp_alnum = card_name.isalnum() and sq_postal_code.isalnum() and \
         city_state_alnum.isalnum()
 
     return inp_alnum
 
-    
+
 def process_orig_dest(orig_raw, dest_raw):
     """
     processes the origin/destination in case you have 3 letters for orig_raw/dest_raw
@@ -201,16 +198,7 @@ def write_invoice(orig, dest, flights_d, fo):
                         used_arr = flights_d[day][tod][flight]  # flight is a list 
                         if (flight != "min_max") and used_arr[7]:  # used_arr[7] ... checked if selected 
                             _, dep_date, dep_time, arr_date, arr_time, _, airline, _ = used_arr 
-                            dep_hour, dep_min, dep_sec = dep_time.split(':')
-                            dep_time_display = dep_hour + ':' + dep_min
-                            dep_dt = ds.convert_datedash_time_dt(dep_date, dep_time)
-                            arr_hour, arr_min, arr_sec = arr_time.split(':')
-                            arr_time_display = arr_hour + ':' + arr_min
-                            arr_dt = ds.convert_datedash_time_dt(arr_date, arr_time)
-                            duration_sec = (arr_dt - dep_dt).seconds
-                            duration_hour = duration_sec / 3600
-                            duration_min = (duration_sec - duration_hour * 3600) / 60
-                            duration = str(duration_hour) + 'h' + str(duration_min) + 'min'
+
                             if flight_ct == 0:
                                 dep_date_used = dep_date
                             else:
@@ -221,19 +209,29 @@ def write_invoice(orig, dest, flights_d, fo):
                             flight_ct += 1
 
 
-def write_invoice_fct(invoice_template, invoice_fo,
-                      orig_long, dest_long,
-                      orig_short, dest_short,
-                      card_name, card_address,
-                      city_state, nb_people,
-                      cabin_class, sq_postal_code,
-                      strike, amount_charged,
-                      return_ow_final,
-                      option_end, option_end_ret,
-                      flights_d,
-                      invoice_vars, inquiry_logs_dir):
+def write_invoice_fct( invoice_template
+                     , invoice_fo
+                     , orig_long
+                     , dest_long
+                     , orig_short
+                     , dest_short
+                     , card_name
+                     , card_address
+                     , city_state
+                     , nb_people
+                     , cabin_class
+                     , sq_postal_code
+                     , strike
+                     , amount_charged
+                     , return_ow_final
+                     , option_end
+                     , option_end_ret
+                     , flights_d
+                     , invoice_vars
+                     , inquiry_logs_dir ):
     """
-    write the invoice function 
+    write the invoice function
+
     :param invoice_template: open file containing the template 
     :param invoice_fo: invoice file where to write 
     """
@@ -303,14 +301,23 @@ def write_invoice_fct(invoice_template, invoice_fo,
     # MISSING THE ELSE CLAUSE 
 
     
-def write_file_fct(fo, template,
-                   orig_long, dest_long,
-                   orig_short, dest_short, 
-                   invoice_pdf_loc,
-                   amount_charged, nb_people,
-                   cabin_class, return_ow_final,
-                   flights_d):
-    # write result to the file 
+def write_file_fct( fo
+                  , template
+                  , orig_long
+                  , dest_long
+                  , orig_short
+                  , dest_short
+                  , invoice_pdf_loc
+                  , amount_charged
+                  , nb_people
+                  , cabin_class
+                  , return_ow_final
+                  , flights_d ):
+    """
+
+    """
+
+    # write result to the file
     fo.write('Content-type:text/html\r\n\r\n\n')
     for line in template:
         if "ORIGIN_REPLACE" in line:
@@ -345,25 +352,36 @@ def write_file_fct(fo, template,
 
 def send_email_to_client(client_email, invoice_pdf):
     """
-    sends the e-mail to client 
+    sends the e-mail to client
+
+    :param client_email: email of the client
+    :type client_email: str
+    :param invoice_pdf: filename where the generated pdf is stored
+    :type invoice_pdf: str
     """
+
     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
     server.ehlo()
     server.login(airoptions_gmail_acct, airoptions_gmail_pass)
-    # plain text part of the message 
+
+    # plain text part of the message
     msg = email.mime.Multipart.MIMEMultipart()
     msg['Subject'] = 'AirOptions purchase'
-    msg['From'] = 'airoptions.llc@gmail.com'
-    msg['To'] = client_email
+    msg['From'   ] = 'airoptions.llc@gmail.com'
+    msg['To'     ] = client_email
     body = email.mime.Text.MIMEText("""Thank you for your purchase with AirOptions. 
     Your receipt is attached to this e-mail.""")
     msg.attach(body)
+
     # pdf attachment
-    fp = open(invoice_pdf, 'rb')
-    att = email.mime.application.MIMEApplication(fp.read(), _subtype="pdf")
-    fp.close()
-    att.add_header('Content-Disposition', 'attachment', filename='invoice.pdf')
+    with open(invoice_pdf, 'rb') as fp:
+        att = email.mime.application.MIMEApplication(fp.read(), _subtype="pdf")
+
+    att.add_header( 'Content-Disposition'
+                  , 'attachment'
+                  , filename = 'invoice.pdf' )
     msg.attach(att)
+
     if '@' in client_email:
         server.sendmail('airoptions.llc@gmail.com', client_email, msg.as_string())
     # otherwise dont send mail 
@@ -525,18 +543,26 @@ if process_go_ahead:  # write all this
     template = open('/home/brumen/public_html/results_page/display_results.html', 'r')
     invoice_fo = open(invoice_tex, 'w')
     invoice_template = open(config.prod_dir + 'invoice/invoice_template.tex', 'r')
-    # write file
-    write_file_fct(purchase_html_file, template,
-                   orig_long, dest_long,
-                   orig_short, dest_short, 
-                   invoice_pdf_loc,
-                   amount_charged, nb_people,
-                   cabin_class, return_ow_final,
-                   flights_d)
+
+    #
+    write_file_fct( purchase_html_file
+                  , template
+                  , orig_long
+                  , dest_long
+                  , orig_short
+                  , dest_short
+                  , invoice_pdf_loc
+                  , amount_charged
+                  , nb_people
+                  , cabin_class
+                  , return_ow_final
+                  , flights_d )
+
     # write invoice
     invoice_vars = invoice_tex, invoice_aux, invoice_log, invoice_pdf 
     if ow_ind:
         option_end_ret = 'unimp'  # not important, simply that it exists 
+
     write_invoice_fct(invoice_template, invoice_fo,
                       orig_long, dest_long,
                       orig_short, dest_short,

@@ -1,8 +1,66 @@
 # Handling the requests of the webpage
-from time import sleep
+import logging
 import json
 import uuid
 import unirest
+
+from time      import sleep
+from threading import Thread
+
+
+class ComputeStream(object):
+
+    def __init__(self):
+        self.__allMessages = []
+
+    def handle(self, record):
+        """
+        Handles the record, appends it to __allMessages
+
+        """
+        self.__allMessages.append(record)
+
+    def __filterRecord(self, record):
+        """
+        Returns true if record satisfies certain conditions
+
+        """
+
+        # TODO: FINISH THIS PROCESSING
+        return record
+
+    def __processMessage(self, record):
+        return record
+
+    def getMessages(self):
+        """
+        Retrieve all the messages in the form of a generator.
+
+        """
+
+        while True:
+            sleep(1)  # sleep 1 second
+
+            while self.__allMessages:  # while this is not empty
+
+                currMessage = self.__allMessages.pop(0)
+
+                if self.__filterRecord(currMessage):
+                    yield "data: {0}\n\n".format(self.__processMessage(currMessage))
+                # otherwise discard the message, not relevant for printing
+
+
+# logger setup
+logger = logging.getLogger()  # root logger
+logger.setLevel(logging.INFO)
+logger_handler = logging.FileHandler('/home/brumen/tmp/log1.txt')
+logger_handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
+logger.addHandler(logger_handler)
+computeStream = ComputeStream()  # object keeping the messages
+stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
+                                               , flushLevel = logging.INFO
+                                               , target     = computeStream )
+logger.addHandler(stream_handler)
 
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
@@ -19,21 +77,10 @@ from flask import Flask, request, jsonify, Response
 app = Flask(__name__)
 
 
+# TODO: REMOVE THIS IN THE FINAL APPLICATION
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
-
-@app.route('/multiple')
-def multiple_messages():
-
-    def eventStream():
-        while True:
-            # Poll data from the database
-            # and see if there's a new message
-            sleep(5)
-            yield "data: {0}\n\n".format("silly")
-
-    return Response(eventStream(), mimetype="text/event-stream")
 
 
 @app.route('/verify_airline', methods = ['GET'])
@@ -69,8 +116,7 @@ def find_relevant_carriers():
 @app.route('/recompute_option', methods = ['POST'])
 def recompute_option():
 
-    # TODO LOTS OF TODO HERE
-    return recompute_option()  # TODO: THIS HAS TO CHANGE
+    return recompute_option(request.args)  # TODO: THIS HAS TO CHANGE
 
 
 @app.route('/write_inquiry', methods=['POST'])
@@ -88,15 +134,18 @@ def compute_option():
 
     """
 
-    def computeOptionEventStream():
-        comp1 = compute_option(request.form)
-        while True:
-            # Poll data from the database
-            # and see if there's a new message
-            sleep(5)
-            yield "data: {0}\n\n".format("silly")
+    # create a new stream for logging
+    computeStream = ComputeStream()  # object keeping the messages
+    stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
+                                                   , flushLevel = logging.INFO
+                                                   , target     = computeStream)
+    logger.addHandler(stream_handler)
 
-    return Response(computeOptionEventStream(), mimetype="text/event-stream")
+    computeThread = Thread(target=compute_option, args=[request.form])  # this is writing to logger
+    computeThread.start()  # this thread is computing here
+
+    return Response( computeStream.getMessages()  # this will be returning the messages
+                   , mimetype="text/event-stream")
 
 
 @app.route('/ao_auto_fill_origin')
