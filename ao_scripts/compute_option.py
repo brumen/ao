@@ -75,11 +75,11 @@ def compute_price( all_valid
                    , "errors":              'ignore' }
 
         if return_ow != 'one-way':
-            way_args.update( { "option_ret_start_dat": option_start_ret
-                             , "option_ret_end_date" : option_end_ret
-                             , "inbound_date_start"  : inbound_start
-                             , "inbound_date_end"    : inbound_end
-                             , "return_flight"       : True } )
+            way_args.update( { "option_ret_start_date": option_start_ret
+                             , "option_ret_end_date"  : option_end_ret
+                             , "inbound_date_start"   : inbound_start
+                             , "inbound_date_end"     : inbound_end
+                             , "return_flight"        : True } )
 
         logger.info('Starting option computation.')
 
@@ -134,4 +134,19 @@ def compute_option(form):
 
     logger.info('Initiating flight fetch.')
 
-    return compute_price(params)
+    return compute_price( all_valid
+                 , origin_place
+                 , dest_place
+                 , option_start
+                 , option_end
+                 , outbound_start
+                 , outbound_end
+                 , strike
+                 , carrier_used
+                 , return_ow
+                 , cabin_class
+                 , nb_people
+                 , inbound_start
+                 , inbound_end
+                 , option_start_ret
+                 , option_end_ret )

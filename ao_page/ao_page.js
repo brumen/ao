@@ -566,8 +566,10 @@ function get_nb_people(elt_name) {
 
 function get_basic_info() {
     // constructs the object with the basic flight info 
+    var return_ow = get_ow_ret("trip-type")
+
     return_obj = new FormData();
-    return_obj['return_ow'     ] = get_ow_ret("trip-type");
+    return_obj['return_ow'     ] = return_ow;
     return_obj['cabin_class'   ] = get_cabin_class("cabin-class-type");
     return_obj['nb_people'     ] = get_nb_people("nb-people");
     return_obj['origin_place'  ] = document.getElementById("js-origin-input").value;
@@ -709,10 +711,10 @@ function handleMessage(server_message) {
  		document.getElementById("notification_messages").appendChild(new_p);
  	    }
  	}
-    },
+    }
     //error: function(XMLHttpRequest, textStatus, errorThrown) {
- //	alert("error: " + textStatus + " (" + errorThrown + ")");
- //   }
+    //	alert("error: " + textStatus + " (" + errorThrown + ")");
+    //   }
 }
 
 

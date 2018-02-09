@@ -4,9 +4,9 @@ import json
 import uuid
 import unirest
 
-from time      import sleep
-from threading import Thread
-
+from time             import sleep
+from threading        import Thread
+from logging.handlers import MemoryHandler
 
 class ComputeStream(object):
 
@@ -75,6 +75,9 @@ from flask import Flask, request, jsonify, Response
 
 
 app = Flask(__name__)
+app.debug = True
+app.use_debugger = False
+# app.use_reloader = False
 
 
 # TODO: REMOVE THIS IN THE FINAL APPLICATION
@@ -128,7 +131,7 @@ def write_inquiry():
 
 
 @app.route('/compute_option', methods = ['GET'])
-def compute_option():
+def compute_option_flask():
     """
     Computes the option w/ server sent events (SSE)
 
@@ -141,7 +144,7 @@ def compute_option():
                                                    , target     = computeStream)
     logger.addHandler(stream_handler)
 
-    computeThread = Thread(target=compute_option, args=[request.form])  # this is writing to logger
+    computeThread = Thread(target=compute_option, args=[request.args])  # this is writing to logger
     computeThread.start()  # this thread is computing here
 
     return Response( computeStream.getMessages()  # this will be returning the messages
@@ -175,7 +178,7 @@ def ao_auto_fill_airline():
 
 
 # TODO: FIX THIS ROUTE HERE
-@app.route('ao_payment', methods = ['GET'])
+@app.route('/ao_payment', methods = ['GET'])
 def ao_payment():
     # The following variables need to be assigned:
     #   card_nonce
