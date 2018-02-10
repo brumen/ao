@@ -28,8 +28,8 @@ class TestAirOption(unittest.TestCase):
         self.optionRetDateStart = ao.date_today() + dt.timedelta ( days = 1 )
         self.optionRetDateEnd   = self.outDate - dt.timedelta ( days = 1 )
 
-        self.io_dr_minus = ao.construct_date_range( ds.convert_date_datedash(self.outDate)
-                                                  , ds.convert_date_datedash(self.outDatePlusOne))
+        self.io_dr = ds.construct_date_range( self.outDate
+                                            , self.outDatePlusOne)
 
     def test_ao_2( self
                  , nb_sim = 50000):
@@ -57,20 +57,20 @@ class TestAirOption(unittest.TestCase):
 
         """
 
-        self.assertTrue(self.io_dr_minus == [ ds.convert_date_datedash(self.outDate)
-                                            , ds.convert_date_datedash(self.outDatePlusOne) ])
+        self.assertTrue(self.io_dr == [ self.outDate
+                                      , self.outDatePlusOne ])
 
     def test_obtain_flights(self):
         """
         Tests whether we can obtain flights from SkyScanner
 
         """
+
         res = ao.obtain_flights( 'EWR'
                                , 'SFO'
                                , 'UA'
-                               , self.io_dr_minus
+                               , self.io_dr
                                , None)
-        print res
 
         self.assertTrue(True)
 
@@ -157,14 +157,14 @@ class TestAirOption(unittest.TestCase):
 
         v1 = ao.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
-                                  , option_start_date     = ds.convert_datetime_str(self.optionOutDateStart)
-                                  , option_end_date       = ds.convert_datetime_str(self.optionOutDateEnd)
-                                  , option_ret_start_date = ds.convert_datetime_str(self.optionRetDateStart)
-                                  , option_ret_end_date   = ds.convert_datetime_str(self.optionRetDateEnd)
-                                  , outbound_date_start   = ds.convert_date_datedash(self.outDate)
-                                  , outbound_date_end     = ds.convert_date_datedash(self.outDatePlusOne)
-                                  , inbound_date_start    = ds.convert_date_datedash(self.retDate)
-                                  , inbound_date_end      = ds.convert_date_datedash(self.retDatePlusOne)
+                                  , option_start_date     = self.optionOutDateStart
+                                  , option_end_date       = self.optionOutDateEnd
+                                  , option_ret_start_date = self.optionRetDateStart
+                                  , option_ret_end_date   = self.optionRetDateEnd
+                                  , outbound_date_start   = self.outDate
+                                  , outbound_date_end     = self.outDatePlusOne
+                                  , inbound_date_start    = self.retDate
+                                  , inbound_date_end      = self.retDatePlusOne
                                   , K                     = 200.0
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000
@@ -183,10 +183,10 @@ class TestAirOption(unittest.TestCase):
                     , simplify_compute = 'take_last_only'
                     , cuda_ind         = False ):
 
-        v1 = ao.compute_option_val( option_start_date   = ds.convert_datetime_str(self.optionOutDateStart)
-                                  , option_end_date     = ds.convert_datetime_str(self.optionOutDateEnd)
-                                  , outbound_date_start = ds.convert_date_datedash(self.outDate)
-                                  , outbound_date_end   = ds.convert_date_datedash(self.outDatePlusOne)
+        v1 = ao.compute_option_val( option_start_date   = self.optionOutDateStart
+                                  , option_end_date     = self.optionOutDateEnd
+                                  , outbound_date_start = self.outDate
+                                  , outbound_date_end   = self.outDatePlusOne
                                   , K                   = 150.0
                                   , nb_sim              = 30000
                                   , rho                 = 0.95
@@ -205,14 +205,14 @@ class TestAirOption(unittest.TestCase):
         K          = 1000.
         impact_rho = {}
         for rho in rho_l:
-            k1 = ao.compute_option_val( outbound_date_start = ds.convert_date_datedash(self.outDate)
-                                      , outbound_date_end   = ds.convert_date_datedash(self.outDatePlusOne)
-                                      , option_start_date   = ds.convert_datetime_str(self.optionOutDateStart)
-                                      , option_end_date     = ds.convert_datetime_str(self.optionOutDateEnd)
-                                      , inbound_date_start  = ds.convert_date_datedash(self.retDate)
-                                      , inbound_date_end    = ds.convert_date_datedash(self.retDatePlusOne)
-                                      , option_ret_start_date = ds.convert_datetime_str(self.optionRetDateStart)
-                                      , option_ret_end_date   = ds.convert_datetime_str(self.optionOutDateEnd)
+            k1 = ao.compute_option_val( outbound_date_start = self.outDate
+                                      , outbound_date_end   = self.outDatePlusOne
+                                      , option_start_date   = self.optionOutDateStart
+                                      , option_end_date     = self.optionOutDateEnd
+                                      , inbound_date_start  = self.retDate
+                                      , inbound_date_end    = self.retDatePlusOne
+                                      , option_ret_start_date = self.optionRetDateStart
+                                      , option_ret_end_date   = self.optionOutDateEnd
                                       , K                   = K
                                       , return_flight       = True
                                       , rho                 = rho )
@@ -226,9 +226,9 @@ class TestAirOption(unittest.TestCase):
 
         """
 
-        res = ao.get_flight_data( outbound_date_start = ds.convert_date_datedash(self.outDate)
-                                , outbound_date_end   = ds.convert_date_datedash(self.outDatePlusOne)
-                                , inbound_date_start  = ds.convert_date_datedash(self.retDate)
-                                , inbound_date_end    = ds.convert_date_datedash(self.retDatePlusOne) )
+        res = ao.get_flight_data( outbound_date_start = self.outDate
+                                , outbound_date_end   = self.outDatePlusOne
+                                , inbound_date_start  = self.retDate
+                                , inbound_date_end    = self.retDatePlusOne )
 
         self.assertTrue(True)

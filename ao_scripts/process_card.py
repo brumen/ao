@@ -1,4 +1,5 @@
-
+# process card module
+import config
 from __future__ import print_function
 import os
 import uuid
@@ -6,6 +7,9 @@ import json
 import time
 import numpy as np
 import getpass
+
+#Jinja2
+import jinja2
 
 # for sending e-mail w/ pdf attached
 import smtplib
@@ -26,18 +30,24 @@ from ao_codes import airoptions_gmail_pass, airoptions_gmail_acct
 from get_data import get_data_final
 
 
-def check_inputs(card_name, sq_postal_code, city_state):
+def check_inputs( card_name
+                , sq_postal_code
+                , city_state ):
     """
-    checks that the card_name, sq_postal_code and city are alphanumeric
+    Checks that the card_name, sq_postal_code and city are alphanumeric
 
     :param card_name:
 
+    :param sq_postal_code:
+    :type sq_postal_code:
+    :param city_state:
+    :type city_state:
     """
 
     city_state_alnum = city_state.replace(",", "")  # city, state can be New York, NY
 
     inp_alnum = card_name.isalnum() and sq_postal_code.isalnum() and \
-        city_state_alnum.isalnum()
+                city_state_alnum.isalnum()
 
     return inp_alnum
 
@@ -115,9 +125,15 @@ def process_flights(orig, dest, flights_d, fo):
                                                    arr_time_display, duration))
 
 
-def insert_flight(airline, orig, dest, orig_time, dest_time, time_diff):
+def insert_flight( airline
+                 , orig
+                 , dest
+                 , orig_time
+                 , dest_time
+                 , time_diff ):
     """
-    generates the entry field for the difference 
+    generates the entry field for the difference
+
     """
     # text to be inserted for each flight 
     # {0} ... airline name
@@ -126,6 +142,7 @@ def insert_flight(airline, orig, dest, orig_time, dest_time, time_diff):
     # {3} ... dep. time
     # {4} ... arr. time
     # {5} ... duration 
+
     inserted_text = """
     <li class="day-list-item clearfix ">
     <article data-cid="model_18429" data-deeplink="details" class="card result clearfix no-details  " ontouchstart="">
@@ -166,8 +183,8 @@ def insert_flight(airline, orig, dest, orig_time, dest_time, time_diff):
     </article>
     </li>
     """
-    curr_fl = inserted_text.format(airline, orig, dest, orig_time, dest_time, time_diff)
-    return curr_fl
+
+    return inserted_text.format(airline, orig, dest, orig_time, dest_time, time_diff)
 
 
 def write_invoice(orig, dest, flights_d, fo):
@@ -350,9 +367,10 @@ def write_file_fct( fo
     fo.close()
 
 
-def send_email_to_client(client_email, invoice_pdf):
+def send_email_to_client( client_email
+                        , invoice_pdf ):
     """
-    sends the e-mail to client
+    Sends the e-mail to client
 
     :param client_email: email of the client
     :type client_email: str
@@ -390,17 +408,28 @@ def send_email_to_client(client_email, invoice_pdf):
 
 #
 # main file, presenting everything 
-# 
-lt = time.localtime()  # local-time
-as_of = str(lt.tm_year) + '_' + str(lt.tm_mon) + '_' + str(lt.tm_mday) + '_' + \
-        str(lt.tm_hour) + '_' + str(lt.tm_min) + '_' + str(lt.tm_sec)
+#
+
+def time_now():
+    """
+    Returns the time right now
+
+    """
+
+    lt = time.localtime()
+    return str(lt.tm_year) + '_' + str(lt.tm_mon) + '_' + str(lt.tm_mday) + '_' + \
+           str(lt.tm_hour) + '_' + str(lt.tm_min) + '_' + str(lt.tm_sec)
+
+
+as_of = time_now()
+# TODO: FIX HERE !!!
 lt_slash = str(lt.tm_mon) + '/' + str(lt.tm_mday) + '/' +  str(lt.tm_year)
 lt_str = ds.convert_dateslash_str(lt_slash)
 # form 
-form = cgi.FieldStorage()
+# form = cgi.FieldStorage()
 nonce = form.getvalue('nonce')
 return_ow_final = form.getvalue('return_ow_final')
-ow_ind = return_ow_final == 'one-way'
+ow_ind = return_ow_final == 'one-way'  # indicator for one-way flights
 if ow_ind:
     all_valid, origin_place, dest_place, option_start, option_end, \
         outbound_start, outbound_end, strike, carrier_used, \
@@ -410,71 +439,62 @@ else:
         outbound_start, outbound_end, strike, carrier_used, \
         option_start_ret, option_end_ret, inbound_start, inbound_end, \
         return_ow, cabin_class, nb_people, client_email_addr = get_data_final(form, lt_slash)
-# card data 
-card_name = form.getvalue('card-name')
-card_address = form.getvalue('card-address')
+
+# card data
+card_name      = form.getvalue('card-name')
+card_address   = form.getvalue('card-address')
 sq_postal_code = form.getvalue('sq-postal-code-final')
-city_state = form.getvalue('card-city')
-random_nb = np.random.randint(10**15)  # random large number for purchase 
+city_state     = form.getvalue('card-city')
+
 orig_long, dest_long, orig_short, dest_short = process_orig_dest(origin_place, dest_place)
+
 amount_charged = int(form.getvalue('option_value_final')) * 100  # in cents - transforms to dollars
 # string of reorg_flights_curr (in string form)
+
 flights_sel = form.getvalue('flights_sel_final')
 flights_d = json.loads(flights_sel)  # this is either a list or dict
-eo_log = open(log_file + '.' + getpass.getuser(), 'a')
-eo_log.write('FLIGHTS\n')
-if type(flights_sel) == list:
-    eo_log.write(json.dumps(flights_d[0]))
-    eo_log.write(json.dumps(flights_d[1]))
-else:
-    eo_log.write(json.dumps(flights_d))
-eo_log.write('FLIGHTS_END\n')
-eo_log.close()
 
-
-# check if no-machinations took place - recompute the value & determine 
-if all_valid:
-    if ow_ind:  
-        result, price_range, flights_v, reorg_flights_v, minmax_v = \
-            ao.compute_option_val(origin_place=orig_short,
-                                  dest_place=dest_short,
-                                  flights_include=flights_d,
-                                  option_start_date=lt_str,
-                                  option_end_date=option_end,
-                                  outbound_date_start=outbound_start,
-                                  outbound_date_end=outbound_end,
-                                  carrier=carrier_used,
-                                  cabinclass=cabin_class,
-                                  adults=np.int(nb_people),
-                                  K=np.double(strike),
-                                  price_by_range=False)
+with open(log_file + '.' + getpass.getuser(), 'a') as eo_log:
+    eo_log.write('FLIGHTS\n')
+    if type(flights_sel) == list:
+        eo_log.write(json.dumps(flights_d[0]))
+        eo_log.write(json.dumps(flights_d[1]))
     else:
-        result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                ao.compute_option_val(origin_place=orig_short,
-                                      dest_place=dest_short,
-                                      flights_include=flights_d,
-                                      option_start_date=lt_str,
-                                      option_end_date=option_end,
-                                      outbound_date_start=outbound_start,
-                                      outbound_date_end=outbound_end,
-                                      option_ret_start_date=lt_str,
-                                      option_ret_end_date=option_end_ret,
-                                      inbound_date_start=inbound_start,
-                                      inbound_date_end=inbound_end,
-                                      carrier=carrier_used,
-                                      cabinclass=cabin_class,
-                                      adults=np.int(nb_people),
-                                      K=np.double(strike),
-                                      return_flight=True,
-                                      price_by_range=False)
+        eo_log.write(json.dumps(flights_d))
+    eo_log.write('FLIGHTS_END\n')
+
+
+# check if no-machinations took place - recompute the value & determine
+if all_valid:
+
+    way_args = { 'origin_place'       : orig_short
+               , 'dest_place'         : dest_short
+               , 'flights_include'    : flights_d
+               , 'option_start_date'  : lt_str
+               , 'option_end_date'    : option_end
+               , 'outbound_date_start': outbound_start
+               , 'outbound_date_end'  : outbound_end
+               , 'carrier'            : carrier_used
+               , 'cabinclass'         : cabin_class
+               , 'adults'             : np.int(nb_people)
+               , 'K'                  : np.double(strike)
+               , 'price_by_range'     : False }
+
+    if not ow_ind:  # return flight, update the argument
+        way_args.update({ 'option_ret_start_date': lt_str
+                        , 'option_ret_end_date'  : option_end_ret
+                        , 'inbound_date_start'   : inbound_start
+                        , 'inbound_date_end'     : inbound_end
+                        , 'return_flight'        : True } )
+
+    result, price_range, flights_v, reorg_flights_v, minmax_v = ao.compute_option_val(way_args)
 
     # process_go_ahead
     result_int = np.int(result['avg'] * 100)  # in cents 
     process_go_ahead = (result_int * ao_codes.amount_charged_below < amount_charged) and all_valid
-    # below 2 lines are for TESTING 
-    # process_go_ahead = True
-    # amount_charged = result_int
-else:
+
+else: # not all valid
+
     result_int = -1
     process_go_ahead = False
 
@@ -506,8 +526,11 @@ idempotency_key = str(uuid.uuid1())
 
 # Monetary amounts are specified in the smallest unit of the applicable currency.
 # This amount is in cents. It's also hard-coded for $1.00, which isn't very useful.
-amount = {'amount': amount_charged, 'currency': 'USD'}
-body = {'idempotency_key': idempotency_key, 'card_nonce': nonce, 'amount_money': amount}
+amount = { 'amount'  : amount_charged
+         , 'currency': 'USD' }
+body   = { 'idempotency_key': idempotency_key
+         , 'card_nonce'     : nonce
+         , 'amount_money'   : amount }
 
 # The SDK throws an exception if a Connect endpoint responds with anything besides
 # a 200-level HTTP code. This block catches any exceptions that occur from the request.  
@@ -563,18 +586,29 @@ if process_go_ahead:  # write all this
     if ow_ind:
         option_end_ret = 'unimp'  # not important, simply that it exists 
 
-    write_invoice_fct(invoice_template, invoice_fo,
-                      orig_long, dest_long,
-                      orig_short, dest_short,
-                      card_name, card_address,
-                      city_state, nb_people,
-                      cabin_class, sq_postal_code,
-                      strike, amount_charged,
-                      return_ow_final,
-                      option_end, option_end_ret,
-                      flights_d,
-                      invoice_vars, inquiry_logs_dir)
+    write_invoice_fct( invoice_template
+                     , invoice_fo
+                     , orig_long
+                     , dest_long
+                     , orig_short
+                     , dest_short
+                     , card_name
+                     , card_address
+                     , city_state
+                     , nb_people
+                     , cabin_class
+                     , sq_postal_code
+                     , strike
+                     , amount_charged
+                     , return_ow_final
+                     , option_end
+                     , option_end_ret
+                     , flights_d
+                     , invoice_vars
+                     , inquiry_logs_dir )
+
     send_email_to_client(client_email_addr, invoice_pdf)
+
     invoice_fo.close()
     invoice_template.close()
     purchase_html_file.close()

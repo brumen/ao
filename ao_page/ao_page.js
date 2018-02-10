@@ -770,7 +770,7 @@ function send_inquiry() {
 	info_o['flights_sel'] = "undefined";
     
     var req = new XMLHttpRequest();
-    req.open("POST", "write_inquiry", true);
+    req.open("POST", "myapp/write_inquiry", true);
     req.setRequestHeader("Content-type", "application/json");
     req.send(JSON.stringify(info_o));
     

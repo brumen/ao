@@ -4,9 +4,21 @@ import json
 import uuid
 import unirest
 
-from time             import sleep
+import config
+import ao_codes
+
+from time             import sleep, localtime
 from threading        import Thread
 from logging.handlers import MemoryHandler
+from flask            import Flask, request, jsonify, Response
+
+from ao_scripts.find_relevant_carriers import get_carrier_l
+from ao_scripts.verify_airline         import is_valid_airline
+from ao_scripts.verify_origin          import is_valid_origin
+from ao_scripts.recompute_option       import recompute_option
+from ao_scripts.compute_option         import compute_option
+from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
+
 
 class ComputeStream(object):
 
@@ -62,22 +74,23 @@ stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately f
                                                , target     = computeStream )
 logger.addHandler(stream_handler)
 
-
-from ao_scripts.find_relevant_carriers import get_carrier_l
-from ao_scripts.verify_airline         import is_valid_airline
-from ao_scripts.verify_origin          import is_valid_origin
-from ao_scripts.recompute_option       import recompute_option
-from ao_scripts.compute_option         import compute_option
-
-from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
-
-from flask import Flask, request, jsonify, Response
-
-
+# Flask app
 app = Flask(__name__)
 app.debug = True
 app.use_debugger = False
 # app.use_reloader = False
+
+
+def time_now():
+    """
+    Returns local time in the string format.
+
+    :returns: local time separated by underscores.
+    :rtype: str
+    """
+    lt = localtime()
+    return '_'.join([ str(lt.tm_year), str(lt.tm_mon), str(lt.tm_mday)
+                    , str(lt.tm_hour), str(lt.tm_min), str(lt.tm_sec)])
 
 
 # TODO: REMOVE THIS IN THE FINAL APPLICATION
@@ -117,17 +130,25 @@ def find_relevant_carriers():
 
 
 @app.route('/recompute_option', methods = ['POST'])
-def recompute_option():
+def recompute_option_flask():
 
     return recompute_option(request.args)  # TODO: THIS HAS TO CHANGE
 
 
 @app.route('/write_inquiry', methods=['POST'])
 def write_inquiry():
+    """
+    Writes a file about the inquiry to the inquiry folder
 
-    # TODO LOTS OF TODO HERE
-    return 1
+    """
 
+    with open(ao_codes.inquiry_dir + '/inquiry_solo/' +
+              'inquiry_' + time_now() + '.inq', 'w') as fo:
+        # TODO: THIS NEEDS FIXING
+        fo.write(json.dumps(request.form))
+
+    # succeeds, returns true
+    return jsonify({'valid': True})
 
 
 @app.route('/compute_option', methods = ['GET'])
@@ -144,7 +165,8 @@ def compute_option_flask():
                                                    , target     = computeStream)
     logger.addHandler(stream_handler)
 
-    computeThread = Thread(target=compute_option, args=[request.args])  # this is writing to logger
+    computeThread = Thread( target = compute_option
+                          , args   = [request.args])  # this is writing to logger
     computeThread.start()  # this thread is computing here
 
     return Response( computeStream.getMessages()  # this will be returning the messages

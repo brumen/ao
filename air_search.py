@@ -16,7 +16,7 @@ from   mysql_connector_env import MysqlConnectorEnv
 
 def get_itins( origin_place    = 'SIN'
              , dest_place      = 'KUL'
-             , outbound_date   = '2017-02-05'
+             , outbound_date   = None  # '2017-02-05'
              , includecarriers = None
              , cabinclass      = 'Economy'
              , adults          = 1
@@ -27,10 +27,10 @@ def get_itins( origin_place    = 'SIN'
 
     :param origin_place:  origin of the flight
     :type origin_place:   str
-    :param dest_place:    destination of the flight
+    :param dest_place:    destination of flight
     :type dest_place:     str
-    :param outbound_date: date for flights, in the - format '2017-05-05'
-    :type outbound_date:  str
+    :param outbound_date: date for flights
+    :type outbound_date:  datetime.date
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
     :type cabinclass:     str
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
@@ -44,7 +44,7 @@ def get_itins( origin_place    = 'SIN'
                      , locale           = LOCALE
                      , originplace      = origin_place + '-sky'
                      , destinationplace = dest_place + '-sky'
-                     , outbounddate     = outbound_date
+                     , outbounddate     = ds.convert_date_datedash(outbound_date)
                      , cabinclass       = cabinclass
                      , adults           = adults )
 
@@ -74,7 +74,7 @@ def get_itins( origin_place    = 'SIN'
                             , cabinclass      = cabinclass
                             , adults          = adults
                             , use_cache       = use_cache
-                            , nb_tries        = nb_tries+1)
+                            , nb_tries        = nb_tries + 1 )
         else:
             return None  # this is handled appropriately in the get_ticket_prices
 
@@ -115,8 +115,8 @@ def get_ticket_prices( origin_place
     :type origin_place:   str
     :param dest_place:    IATA code of the destination airport 'KUL'
     :type dest_place:     str
-    :param outbound_date: outbound date in dash format '2017-02-15'
-    :type outbound_date:  str
+    :param outbound_date: outbound date # TODO: remove: in dash format '2017-02-15'
+    :type outbound_date:  datetime.date
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
     :type insert_into_livedb:  bool
     """
@@ -224,24 +224,30 @@ def reorganize_ticket_prices(itin):
             hour 
 
         insert ((date, hour), (arr_date, arr_hour), price, flight_id) into dict d
+
+    :param itin: Itinerary in the form of a list of ((u'2016-10-28', u'19:15:00'), 532.),
+                   where the first is the departure date, second departure time, third flight price
+    :type itin: list of (tuple, double)
+    :returns: dictionary as of the form as described above in the function description
+    :rtype: dict
     """
 
-    # get the days from the list of (u'2016-10-28', u'19:15:00'), 532.
+    # get the days from the list of
     dep_day_hour = [(x[1].split('T'), x[2].split('T'), x[3], x[0], x[4]) for x in itin]
+
     reorgTickets = dict()
 
-    for date_hour, arr_date_hour, price, flight_id, flight_num in dep_day_hour:
-        date, hour = date_hour  # departure date
-        arr_date, arr_hour = arr_date_hour
+    for (date, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
         time_of_day_res = ao_codes.get_tod(hour)
 
+        date_dt = ds.convert_datedash_date(date)
         # part to insert into dict d
-        if date not in reorgTickets.keys():
-            reorgTickets[date] = dict()
-        if time_of_day_res not in reorgTickets[date].keys():
-            reorgTickets[date][time_of_day_res] = dict()
+        if date_dt not in reorgTickets.keys():
+            reorgTickets[date_dt] = dict()
+        if time_of_day_res not in reorgTickets[date_dt].keys():
+            reorgTickets[date_dt][time_of_day_res] = dict()
         # TODO: True is to follow the flights in the app
-        reorgTickets[date][time_of_day_res][hour] = (flight_id, date, hour, arr_date, arr_hour, price, flight_num, True)
+        reorgTickets[date_dt][time_of_day_res][hour] = (flight_id, date_dt, hour, arr_date, arr_hour, price, flight_num, True)
 
     return reorgTickets
 

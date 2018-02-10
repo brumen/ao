@@ -208,17 +208,17 @@ def construct_date_range(date_b, date_e):
     every date between these two dates
 
     :param date_b: begin date (as in 20180317)
-    :type date_b:  str
+    :type date_b:  datetime.date  # str
     :param date_e: end date (same as date_b
-    :type date_e:  str
+    :type date_e:  datetime.date  # str
     :returns:      list of dates between date_b and date_e
     :rtype:        list of datetime.date
     """
 
-    date_b_dt = convert_str_date(date_b)
-    date_e_dt = convert_str_date(date_e)
-    year_b, month_b, day_b = date_b_dt.year, date_b_dt.month, date_b_dt.day
-    year_e, month_e, day_e = date_e_dt.year, date_e_dt.month, date_e_dt.day
+    # date_b_dt = convert_str_date(date_b)
+    # date_e_dt = convert_str_date(date_e)
+    year_b, month_b, day_b = date_b.year, date_b.month, date_b.day
+    year_e, month_e, day_e = date_e.year, date_e.month, date_e.day
     T_l = []  # construction of the date list 
 
     for year in range(year_b, year_e+1):
@@ -254,16 +254,28 @@ def construct_date_range(date_b, date_e):
     return T_l
 
 
-def time_diff(date1, date2, dt_format=365.25):
+def time_diff( date1
+             , date2
+             , dcf = 365.25 ):
     """
-    computes numerical difference between date1 date2
+    computes numerical difference between date1 and date2 (date1 < date2)
+
+    :param date1: first date (lower of the two dates)
+    :type date1: datetime.date or str (20180105)
+    :param date2: second date (higher of the two)
+    :type date2: datetime.date or str (20180509)
+    :returns: difference in numerical form
+    :rtype: double
     """
+
     if type(date1) is dt.datetime:
-        return (date2 - date1).days / dt_format
+        return (date2 - date1).days / dcf
+
     else:
+
         date1_dt = convert_str_datetime(date1)
         date2_dt = convert_str_datetime(date2)
-        return (date2_dt - date1_dt).days / dt_format
+        return (date2_dt - date1_dt).days / dcf
 
 
 def add_days_str(date_, days):

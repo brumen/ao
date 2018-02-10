@@ -116,10 +116,10 @@ def get_data(form):
     all_valid = True
     origin_place,   origin_valid = validate_airport(form.get('origin_place'))
     dest_place,     dest_valid   = validate_airport(form.get('dest_place'))
-    option_start,   os_valid     = validate_option_dates(form.get('option_start'))
-    option_end,     oe_valid     = validate_option_dates(form.get('option_end'))
     outbound_start, obs_valid    = validate_outbound_dates(form.get('outbound_start'))
     outbound_end,   obe_valid    = validate_outbound_dates(form.get('outbound_end'))
+    option_start,   os_valid     = start_date, True
+    option_end,     oe_valid     = outbound_end  # TODO: THIS IS WRONG
 
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
@@ -140,8 +140,8 @@ def get_data(form):
     if return_ow == 'return':
         option_start_ret, ors_valid = validate_option_dates(form.get('option_ret_start'))
         option_end_ret,   ore_valid = validate_option_dates(form.get('option_ret_end'))
-        inbound_start,    ibs_valid = validate_outbound_dates(form.get('outbound_start_ret'))  # "10/1/2016"
-        inbound_end,      ibe_valid = validate_outbound_dates(form.get('outbound_end_ret'))  #  "10/2/2016"
+        inbound_start,    ibs_valid = validate_outbound_dates(form.get('outbound_start_ret'))
+        inbound_end,      ibe_valid = validate_outbound_dates(form.get('outbound_end_ret'))
 
         # check that inbound_start < inbound_end
         if ibs_valid and ibe_valid:
@@ -192,12 +192,13 @@ def get_data(form):
 
 def get_data_final(form, start_date):
     """
-    obtains data from the form (from form _final for booking) and returns them 
+    obtains data from the form (from form _final for booking) and returns them
+
     """
     all_valid = True 
     origin_place, origin_valid = validate_airport(form.get('origin_final'))
     dest_place, dest_valid = validate_airport(form.get('dest_final'))
-    option_start, os_valid = start_date, True  # '1/1/2017 ??? 
+    option_start, os_valid = start_date, True  # '1/1/2017 ???
     option_end, oe_valid = validate_option_dates(form.get('opt_end_dep_final'))  # '2/3/2016
     outbound_start, obs_valid = validate_outbound_dates(form.get('dep_start_final'))
     outbound_end, obe_valid = validate_outbound_dates(form.get('dep_end_final'))

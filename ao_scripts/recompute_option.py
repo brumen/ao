@@ -14,6 +14,10 @@ logger.addHandler(logging.StreamHandler())
 
 def recompute_option(form):
     """
+    Function recomputes the value of the option.
+
+    :param form:
+    :type form:
 
     """
 
