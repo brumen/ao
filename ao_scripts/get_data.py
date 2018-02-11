@@ -1,4 +1,5 @@
 # getting data from the webpage
+import datetime
 from dateutil.parser import parse
 
 # ao modules 
@@ -64,7 +65,7 @@ def validate_airline(airline):
             return 'Invalid', False
 
 
-def validate_outbound_dates(date_):
+def validate_dates(date_):
     """
     Validates whether date_ is in the 1/2/2017 format, and converts it into - format
 
@@ -75,57 +76,52 @@ def validate_outbound_dates(date_):
     """
 
     try:
-        parse(date_)
-    except ValueError:
+        date_dt = parse(date_).date()
+    except Exception:
         return '', False
 
-    return ds.convert_dateslash_dash(date_), True  # if everything OK, then convert
-
-
-def validate_option_dates(date_):
-    """
-    validates whether date is in the 1/2/2017 format
-
-    """
-
-    try:
-        parse(date_)
-    except ValueError:
-        return '', False
-
-    return ds.convert_dateslash_str(date_), True  # if everything OK, then convert
+    return date_dt, True  # if everything OK, then return
 
 
 def validate_strike(strike_i):
+    """
+    Tests whether strike_i is a float and returns appopriately
+
+    :param strike_i: option strike, supposedly a float
+    :type strike_i: possibly float
+    :returns: converted strike to float, True/False whether the conversion succeeded
+    :rtype: tuple (float, bool)
+    """
 
     try:
-        float(strike_i)
-        return float(strike_i), True
+        strike_i_float = float(strike_i)
     except ValueError:
         return -1., False
 
-    
+    return strike_i_float, True
+
+
 def get_data(form):
     """
     obtains data from the form and returns them 
 
+    :param form:
+    :type form: ImmutableMultiDict (from Flask)
+    :returns:
+    :rtype:
     """
-
-    print form
 
     all_valid = True
     origin_place,   origin_valid = validate_airport(form.get('origin_place'))
     dest_place,     dest_valid   = validate_airport(form.get('dest_place'))
-    outbound_start, obs_valid    = validate_outbound_dates(form.get('outbound_start'))
-    outbound_end,   obe_valid    = validate_outbound_dates(form.get('outbound_end'))
-    option_start,   os_valid     = start_date, True
-    option_end,     oe_valid     = outbound_end  # TODO: THIS IS WRONG
+    outbound_start, obs_valid    = validate_dates(form.get('outbound_start'))
+    outbound_end,   obe_valid    = validate_dates(form.get('outbound_end'))
+    option_start,   os_valid     = outbound_start, True  # THIS IS WRONG
+    option_end,     oe_valid     = outbound_end, True
 
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:
-       outbound_start_dt = parse(outbound_start)
-       outbound_end_dt   = parse(outbound_end)
-       all_valid         = all_valid and (outbound_start_dt <= outbound_end_dt)
+       all_valid         = all_valid and (outbound_start <= outbound_end)
 
     strike,  strike_valid  = validate_strike(form.get('ticket_price'))
     carrier, carrier_valid = validate_airline(form.get('airline_name'))
@@ -137,18 +133,18 @@ def get_data(form):
     all_valid   = all_valid and origin_valid and dest_valid and obs_valid and obe_valid and\
                   carrier_valid and strike_valid
 
-    if return_ow == 'return':
-        option_start_ret, ors_valid = validate_option_dates(form.get('option_ret_start'))
-        option_end_ret,   ore_valid = validate_option_dates(form.get('option_ret_end'))
-        inbound_start,    ibs_valid = validate_outbound_dates(form.get('outbound_start_ret'))
-        inbound_end,      ibe_valid = validate_outbound_dates(form.get('outbound_end_ret'))
+    if return_ow == 'one-way':  # one-way flight
+        option_start_ret, option_end_ret, inbound_start, inbound_end = None, None, None, None
+    else:  # return flight
+        option_start_ret, ors_valid = validate_dates(form.get('option_ret_start'))
+        option_end_ret,   ore_valid = validate_dates(form.get('option_ret_end'))
+        inbound_start,    ibs_valid = validate_dates(form.get('outbound_start_ret'))
+        inbound_end,      ibe_valid = validate_dates(form.get('outbound_end_ret'))
 
         # check that inbound_start < inbound_end
         if ibs_valid and ibe_valid:
-            inbound_start_dt = parse(inbound_start)
-            inbound_end_dt   = parse(inbound_end)
-            all_valid        = all_valid and (inbound_start_dt <= inbound_end_dt) and \
-                               (parse(outbound_end) < inbound_start_dt)
+            all_valid        = all_valid and (inbound_start <= inbound_end) and \
+                               (outbound_end < inbound_start)
 
         all_valid = all_valid and ibs_valid and ibe_valid
         
@@ -157,155 +153,31 @@ def get_data(form):
     else:
         carrier_used = carrier
 
-    if return_ow == 'one-way':
-        return ( all_valid
-               , origin_place
-               , dest_place
-               , option_start
-               , option_end
-               , outbound_start
-               , outbound_end
-               , strike
-               , carrier_used
-               , return_ow
-               , cabin_class
-               , nb_people )
-
-    else:  # return flight
-        return ( all_valid
-               , origin_place
-               , dest_place
-               , option_start
-               , option_end
-               , outbound_start
-               , outbound_end
-               , strike
-               , carrier_used
-               , option_start_ret
-               , option_end_ret
-               , inbound_start
-               , inbound_end
-               , return_ow
-               , cabin_class
-               , nb_people )
+    return return_ow, ( all_valid
+                      , origin_place
+                      , dest_place
+                      , option_start
+                      , option_end
+                      , outbound_start
+                      , outbound_end
+                      , strike
+                      , carrier_used
+                      , option_start_ret
+                      , option_end_ret
+                      , inbound_start
+                      , inbound_end
+                      , return_ow
+                      , cabin_class
+                      , nb_people )
 
 
-def get_data_final(form, start_date):
+def get_data_final(form):
     """
     obtains data from the form (from form _final for booking) and returns them
 
     """
-    all_valid = True 
-    origin_place, origin_valid = validate_airport(form.get('origin_final'))
-    dest_place, dest_valid = validate_airport(form.get('dest_final'))
-    option_start, os_valid = start_date, True  # '1/1/2017 ???
-    option_end, oe_valid = validate_option_dates(form.get('opt_end_dep_final'))  # '2/3/2016
-    outbound_start, obs_valid = validate_outbound_dates(form.get('dep_start_final'))
-    outbound_end, obe_valid = validate_outbound_dates(form.get('dep_end_final'))
 
-    # check that outbound_start < outbound_end
-    if obs_valid and obe_valid:
-       outbound_start_dt = parse(outbound_start)
-       outbound_end_dt = parse(outbound_end)
-       all_valid = all_valid and (outbound_start_dt <= outbound_end_dt)
+    # TODO: check if email is a real address
+    return_ow, results = get_data(form)
 
-    strike, strike_valid = validate_strike(form.get('ticket_price_final'))
-    carrier, carrier_valid = validate_airline(form.get('carrier_final'))
-    # getting the return flight information
-    return_ow = form.get('return_ow_final')  # this is either 'return' or 'one-way'
-    cabin_class = form.get('class_travel')  # cabin class
-    nb_people = form.get('nb_persons')
-    client_email_addr = form.get('email-addr')
-    all_valid = all_valid and origin_valid and dest_valid and obs_valid and obe_valid and carrier_valid and strike_valid
-    
-    if return_ow == 'return':
-        option_start_ret, ors_valid = start_date, True  # '2017-03-01'
-        option_end_ret, ore_valid = validate_option_dates(form.get('opt_end_ret_final'))  # '2017-04-01', True
-        inbound_start, ibs_valid = validate_outbound_dates(form.get('ret_start_final'))
-        inbound_end, ibe_valid = validate_outbound_dates(form.get('ret_end_final'))
-        # check that inbound_start < inbound_end
-        if ibs_valid and ibe_valid:
-            inbound_start_dt = parse(inbound_start)
-            inbound_end_dt = parse(inbound_end)
-            all_valid = all_valid and (inbound_start_dt <= inbound_end_dt)
-            # check that inbound dates are after the outbound dates 
-            all_valid = all_valid and (parse(outbound_end) < inbound_start_dt)
-            
-        all_valid = all_valid and ibs_valid and ibe_valid
-        
-    if carrier == '':
-        carrier_used = None
-    else:
-        carrier_used = carrier
-
-    if return_ow == 'one-way':
-        return (all_valid, origin_place, dest_place, option_start, option_end,
-                outbound_start, outbound_end, strike, carrier_used,
-                return_ow, cabin_class, nb_people, client_email_addr)
-    else:  # return flight 
-        return (all_valid, origin_place, dest_place, option_start, option_end,
-                outbound_start, outbound_end, strike, carrier_used,
-                option_start_ret, option_end_ret, inbound_start, inbound_end,
-                return_ow, cabin_class, nb_people, client_email_addr)
-
-
-def get_data_dict(form):
-    """
-    obtains data from the form in dict format (for POST) and returns them 
-
-    :param form: form of the data passed from apache
-    :type form:  TODO: FINISH HERE. 
-    """
-
-    all_valid = True
-    origin_place,   origin_valid  = validate_airport(form.get('origin_place'))
-    dest_place,     dest_valid    = validate_airport(form.get('dest_place'))
-    option_start,   os_valid      = validate_option_dates(form.get('option_start'))
-    option_end,     oe_valid      = validate_option_dates(form.get('option_end'))
-    outbound_start, obs_valid     = validate_outbound_dates(form.get('outbound_start'))  # '10/1/2016'
-    outbound_end,   obe_valid     = validate_outbound_dates(form.get('outbound_end'))  #  '10/2/2016'
-    strike,         strike_valid  = validate_strike(form.get('ticket_price'))
-    carrier,        carrier_valid = validate_airline(form.get('airline_name'))
-
-    if obs_valid and obe_valid:
-        outbound_start_dt = parse(outbound_start)
-        outbound_end_dt   = parse(outbound_end)
-        all_valid         = all_valid and (outbound_start_dt <= outbound_end_dt)
-
-    # getting the return flight information
-    return_ow   = form.get('return_ow')  # this is either 'return' or 'one-way'
-    cabin_class = form.get('cabin_class')  # cabin class
-    nb_people   = form.get('nb_people')
-    all_valid   = all_valid and origin_valid and dest_valid and obs_valid and\
-                  obe_valid and carrier_valid and strike_valid
-
-    if return_ow == 'return':
-
-        option_start_ret, osr_valid = validate_option_dates(form.get('option_ret_start'))
-        option_end_ret,   oer_valid = validate_option_dates(form.get('option_ret_end'))
-        inbound_start,    ibs_valid = validate_outbound_dates(form.get('outbound_start_ret'))  # '10/1/2016'
-        inbound_end,      ibe_valid = validate_outbound_dates(form.get('outbound_end_ret'))  #  '10/2/2016'
-
-        if ibs_valid and ibe_valid:
-            inbound_start_dt = parse(inbound_start)
-            inbound_end_dt   = parse(inbound_end)
-            all_valid        = all_valid and (inbound_start_dt <= inbound_end_dt)
-            # check that inbound dates are after the outbound dates 
-            all_valid        = all_valid and (parse(outbound_end) < inbound_start_dt)
-        
-        all_valid = all_valid and ibs_valid and ibe_valid
-        
-    if carrier == "":
-        carrier_used = None
-    else:
-        carrier_used = carrier
-
-    if return_ow == 'one-way':
-        return (all_valid, origin_place, dest_place, option_start, option_end,
-                outbound_start, outbound_end, strike, carrier_used,
-                return_ow, cabin_class, nb_people)
-    else:  # return flight 
-        return (all_valid, origin_place, dest_place, option_start, option_end,
-                outbound_start, outbound_end, strike, carrier_used,
-                option_start_ret, option_end_ret, inbound_start, inbound_end,
-                return_ow, cabin_class, nb_people)
+    return return_ow, results, form.get('email-addr')

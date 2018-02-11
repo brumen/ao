@@ -4,9 +4,10 @@ from __future__ import print_function
 import os
 import uuid
 import json
-import time
 import numpy as np
 import getpass
+import datetime
+
 
 #Jinja2
 import jinja2
@@ -132,7 +133,7 @@ def insert_flight( airline
                  , dest_time
                  , time_diff ):
     """
-    generates the entry field for the difference
+    Generates the entry field for the difference
 
     """
     # text to be inserted for each flight 
@@ -143,48 +144,13 @@ def insert_flight( airline
     # {4} ... arr. time
     # {5} ... duration 
 
-    inserted_text = """
-    <li class="day-list-item clearfix ">
-    <article data-cid="model_18429" data-deeplink="details" class="card result clearfix no-details  " ontouchstart="">
-    <div class="card-body clearfix">
-     <div class="clearfix carrier">
-       <div class="airline">
-         <span>{0}</span>
-       </div>
-     </div>
-     <section data-id="0" class="card-main leg clearfix dept">
-       <div class="leg-details long-date-format ">
-          <div class="depart">
-            <span class="station-tooltip" data-id="ORIGIN_NB">
-              <span class="times">{3}</span>
-              <span class="stop-station" data-id="ORIGIN_NB">{1}</span>
-            </span>
-          </div>
-          <div class="stops">
-          <span class="duration">{5}</span>
-          <ul class="stop-line">
-            <li class="stop-line"></li>
-          </ul>
-          <div class="leg-stops no-stops">
-            <span class="leg-stops-green leg-stops-label">Non-stop</span>
-            <span class="leg-stops-station">
-            </span>
-          </div>
-        </div>
-        <div class="arrive">
-          <span class="station-tooltip" data-id="DEST_NB">
-          <span class="times">{4}</span>
-          <span class="stop-station" data-id="DEST_NB">{2}</span>
-          </span>
-        </div>
-      </div>
-    </section>
-    </div>
-    </article>
-    </li>
-    """
-
-    return inserted_text.format(airline, orig, dest, orig_time, dest_time, time_diff)
+    return open('flight_insert_template.html', 'r').read()\
+                                                   .format( airline
+                                                          , orig
+                                                          , dest
+                                                          , orig_time
+                                                          , dest_time
+                                                          , time_diff )
 
 
 def write_invoice(orig, dest, flights_d, fo):
@@ -416,12 +382,10 @@ def time_now():
 
     """
 
-    lt = time.localtime()
-    return str(lt.tm_year) + '_' + str(lt.tm_mon) + '_' + str(lt.tm_mday) + '_' + \
-           str(lt.tm_hour) + '_' + str(lt.tm_min) + '_' + str(lt.tm_sec)
+    lt =
 
 
-as_of = time_now()
+as_of = datetime.datetime.now()
 # TODO: FIX HERE !!!
 lt_slash = str(lt.tm_mon) + '/' + str(lt.tm_mday) + '/' +  str(lt.tm_year)
 lt_str = ds.convert_dateslash_str(lt_slash)
@@ -430,15 +394,11 @@ lt_str = ds.convert_dateslash_str(lt_slash)
 nonce = form.getvalue('nonce')
 return_ow_final = form.getvalue('return_ow_final')
 ow_ind = return_ow_final == 'one-way'  # indicator for one-way flights
-if ow_ind:
-    all_valid, origin_place, dest_place, option_start, option_end, \
-        outbound_start, outbound_end, strike, carrier_used, \
-        return_ow, cabin_class, nb_people, client_email_addr = get_data_final(form, lt_slash)
-else:
-    all_valid, origin_place, dest_place, option_start, option_end, \
-        outbound_start, outbound_end, strike, carrier_used, \
-        option_start_ret, option_end_ret, inbound_start, inbound_end, \
-        return_ow, cabin_class, nb_people, client_email_addr = get_data_final(form, lt_slash)
+
+return_ow, (all_valid, origin_place, dest_place, option_start, option_end, \
+    outbound_start, outbound_end, strike, carrier_used, \
+    option_start_ret, option_end_ret, inbound_start, inbound_end, \
+    return_ow, cabin_class, nb_people), client_email_addr = get_data_final(form)
 
 # card data
 card_name      = form.getvalue('card-name')
