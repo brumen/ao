@@ -2,11 +2,14 @@
 CUDA_PRESENT = False
 
 import sys
+import os
 
 # Adding paths
-prod_dir = '/home/brumen/work/ao/'
+prod_dir = '/home/brumen/work/ao'
 work_dir = prod_dir
-tmp_dir  = '/tmp/ao/'
+tmp_dir  = '/tmp/ao'
+log_dir  = os.path.join(prod_dir, 'log')
+
 sys.path.append(work_dir)  # basic path
 subdirs = ['cubl', 'cublas', 'tests', 'cuda', 'vols', 'pricers', 'db']
 for sd in subdirs:

@@ -147,7 +147,7 @@ def compute_option_raw( F_v
                       , underlyer = 'n'
                       , gen_first = True):
     """
-    computes the value of the option sequentially, in order to minimize memory footprint
+    Computes the value of the option sequentially, in order to minimize memory footprint
 
     :param F_v:       vector of tickets for one-way flights, tuple for return flights
     :type F_v:        np.array or tuple(np.array, np.array)
@@ -412,7 +412,7 @@ def obtain_flights( origin_place
     for out_date in in_out_date_range:
 
         if write_data_progress is not None:  # log progress
-            logger.info(';'.join([ 'PROGRESS2'
+            logger.info(';'.join([ 'AO'
                                   , write_data_progress  # request ID
                                   ,  json.dumps( {'is_complete': False,
                                                   'progress_notice': 'Fetching flights for ' + str(od)} ) ]) )
@@ -428,8 +428,8 @@ def obtain_flights( origin_place
 
         if write_data_progress is not None:  # write progress into file
 
-            logger.info(';'.join([ 'PROGRESS'
-                                  , write_data_progress
+            logger.info(';'.join([ 'AO'
+                                  , write_data_progress  # request ID
                                   , json.dumps({'is_complete'    : False,  # is_return_for_writing and last_elt,
                                                 'progress_notice': ' '.join(["Fetched flights for", str(od)]) }) ] ) )
 
@@ -796,6 +796,9 @@ def get_flight_data( flights_include     = None
 
 def compute_date_by_fraction(dt_today, dt_final, fract, total_fraction):
     """
+    Computes the date between dt_today and dt_final where the days between
+    dt_today is the fract of dates between dt_today and dt_final
+
 
     :param dt_today:       "today's" date in datetime.date format
     :type dt_today:        datetime.date
@@ -810,12 +813,8 @@ def compute_date_by_fraction(dt_today, dt_final, fract, total_fraction):
     """
 
     # fraction needs to be an integer
-    outbound_dt = ds.convert_datedash_date(dt_final)
     # - 3 ... no change in the last 3 days
-    outbound_day_diff = (outbound_dt - dt_today).days * fract/total_fraction - 3  # integer
-    outbound_date_consid = ds.convert_datetime_str(dt_today + dt.timedelta(days=outbound_day_diff))
-
-    return outbound_date_consid
+    return dt_today + dt.timedelta(days= (dt_final - dt_today).days * fract/total_fraction - 3)
 
 
 def compute_option_val( origin_place          = 'SFO'
@@ -855,8 +854,8 @@ def compute_option_val( origin_place          = 'SFO'
     :type origin_place:         str
     :param dest_place:          IATA code of the destination airport ('EWR')
     :type dest_place:           str
-    :param flights_include:
-    :type flights_include:
+    :param flights_include:     list of flights to include in pricing this option
+    :type flights_include:      list of tuples # TODO: BE MORE PRECISE HERE
     :param option_start_date:   the date when you can start changing the outbound flight (such as '20170522')
     :type option_start_date:    datetime.date
     :param option_end_date:     the date when you stop changing the outbound flight (e.g. '20170522')
@@ -869,7 +868,6 @@ def compute_option_val( origin_place          = 'SFO'
     """
     # date today 
     date_today_dt  = date_today()
-    date_today_str = ds.convert_datetime_str(date_today_dt)
 
     if res_supplied is None:  # no flights are supplied, find them
         res = get_flight_data( flights_include       = flights_include
@@ -952,7 +950,7 @@ def compute_option_val( origin_place          = 'SFO'
                                                            , outbound_date_start
                                                            , complete_set_options-ri
                                                            , complete_set_options)
-            T_l_dep_num = construct_sim_times( date_today_str
+            T_l_dep_num = construct_sim_times( date_today_dt
                                              , outbound_date_consid
                                              , date_today_dt
                                              , simplify_compute = simplify_compute)
@@ -965,12 +963,12 @@ def compute_option_val( origin_place          = 'SFO'
                                                               , inbound_date_start
                                                               , complete_set_options-ri
                                                               , complete_set_options)
-                T_l_ret_num = construct_sim_times( date_today_str
+                T_l_ret_num = construct_sim_times( date_today_dt
                                                  , inbound_date_consid
                                                  , date_today_dt
                                                  , simplify_compute = simplify_compute)
                 T_l_used = (T_l_dep_num, T_l_ret_num)
-                key_ind = ds.convert_str_dateslash(outbound_date_consid) + ' - ' + ds.convert_str_dateslash(inbound_date_consid)
+                key_ind = ds.convert_datetime_str(outbound_date_consid) + ' - ' + ds.convert_datetime_str(inbound_date_consid)
 
             # for debugging 
             opt_val_scenario = compute_option_raw( F_v_used

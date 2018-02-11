@@ -3,6 +3,7 @@ import config
 import datetime as dt
 import ds 
 import csv
+import os
 
 # database setup
 DB_HOST  = 'odroid.local'
@@ -10,7 +11,7 @@ DATABASE = 'ao'
 DB_USER  = 'brumen'
 
 # original sqlite db
-SQLITE_FILE       = config.work_dir + 'ao.db'
+SQLITE_FILE       = os.path.join(config.work_dir, 'ao.db')
 SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
 
 # Common properties
@@ -58,14 +59,16 @@ night_dt     = ds.convert_hour_time(night[0]), ds.convert_hour_time(night[1])
 weekday_days = [0, 1, 2, 3, 4]
 weekend_days = [5, 6]
 
+# livedb prices should only be used if within the livedb_delay of being logged
 livedb_delay = dt.timedelta(hours=1)
 
 # working directory
-compute_dir = config.prod_dir + 'inquiry/compute/'
-inquiry_dir = config.prod_dir + 'inquiry/'
-error_log   = config.prod_dir + 'logger/ao.log'
-debug_dir   = config.prod_dir + 'debug/'
-iata_dir    = config.prod_dir + 'iata/'
+compute_dir = os.path.join(config.tmp_dir , 'inquiry/compute'    )
+inquiry_dir = os.path.join(config.tmp_dir , 'inquiry'            )
+error_log   = os.path.join(config.log_dir , 'logger/ao.log'      )
+debug_dir   = os.path.join(config.log_dir , 'debug'              )
+iata_dir    = os.path.join(config.prod_dir, 'iata'               )
+iata_file   = os.path.join(iata_dir       , 'iata_codes_work.csv')
 
 # reserves, taxes
 reserves             = 0.12  # 10% reserves, 15, but
@@ -135,21 +138,23 @@ fees = {"Airtran"  : {"ticket_change": 150.,
         }
 
 
-def import_iata_codes(iata_file=iata_dir + 'iata_codes_work.csv'):
+def import_iata_codes():
     """
-    import iata codes from the file specified
+    import iata codes from the file iata_file
 
     """
+
     iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
     iata_cities_codes = {city: code for code, country, city in iata_reader}
     iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
     iata_codes_cities = {code: city for code, country, city in iata_reader}
+
     # read iata airlines
-    iata_airlines_reader = csv.reader( open(iata_dir + 'iata_airlines.csv', 'r')
+    iata_airlines_reader = csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r')
                                      , delimiter=',')
     iata_codes_airlines = { code: airline
                             for airline, code, three_digit, icao, country in iata_airlines_reader }
-    iata_airlines_reader = csv.reader( open(iata_dir + 'iata_airlines.csv', 'r')
+    iata_airlines_reader = csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r')
                                      , delimiter=',')
     iata_airlines_codes = { airline: code
                             for airline, code, three_digit, icao, country in iata_airlines_reader }

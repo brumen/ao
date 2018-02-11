@@ -16,7 +16,7 @@ from   mysql_connector_env import MysqlConnectorEnv
 
 def get_itins( origin_place    = 'SIN'
              , dest_place      = 'KUL'
-             , outbound_date   = None  # '2017-02-05'
+             , outbound_date   = None
              , includecarriers = None
              , cabinclass      = 'Economy'
              , adults          = 1
@@ -25,11 +25,11 @@ def get_itins( origin_place    = 'SIN'
     """
     helper function that returns itineraries, uses skyscanner api 
 
-    :param origin_place:  origin of the flight
+    :param origin_place:  IATA code of the flight origin airport
     :type origin_place:   str
-    :param dest_place:    destination of flight
+    :param dest_place:    IATA code of the flight destination airport
     :type dest_place:     str
-    :param outbound_date: date for flights
+    :param outbound_date: date for flights to fetch
     :type outbound_date:  datetime.date
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
     :type cabinclass:     str
@@ -83,14 +83,14 @@ def get_itins( origin_place    = 'SIN'
 
 def find_carrier(carrier_l, carrier_id):
     """
-    finds the carrier from the ID list
+    Finds the carrier from the ID list
 
     :param carrier_l:  list of carriers
-    :type carrier_l:   list of strings
+    :type carrier_l:   list of str
     :param carrier_id: carrier one is searching for
-    :type carrier_id:  string
+    :type carrier_id:  str
     :returns:          Code of the carrier info
-    :rtype:            TODO: ???
+    :rtype:            None if failure; carrier_info if carrier is found
     """
 
     for carrier_info in carrier_l:
@@ -109,7 +109,7 @@ def get_ticket_prices( origin_place
                      , use_cache          = False
                      , insert_into_livedb = False ):
     """
-    returns the ticket prices for a flight 
+    Returns the ticket prices for a flight
 
     :param origin_place:  IATA code of the origin airport 'SIN'
     :type origin_place:   str
