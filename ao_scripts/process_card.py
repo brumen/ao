@@ -8,9 +8,7 @@ import numpy as np
 import getpass
 import datetime
 
-
-#Jinja2
-import jinja2
+from jinja2 import Template
 
 # for sending e-mail w/ pdf attached
 import smtplib
@@ -133,16 +131,27 @@ def insert_flight( airline
                  , dest_time
                  , time_diff ):
     """
-    Generates the entry field for the difference
+    Generates the entry field for the flight. The arguments to format are:
+      {0} ... airline name
+      {1} ... origin
+      {2} ... dest
+      {3} ... dep. time
+      {4} ... arr. time
+      {5} ... duration
 
+    :param airline: IATA code of the airline
+    :type airline: str
+    :param orig: code of the airport of origin
+    :type orig: str
+    :param dest: code of the airport of destination
+    :type dest: str
+    :param orig_time: time of the departure flight
+    :type orig_time: str
+    :param dest_time: time of the plane destination
+    :type dest_time: str
+    :param time_diff: difference between arrival and departure time
+    :type time_diff: str
     """
-    # text to be inserted for each flight 
-    # {0} ... airline name
-    # {1} ... origin
-    # {2} ... dest
-    # {3} ... dep. time
-    # {4} ... arr. time
-    # {5} ... duration 
 
     return open('flight_insert_template.html', 'r').read()\
                                                    .format( airline
@@ -153,14 +162,26 @@ def insert_flight( airline
                                                           , time_diff )
 
 
-def write_invoice(orig, dest, flights_d, fo):
+def write_flights_in_invoice( orig
+                            , dest
+                            , flights_d ):
     """
-    writes the invoice into the .tex file 
-    :param orig: originating airport 
-    :param dest: destination airport 
-    :param flights_d: dict of reorg_flights 
-    :param fo: file where the flights are written
+    Writes the flights from flights_d into a table that is used in the text file
+
+    :param orig: originating airport
+    :type orig: str
+    :param dest: destination airport
+    :type dest: str
+    :param flights_d: dict of reorg_flights
+    :type flights_d: dict of the form flights_d[day][tod][flight]
+              day: date of the flight
+                 tod: time of day
+                    flight: flight ID
+    :returns: text with all the flights constructed for inclusion into the .tex file
+    :rtype: str
     """
+
+    # inserted tabline fields:
     # 0 - date
     # 1 - flight nb
     # 2 - from
@@ -171,25 +192,32 @@ def write_invoice(orig, dest, flights_d, fo):
     \hline
     {0}  & {1}  & {2}  & {3}  & {4} & {5} \\\\
     """
-    # flights in dict format, presents them 
+
+    completed_flights = """"""
+
+    # flights in dict format, presents them
     for day in flights_d:
         flight_ct = 0
         if day != 'minmax':  # day: 2017-01-01
             for tod in flights_d[day]:
                 if tod != 'minmax':
-                    for flight in flights_d[day][tod]:  
-                        used_arr = flights_d[day][tod][flight]  # flight is a list 
-                        if (flight != "min_max") and used_arr[7]:  # used_arr[7] ... checked if selected 
-                            _, dep_date, dep_time, arr_date, arr_time, _, airline, _ = used_arr 
-
+                    for flight in flights_d[day][tod]:
+                        _, dep_date, dep_time, arr_date, arr_time, _, airline, flight_selected = flights_d[day][tod][flight]  # flight is a list
+                        if (flight != "min_max") and flight_selected:
                             if flight_ct == 0:
                                 dep_date_used = dep_date
                             else:
                                 dep_date_used = ""
-                            fo.write(inserted_tabline.format(dep_date_used, airline,
-                                                             orig, dest,
-                                                             dep_time, arr_time))
+
+                            completed_flights += inserted_tabline.format( dep_date_used
+                                                                        , airline
+                                                                        , orig
+                                                                        , dest
+                                                                        , dep_time
+                                                                        , arr_time )
                             flight_ct += 1
+
+    return completed_flights
 
 
 def write_invoice_fct( invoice_template
@@ -215,73 +243,49 @@ def write_invoice_fct( invoice_template
     """
     write the invoice function
 
-    :param invoice_template: open file containing the template 
-    :param invoice_fo: invoice file where to write 
+    :param invoice_template: open file containing the template
+    :param invoice_fo: invoice file where to write
     """
-    for line in invoice_template:
-        if "ORIGIN" in line:
-            invoice_fo.write(str(orig_long))
-        elif "DESTINATION" in line:
-            invoice_fo.write(str(dest_long))
-        elif "DATE" in line:
-            newline = line.replace('DATE', as_of.replace('_', '/'))
-            invoice_fo.write(newline)
-        elif "CUSTOMERNAME" in line:
-            newline = line.replace('CUSTOMERNAME', card_name)
-            invoice_fo.write(newline)
-        elif "CUSTOMERSTREET" in line:
-            newline = line.replace('CUSTOMERSTREET', card_address)
-            invoice_fo.write(newline)
-        elif "CUSTOMERCITY" in line:
-            newline = line.replace('CUSTOMERCITY', city_state)
-            invoice_fo.write(newline)
-        elif "NBADULTS" in line:
-            newline = line.replace('NBADULTS', nb_people)
-            invoice_fo.write(newline)
-        elif "CLASSTRAVEL" in line:
-            newline = line.replace('CLASSTRAVEL', cabin_class)
-            invoice_fo.write(newline)
-        elif "CUSTOMERZIP" in line:
-            newline = line.replace('CUSTOMERZIP', sq_postal_code)
-            invoice_fo.write(newline)
-        elif "TICKETPRICE" in line:
-            newline = line.replace('TICKETPRICE', str(strike))
-            invoice_fo.write(newline)
-        elif 'PRICETOTAL' in line:
-            newline = line.replace('PRICETOTAL', str(amount_charged/100))
-            invoice_fo.write(newline)
-        elif "RETURNONEWAY" in line:
-            newline = line.replace('RETURNONEWAY', return_ow_final)
-            invoice_fo.write(newline)
-        elif "CHANGEOPTIONTEXT" in line:
-            if ow_ind:  # one-way
-                changed_text = str(ds.convert_str_dateslash(option_end))
-            else:  # return 
-                changed_text = str(ds.convert_str_dateslash(option_end)) + \
+
+
+    change_option_text_else = str(ds.convert_str_dateslash(option_end)) + \
                                ' and until ' + str(ds.convert_str_dateslash(option_end_ret)) + \
                                ' for the return flight'
-            newline = line.replace('CHANGEOPTIONTEXT', changed_text)
-            invoice_fo.write(newline)
-        elif "%INVENTORY" in line:
-            if ow_ind:
-                write_invoice(orig_short, dest_short, flights_d, invoice_fo)
-            else:
-                write_invoice(orig_short, dest_short, flights_d[0], invoice_fo)
-                write_invoice(dest_short, orig_short, flights_d[1], invoice_fo)
-        else:
-            invoice_fo.write(line)
-    invoice_fo.close()
 
-    # check if the file invoice_tex is alfanumeric
+    if return_ow_final:
+        completed_flights = write_flights_in_invoice(orig_short, dest_short, flights_d)
+    else:
+        completed_flights = write_flights_in_invoice(orig_short, dest_short, flights_d[0]) + \
+                            write_flights_in_invoice(dest_short, orig_short, flights_d[1])
+
+    templ = Template(open('invoice/invoice_template.tex', 'r').read())\
+                .render( ORIGIN           = str(orig_long)
+                       , DESTINATION      = str(dest_long)
+                       , DATE             = as_of.replace('_', '/')
+                       , CUSTOMERNAME     = card_name
+                       , CUSTOMERSTREET   = card_address
+                       , CUSTOMERCITY     = city_state
+                       , NBADULTS         = nb_people
+                       , CLASSTRAVEL      = cabin_class
+                       , CUSTOMERZIP      = sq_postal_code
+                       , TICKETPRICE      = str(strike)
+                       , PRICETOTAL       = str(amount_charged/100)
+                       , RETURNONEWAY     = return_ow_final
+                       , CHANGEOPTIONTEXT = str(ds.convert_str_dateslash(option_end)) if ow_ind
+                                                else change_option_text_else
+                       , INVENTORY        = completed_flights)
+
+    invoice_fo.write(templ)
+
+    # TODO: check if the file invoice_tex is alfanumeric
     invoice_tex, invoice_aux, invoice_log, invoice_pdf = invoice_vars
-    # write to 
+    # write to
     os.system('pdflatex -output-directory ' + inquiry_dir + ' ' + invoice_tex + ' > /dev/null')
     # move the .aux .tex .log files
     os.system('mv ' + invoice_tex + ' ' + inquiry_logs_dir)
     os.system('mv ' + invoice_aux + ' ' + inquiry_logs_dir)
     os.system('mv ' + invoice_log + ' ' + inquiry_logs_dir)
     os.system('cp ' + invoice_pdf + ' ' + inquiry_logs_dir)  # copy the pdf here as well
-    # MISSING THE ELSE CLAUSE 
 
     
 def write_file_fct( fo
@@ -367,29 +371,17 @@ def send_email_to_client( client_email
     msg.attach(att)
 
     if '@' in client_email:
-        server.sendmail('airoptions.llc@gmail.com', client_email, msg.as_string())
+        server.sendmail( 'airoptions.llc@gmail.com'
+                       , client_email
+                       , msg.as_string() )
     # otherwise dont send mail 
     server.close()
 
-
-#
-# main file, presenting everything 
-#
-
-def time_now():
-    """
-    Returns the time right now
-
-    """
-
-    lt =
-
-
-as_of = datetime.datetime.now()
 # TODO: FIX HERE !!!
+as_of = datetime.datetime.now()
 lt_slash = str(lt.tm_mon) + '/' + str(lt.tm_mday) + '/' +  str(lt.tm_year)
 lt_str = ds.convert_dateslash_str(lt_slash)
-# form 
+# form
 # form = cgi.FieldStorage()
 nonce = form.getvalue('nonce')
 return_ow_final = form.getvalue('return_ow_final')

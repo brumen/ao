@@ -3,21 +3,36 @@ import logging
 import json
 import uuid
 import unirest
+import os.path
 
 import config
 import ao_codes
 
 from time             import sleep, localtime
-from threading        import Thread
+from sse              import Publisher
+
+
+
 from logging.handlers import MemoryHandler
 from flask            import Flask, request, jsonify, Response
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
 from ao_scripts.verify_airline         import is_valid_airline
 from ao_scripts.verify_origin          import is_valid_origin
-from ao_scripts.recompute_option       import recompute_option
 from ao_scripts.compute_option         import compute_option
 from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
+
+
+loggger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
+
+
+class AOParsingFilter(logging.Filter):
+    """
+    Filters out the records which AO produces
+    """
+
+    def filter(self, record):
+        return not record.getMessage().startswith('AO')
 
 
 class ComputeStream(object):
@@ -38,7 +53,8 @@ class ComputeStream(object):
 
         """
 
-        # TODO: FINISH THIS PROCESSING
+        recordList = record.split(":")
+        recordList[3:]  # everything after: asctime, name, levelname
         return record
 
     def __processMessage(self, record):
@@ -65,7 +81,7 @@ class ComputeStream(object):
 # logger setup
 logger = logging.getLogger()  # root logger
 logger.setLevel(logging.INFO)
-logger_handler = logging.FileHandler('/home/brumen/tmp/log1.txt')
+logger_handler = logging.FileHandler(os.path.join(config.log_dir, 'ao.log'))
 logger_handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
 logger.addHandler(logger_handler)
 computeStream = ComputeStream()  # object keeping the messages
@@ -131,8 +147,13 @@ def find_relevant_carriers():
 
 @app.route('/recompute_option', methods = ['POST'])
 def recompute_option_flask():
+    """
+    Recomputes the option value, makes the same call as the compute_option with the additional flag.
 
-    return recompute_option(request.args)  # TODO: THIS HAS TO CHANGE
+    """
+
+    return compute_option( request.args
+                         , recompute_ind = True)
 
 
 @app.route('/write_inquiry', methods=['POST'])
@@ -158,19 +179,13 @@ def compute_option_flask():
 
     """
 
-    # create a new stream for logging
-    computeStream = ComputeStream()  # object keeping the messages
-    stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
-                                                   , flushLevel = logging.INFO
-                                                   , target     = computeStream)
-    logger.addHandler(stream_handler)
+    publisher_ao = Publisher()
+    res = compute_option(request.args
+                        , publisher_ao  = publisher_ao
+                        , recompute_ind = False )
 
-    computeThread = Thread( target = compute_option
-                          , args   = [request.args])  # this is writing to logger
-    computeThread.start()  # this thread is computing here
-
-    return Response( computeStream.getMessages()  # this will be returning the messages
-                   , mimetype="text/event-stream")
+    return Response( publisher_ao.subscribe()  # this will be returning the messages
+                   , mimetype="text/event-stream" )
 
 
 @app.route('/ao_auto_fill_origin')

@@ -1,9 +1,7 @@
 # getting data from the webpage
-import datetime
 from dateutil.parser import parse
 
 # ao modules 
-import ds
 from ao_codes import iata_cities_codes, iata_codes_cities, \
                      iata_airlines_codes, iata_codes_airlines
 

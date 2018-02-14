@@ -36,6 +36,20 @@ def date_today():
                                str(ds.d2s(lt.tm_mday)))
 
 
+def data_yield(data_dict):
+    """
+    Returns the data_dict in the form that server understands
+
+    :param data_dict: dictionary to be sent to the browser
+    :type data_dict: dict
+    :returns: string that the server understands
+    :rtype: str
+    """
+
+    # return "data: {0}\n\n".format(json.dumps(data_dict))
+    return json.dumps(data_dict)
+
+
 def ao_f( F_sims
         , F_max_prev):
     """
@@ -378,7 +392,7 @@ def obtain_flights( origin_place
                   , insert_into_livedb    = True
                   , io_ind                = 'out'
                   , correct_drift         = True
-                  , write_data_progress   = None ):
+                  , publisher_ao          = None ):
     """
     get the flights for outbound and inbound flight
 
@@ -397,8 +411,6 @@ def obtain_flights( origin_place
     :type cabinclass:     str
     :param correct_drift: whether to correct the drift, as described in the documentation
     :type correct_drift:  bool
-    :param write_data_progress: request ID, to be identified in the logging
-    :type write_data_progress:  str
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
@@ -411,11 +423,13 @@ def obtain_flights( origin_place
 
     for out_date in in_out_date_range:
 
-        if write_data_progress is not None:  # log progress
-            logger.info(';'.join([ 'AO'
-                                  , write_data_progress  # request ID
-                                  ,  json.dumps( {'is_complete': False,
-                                                  'progress_notice': 'Fetching flights for ' + str(od)} ) ]) )
+        logger.info(';'.join([ 'AO'
+                              ,  json.dumps( {'is_complete': False,
+                                              'progress_notice': 'Fetching flights for ' + str(out_date)} ) ]) )
+
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': False
+                                            , 'result'  : 'Fetching flights for ' + str(out_date)}))
 
         ticket_val, flights, reorg_flights = \
             air_search.get_ticket_prices( origin_place       = origin_used
@@ -426,12 +440,12 @@ def obtain_flights( origin_place
                                         , adults             = adults
                                         , insert_into_livedb = insert_into_livedb)
 
-        if write_data_progress is not None:  # write progress into file
+        logger.info(';'.join([ 'AO'
+                              , json.dumps({'is_complete'    : False,  # is_return_for_writing and last_elt,
+                                            'progress_notice': ' '.join(["Fetched flights for", str(out_date)]) }) ] ) )
 
-            logger.info(';'.join([ 'AO'
-                                  , write_data_progress  # request ID
-                                  , json.dumps({'is_complete'    : False,  # is_return_for_writing and last_elt,
-                                                'progress_notice': ' '.join(["Fetched flights for", str(od)]) }) ] ) )
+        publisher_ao.publish(data_yield({ 'finished': False
+                                        , 'result'  : ' '.join(["Fetched flights for", str(out_date)]) }) )
 
         # does the flight exist for that date??
         if reorg_flights.has_key(out_date):
@@ -517,19 +531,22 @@ def obtain_flights_recompute( origin_place
                             , io_dr_minus
                             , flights_include
                             , io_ind                = 'out'
-                            , correct_drift         = True ):
+                            , correct_drift         = True
+                            , publisher_ao          = None):
     """
     Get the flights for recompute method.
 
     :param origin_place:
 
-    :param io_dr_minus:  input/output date range _minus (with - sign)
+    :param io_dr_minus:     input/output date range _minus (with - sign)
     :type io_dr_minus:
     :param flights_include: flights to be considered for recomputation
     :type flights_include:  TODO
-    :param io_ind:       inbound/outbound indicator ('in', or 'out')
-    :type io_ind:        str
-    F_mat ... maturity of the forward prices
+    :param io_ind:          inbound/outbound indicator ('in', or 'out')
+    :type io_ind:           str
+    :param publisher_ao:    publisher object, _NOT_ used by this function, _ONLY_ HERE to be
+                                compatible w/ obtain_flights
+    :type publisher_ao:     sse.Publisher
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
@@ -597,9 +614,9 @@ def get_flight_data( flights_include     = None
                    , recompute_ind       = False
                    , correct_drift       = True
                    , insert_into_livedb  = True
-                   , write_data_progress = None ):
+                   , publisher_ao        = None ):
     """
-    get flight data for the parameters specified
+    Get flight data for the parameters specified
 
     :param flights_include:      if None - include all
                                  if specified, then only consider the flights in flights_include
@@ -619,7 +636,9 @@ def get_flight_data( flights_include     = None
     :param carrier:              IATA code of the carrier, e.g. 'UA'
     :type carrier:               string
 
-    :param write_data_progress: write progress of fetching data into the filename given 
+    :param publisher_ao:         publisher object (from sse) for Air options,
+    :type publisher_ao:          sse.Publisher
+
     """
 
     # outbound data range
@@ -636,6 +655,10 @@ def get_flight_data( flights_include     = None
     # departure flights, always establish
     if not return_flight:
 
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': False
+                                            , 'result' : 'Fetching outbound data.'}))
+
         F_v_dep_uns, F_mat_dep_uns,\
             s_v_dep_u_uns, d_v_dep_u_uns,\
             flights_v_dep_uns, reorg_flights_v_dep,\
@@ -649,9 +672,16 @@ def get_flight_data( flights_include     = None
                                           , insert_into_livedb    = insert_into_livedb
                                           , io_ind                = 'out'
                                           , correct_drift         = correct_drift
-                                          , write_data_progress   = write_data_progress)
+                                          , publisher_ao          = publisher_ao )
+
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': False
+                                            , 'result'  : 'Finished outbound flights fetch.' } ))
 
         if valid_check != 'Valid':  # not valid, return immediately
+            if publisher_ao:
+                publisher_ao.publish(data_yield({ 'finished': True
+                                                , 'result'  : 'Outbound flight error.'}))
             return [], [], [], [], [], [], False
         
         F_v_dep, F_mat_dep, s_v_dep_u, d_v_dep_u, \
@@ -679,7 +709,7 @@ def get_flight_data( flights_include     = None
                                     , flights_include
                                     , io_ind              = 'out'
                                     , correct_drift       = correct_drift
-                                    , write_data_progress = write_data_progress )
+                                    , publisher_ao        = publisher_ao )
 
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -703,8 +733,7 @@ def get_flight_data( flights_include     = None
                                                  , inbound_date_range
                                                  , flights_include
                                                  , io_ind                = 'in'
-                                                 , correct_drift         = correct_drift
-                                                 , write_data_progress   = write_data_progress)
+                                                 , correct_drift         = correct_drift )
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -729,8 +758,8 @@ def get_flight_data( flights_include     = None
                                                   , outbound_date_range
                                                   , flights_include[0]
                                                   , io_ind                = 'out'
-                                                  , correct_drift         = correct_drift
-                                                  , write_data_progress   = write_data_progress)
+                                                  , correct_drift         = correct_drift )
+
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
 
@@ -752,8 +781,7 @@ def get_flight_data( flights_include     = None
                                                  , inbound_date_range
                                                  , flights_include[1]
                                                  , io_ind                ='in'
-                                                 , correct_drift         = correct_drift
-                                                 , write_data_progress   = write_data_progress)
+                                                 , correct_drift         = correct_drift )
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -772,10 +800,10 @@ def get_flight_data( flights_include     = None
         valid_check = (valid_check_out == 'Valid') and (valid_check_in == 'Valid')
 
         if valid_check:
-            s_v_dep = s_v_dep_raw  # [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_dep_raw]
-            d_v_dep = d_v_dep_raw  # [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_dep_raw]
-            s_v_ret = s_v_ret_raw  # [lambda t: s_v_fct(s_elt, t) for s_elt in s_v_ret_raw]
-            d_v_ret = d_v_ret_raw  # [lambda t: d_v_fct(d_elt, t) for d_elt in d_v_ret_raw]
+            s_v_dep = s_v_dep_raw
+            d_v_dep = d_v_dep_raw
+            s_v_ret = s_v_ret_raw
+            d_v_ret = d_v_ret_raw
 
     if valid_check:
         if not return_flight:
@@ -821,72 +849,104 @@ def compute_option_val( origin_place          = 'SFO'
                       , dest_place            = 'EWR'
                       , flights_include       = None
                       # when can you change the option
-                      , option_start_date     = None  # '20170522'
-                      , option_end_date       = None  # '20170524'
-                      , option_ret_start_date = None  # '20170601'
-                      , option_ret_end_date   = None  # '20170603'
+                      , option_start_date     = None
+                      , option_end_date       = None
+                      , option_ret_start_date = None
+                      , option_ret_end_date   = None
                       # next 4 - when do the (changed) flights occur
-                      , outbound_date_start   = None  # '2017-05-25'
-                      , outbound_date_end     = None  # '2017-05-26'
-                      , inbound_date_start    = None  # '2017-06-05'
-                      , inbound_date_end      = None  # '2017-06-06'
-                      , K                     = 1600.  # option strike price (return or combined)
+                      , outbound_date_start   = None
+                      , outbound_date_end     = None
+                      , inbound_date_start    = None
+                      , inbound_date_end      = None
+                      , K                     = 1600.
                       , carrier               = 'UA'
-                      , nb_sim                = 10000  # CHECK THIS
+                      , nb_sim                = 10000
                       , rho                   = 0.95
                       , adults                = 1
                       , cabinclass            = 'Economy'
                       , cuda_ind              = False
                       , errors                = 'graceful'
-                      , simplify_compute      = 'take_last_only' # 'all_sim_dates'
+                      , simplify_compute      = 'take_last_only'
                       , underlyer             = 'n'
                       , price_by_range        = True
                       , return_flight         = False
-                      , res_supplied          = None
+                      , flights_supplied      = None
                       , gen_first             = True
                       , recompute_ind         = False
                       , correct_drift         = True
-                      , write_data_progress   = None):
+                      , publisher_ao          = False ):
     """
     computes the flight option
 
-    :param origin_place:        IATA code of the origin airport ('SFO')
-    :type origin_place:         str
-    :param dest_place:          IATA code of the destination airport ('EWR')
-    :type dest_place:           str
-    :param flights_include:     list of flights to include in pricing this option
-    :type flights_include:      list of tuples # TODO: BE MORE PRECISE HERE
-    :param option_start_date:   the date when you can start changing the outbound flight (such as '20170522')
-    :type option_start_date:    datetime.date
-    :param option_end_date:     the date when you stop changing the outbound flight (e.g. '20170522')
-    :type option_end_date:      datetime.date
-    :param simplify_compute:    simplifies the computation in that it only simulates the last simulation date
-    :type simplify_compute:     string, options are: "take_last_only", "all_sim_dates"
-
-    :param write_data_progress: if None, just compute the option 
-                                if filename given, then write into that filename the progress 
+    :param origin_place:            IATA code of the origin airport ('SFO')
+    :type origin_place:             str
+    :param dest_place:              IATA code of the destination airport ('EWR')
+    :type dest_place:               str
+    :param flights_include:         list of flights to include in pricing this option
+    :type flights_include:          list of tuples # TODO: BE MORE PRECISE HERE
+    :param option_start_date:       the date when you can start changing the outbound flight
+    :type option_start_date:        datetime.date
+    :param option_end_date:         the date when you stop changing the outbound flight
+    :type option_end_date:          datetime.date
+    :param option_ret_start_date:   the date when you can start changing the inbound flight
+    :type option_ret_start_date:    datetime.date
+    :param option_ret_end_date:     the date when you stop changing the outbound flight
+    :type option_ret_end_date:      datetime.date
+    :param outbound_date_start:     start date for outbound flights to change to
+    :type outbound_date_start:      datetime.date
+    :param outbound_date_end:       end date for outbound flights to change to
+    :type outbound_date_end:        datetime.date
+    :param inbound_date_start:      start date for inbound flights to change to
+    :type inbound_date_start:       datetime.date
+    :param inbound_date_end:        end date for inbound flights to change to
+    :type inbound_date_end:         datetime.date
+    :param K:                       option strike
+    :type K:                        double
+    :param carrier:                 IATA code of the carrier
+    :type carrier:                  str
+    :param nb_sim:                  number of simulations
+    :type nb_sim:                   int
+    :param rho:                     correlation between flights parameter
+    :type rho:                      double
+    :param adults:                  nb. of people on this ticket
+    :type adults:                   int
+    :param cabinclass:              class of flight ticket
+    :type cabinclass:               str
+    :param cuda_ind:                whether to use cuda for computation
+    :type cuda_ind:                 bool
+    :param errors:                  how to handle skyscanner get tickets
+    :type errors:                   str
+    :param simplify_compute:        simplifies the computation in that it only simulates the last simulation date
+    :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
+    :param publisher_ao:            publisher object where the function can publish its ongoing
+    :type publisher_ao:             sse.Publisher
     """
+
     # date today 
     date_today_dt  = date_today()
 
-    if res_supplied is None:  # no flights are supplied, find them
-        res = get_flight_data( flights_include       = flights_include
-                             , origin_place          = origin_place
-                             , dest_place            = dest_place
-                             , outbound_date_start   = outbound_date_start
-                             , outbound_date_end     = outbound_date_end
-                             , inbound_date_start    = inbound_date_start
-                             , inbound_date_end      = inbound_date_end
-                             , carrier               = carrier
-                             , cabinclass            = cabinclass
-                             , adults                = adults
-                             , return_flight         = return_flight
-                             , recompute_ind         = recompute_ind
-                             , correct_drift         = correct_drift
-                             , write_data_progress   = write_data_progress)
+    if flights_supplied is None:  # no flights are supplied, find them
+
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': False
+                                            , 'result'  : 'Initiating flight search.'  }))
+        flights = get_flight_data( flights_include       = flights_include
+                                 , origin_place          = origin_place
+                                 , dest_place            = dest_place
+                                 , outbound_date_start   = outbound_date_start
+                                 , outbound_date_end     = outbound_date_end
+                                 , inbound_date_start    = inbound_date_start
+                                 , inbound_date_end      = inbound_date_end
+                                 , carrier               = carrier
+                                 , cabinclass            = cabinclass
+                                 , adults                = adults
+                                 , return_flight         = return_flight
+                                 , recompute_ind         = recompute_ind
+                                 , correct_drift         = correct_drift
+                                 , publisher_ao          = publisher_ao )
 
     else:  # flights are provided, use these
-        res = res_supplied
+        flights = flights_supplied
         
     # all simulation times 
     T_l_dep_num = construct_sim_times( option_start_date
@@ -900,12 +960,12 @@ def compute_option_val( origin_place          = 'SFO'
                                          , simplify_compute = simplify_compute)
         
     if not return_flight:  # one-way flight
-        F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, valid_ind = res
+        F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, valid_ind = flights
 
     else:  # return flight
         (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), \
             (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
-            (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), valid_ind = res
+            (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), valid_ind = flights
         
     # sequential option parameter setup
     if len(F_v_dep) == 0 or (not valid_ind):

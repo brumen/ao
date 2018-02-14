@@ -5,9 +5,10 @@ import sys, os
 import os.path
 import numpy as np
 import logging
+import json
 
 # ao modules
-from air_option   import compute_option_val
+from air_option   import compute_option_val, data_yield
 from get_data     import get_data
 
 # logger declaration
@@ -27,15 +28,19 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
 
-def compute_option(request_id, form):
+def compute_option( form
+                  , publisher_ao  = None
+                  , recompute_ind = False ):
     """
     Interface to the compute_option_val function from air_option, to
     be called from the flask interface
 
-    :param request_id: ID of the current request (usually timestamp)
-    :type request_id: str
     :param form: "Dict" of parameters passed from the browser
     :type form: ImmutableMultiDict
+    :param publisher_ao: publisher object used for publishing the messages
+    :type publisher_ao: sse.Publisher
+    :param recompute_ind: indicator whether to do a recomputation or not
+    :type recompute_ind: bool
     :returns:
     :rtype: dict
     """
@@ -53,13 +58,20 @@ def compute_option(request_id, form):
             option_start_ret, option_end_ret, inbound_start, inbound_end, \
             return_ow, cabin_class, nb_people = data_very_raw
 
-    logger.info(';'.join(['AO', request_id, 'Initiating flight fetch.']))
+    # recompute part
+    if recompute_ind:
+        sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
+
+    logger.info(';'.join(['AO', 'Initiating flight fetch.']))
+    if publisher_ao:
+        publisher_ao.publish(data_yield({ 'finished': False
+                                        , 'result'  : 'Initiating flight' } ) )
 
     if not all_valid:  # dont compute, inputs are wrong
-        logger.info(';'.join(['AO', request_id, 'Invalid input data.']))
-        return False, {}
+        logger.info(';'.join(['AO', 'Invalid input data.']))
+        publisher_ao.publish(data_yield({ 'finished': True
+                                        , 'result': {} }))
     else:
-
         way_args = { 'origin_place':        origin_place
                    , 'dest_place':          dest_place
                    , 'option_start_date':   option_start
@@ -79,25 +91,33 @@ def compute_option(request_id, form):
                              , 'inbound_date_end'     : inbound_end
                              , 'return_flight'        : True } )
 
-        logger.info(';'.join(['AO', request_id, 'Starting option computation.']))
+        if recompute_ind:
+            way_args.update({ 'flights_include': sel_flights_dict
+                            , 'recompute_ind'  : True })
 
-        with suppress_stdout():
-            result, price_range, flights_v, reorg_flights_v, minmax_v = \
-                compute_option_val(**way_args)
+        logger.info(';'.join(['AO', 'Starting option computation.']))
 
-        logger.info(';'.join(['AO', request_id, 'Finished option computation']))
+        # with suppress_stdout():
+        result, price_range, flights_v, reorg_flights_v, minmax_v = \
+            compute_option_val(**way_args)
+
+        logger.info(';'.join(['AO', 'Finished option computation']))
 
         if result == 'Invalid':
-            logger.info(';'.join(['AO', request_id, 'Something went wrong - Invalid results.']))
-            return False, {}
+            logger.info(';'.join(['AO', json.dumps((False, {}))]))
+            publisher_ao.publish(data_yield({ 'finished': True
+                                            , 'results' : {} }))
 
         else:  # actual display
-            return True, {'is_complete'     : True
-                         , 'progress_notice': 'finished'  # also irrelevant
-                         , 'valid_inp'      : True
-                         , 'return_ind'     : return_ow
-                         , 'price'          : result
-                         , 'flights'        : flights_v
-                         , 'reorg_flights'  : reorg_flights_v
-                         , 'minmax'         : minmax_v
-                         , 'price_range'    : price_range}
+            final_result = { 'finished'       : True
+                           , 'progress_notice': 'finished'  # also irrelevant
+                           , 'valid_inp'      : True
+                           , 'return_ind'     : return_ow
+                           , 'price'          : result
+                           , 'flights'        : flights_v
+                           , 'reorg_flights'  : reorg_flights_v
+                           , 'minmax'         : minmax_v
+                           , 'price_range'    : price_range}
+
+            logger.info(';'.join(['AO', json.dumps(final_result)]))
+            publisher_ao.publish(data_yield(final_result))

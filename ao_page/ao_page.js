@@ -167,17 +167,16 @@ function present_price_ranges(price_range) {
 
 
 function display_results_init(response) {
-    // displays the flights from the search query in the designaated window
-    var flights_section_pres = document.getElementById("flights-section");
-    flights_section_pres.style = "";
+    // displays the flights from the search query in the designated window
+
+    document.getElementById("flights-section").style = "";
     var flights_presented = document.getElementById("flights_presented");  // reserved space for flights
-    var options_display = document.getElementById('options-display');
+    var options_display = document.getElementById('options-display');  // reserved space for options 
     options_display.style = "background: white;";  // enable options 
     var obj = JSON.parse(response);
-    var valid_inp = obj.valid_inp;  // are inputs valid?
     var price = obj.price;
-    if (!valid_inp) {
-	// delete children of options_display (if anything displayed before
+    if (!obj.valid_inp) {  // are inputs valid 
+	// delete children of options_display (if anything displayed before)
 	while (options_display.firstChild) {
 	    options_display.removeChild(options_display.firstChild);
 	}
@@ -185,14 +184,13 @@ function display_results_init(response) {
 	flights_presented.textContent = "No flights found matching selected conditions.";
 	return price;  // else continue w/ this
     }
-    var return_ind    = obj.return_ind;
+
     var flights       = obj.flights;
     var reorg_flights = obj.reorg_flights;
     var minmax        = obj.minmax;  // minmax over subsets
-    var price_range   = obj.price_range;  // price range
 
     // present price ranges:
-    present_price_ranges(price_range);
+    present_price_ranges(obj.price_range);
     flights_presented.textContent = "";  // clearing up document 
     
     // store data to localStorage
@@ -204,16 +202,16 @@ function display_results_init(response) {
     localStorage.setItem("dep_end"           , document.getElementById("js-return-input").value  );
     localStorage.setItem("carrier"           , document.getElementById("airline-name").value     );
     localStorage.setItem("strike"            , document.getElementById("ticket-price").value     );
-    localStorage.setItem("flights_curr"      , JSON.stringify(obj.flights)                       );
+    localStorage.setItem("flights_curr"      , JSON.stringify(flights)                           );
     localStorage.setItem("reorg_flights_curr", JSON.stringify(obj.reorg_flights)                 );
-    localStorage.setItem("minmax"            , JSON.stringify(obj.minmax)                        );
+    localStorage.setItem("minmax"            , JSON.stringify(minmax)                            );
     
     var origin_station = document.getElementById('js-origin-input').value;
     var dest_station   = document.getElementById('js-destination-input').value;
     
     // add All/None selector - THIS ONE WORKS 
     // create_cb_sel_all(flights_presented, 'cb_sel_all', sel_all_flights);
-    if (return_ind == "one-way") {
+    if (obj.return_ind == "one-way") {
 	mm = minmax['min_max']
 	create_button_accordion(flights_presented
 				, "Departing flights: " + origin_station + " -> " + dest_station + ": from " + mm[0] + " USD to " + mm[1] + " USD."
@@ -687,7 +685,7 @@ function handle_computation(get_string) {
 function handleMessage(server_message) {
     // function handles the message from server
 
-    var data = e.data;  // THIS IS WRONG 
+    var data = server_message.data
     console.log(data);  // for debugging 
     
     if (e.data == 'success')  // FIX THIS HERE
