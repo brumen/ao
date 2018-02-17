@@ -47,31 +47,28 @@ def compute_option( form
 
     is_one_way, data_very_raw = get_data(form)
 
-    if is_one_way == 'one-way':
-        all_valid, origin_place, dest_place, option_start, option_end, \
-            outbound_start, outbound_end, strike, carrier_used, return_ow, \
-            cabin_class, nb_people = data_very_raw
-        inbound_start, inbound_end, option_start_ret, option_end_ret = None, None, None, None
-    else:
-        all_valid, origin_place, dest_place, option_start, option_end, \
-            outbound_start, outbound_end, strike, carrier_used, \
-            option_start_ret, option_end_ret, inbound_start, inbound_end, \
-            return_ow, cabin_class, nb_people = data_very_raw
+    all_valid, origin_place, dest_place, option_start, option_end, \
+        outbound_start, outbound_end, strike, carrier_used, \
+        option_start_ret, option_end_ret, inbound_start, inbound_end, \
+        return_ow, cabin_class, nb_people = data_very_raw
 
     # recompute part
     if recompute_ind:
         sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
 
     logger.info(';'.join(['AO', 'Initiating flight fetch.']))
+
     if publisher_ao:
         publisher_ao.publish(data_yield({ 'finished': False
-                                        , 'result'  : 'Initiating flight' } ) )
+                                        , 'result'  : 'Initiating flight fetch.' } ) )
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))
         if publisher_ao:
             publisher_ao.publish(data_yield({ 'finished': True
-                                            , 'result': {} }))
+                                            , 'result': { 'finished': True
+                                                        , 'progress_notice': 'finished'  # also irrelevant
+                                                        , 'valid_inp'      : False } } ) )
     else:
         way_args = { 'origin_place':        origin_place
                    , 'dest_place':          dest_place
@@ -111,15 +108,16 @@ def compute_option( form
                                                 , 'results' : {} }))
 
         else:  # actual display
-            final_result = { 'finished'       : True
-                           , 'progress_notice': 'finished'  # also irrelevant
-                           , 'valid_inp'      : True
-                           , 'return_ind'     : return_ow
-                           , 'price'          : result
-                           , 'flights'        : flights_v
-                           , 'reorg_flights'  : reorg_flights_v
-                           , 'minmax'         : minmax_v
-                           , 'price_range'    : price_range}
+            final_result = {'finished': True
+                           , 'result' : { 'finished': True
+                                        , 'progress_notice': 'finished'  # also irrelevant
+                                        , 'valid_inp'      : True
+                                        , 'return_ind'     : return_ow
+                                        , 'price'          : result
+                                        , 'flights'        : flights_v
+                                        , 'reorg_flights'  : reorg_flights_v
+                                        , 'minmax'         : minmax_v
+                                        , 'price_range'    : price_range} }
 
             logger.info(';'.join(['AO', data_yield(final_result)]))
 

@@ -20,7 +20,7 @@ import ao_params
 from ao_codes import MAX_TICKET, MIN_PRICE
 
 
-logger = logging.getLogger()  # root logger
+logger = logging.getLogger(__name__)  # root logger
 
 
 def date_today():
@@ -736,8 +736,9 @@ def get_flight_data( flights_include     = None
                                                  , carrier
                                                  , inbound_date_range
                                                  , flights_include
-                                                 , io_ind                = 'in'
-                                                 , correct_drift         = correct_drift )
+                                                 , io_ind        = 'in'
+                                                 , correct_drift = correct_drift
+                                                 , publisher_ao  = publisher_ao)
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -761,8 +762,9 @@ def get_flight_data( flights_include     = None
                                                   , carrier
                                                   , outbound_date_range
                                                   , flights_include[0]
-                                                  , io_ind                = 'out'
-                                                  , correct_drift         = correct_drift )
+                                                  , io_ind        = 'out'
+                                                  , correct_drift = correct_drift
+                                                  , publisher_ao  = publisher_ao )
 
             if valid_check_out != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -784,8 +786,9 @@ def get_flight_data( flights_include     = None
                                                  , carrier
                                                  , inbound_date_range
                                                  , flights_include[1]
-                                                 , io_ind                ='in'
-                                                 , correct_drift         = correct_drift )
+                                                 , io_ind        ='in'
+                                                 , correct_drift = correct_drift
+                                                 , publisher_ao  = publisher_ao )
 
             if valid_check_in != 'Valid':  # not valid, return immediately
                 return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
@@ -1022,7 +1025,7 @@ def compute_option_val( origin_place          = 'SFO'
 
             if not return_flight:
                 T_l_used = T_l_dep_num
-                key_ind = ds.convert_str_dateslash(outbound_date_consid)
+                key_ind = ds.convert_datetime_str(outbound_date_consid)
             else:
                 inbound_date_consid = compute_date_by_fraction( date_today_dt
                                                               , inbound_date_start

@@ -176,7 +176,7 @@ class TestAirOption(unittest.TestCase):
                                   , underlyer             = 'n'
                                   , price_by_range        = False
                                   , return_flight         = True )
-
+        print v1
         self. assertTrue(True)
 
     def test_ao_new2( self

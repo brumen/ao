@@ -102,27 +102,56 @@ function create_button_accordion(element_to_append
 }
 
 
+function date_to_string_2(date_i) {
+    // converts the date in string format '20180415' to Date format. 
+    // -1 in the month cause they start at 0 
+    return new Date(parseInt(date_i.substring(0,4)), parseInt(date_i.substring(4,6))-1, parseInt(date_i.substring(6,8)));
+}
+
+
 function reorder_price_range(price_range, ow_ind) {
-    // reorders price range for one-way flights
+    // reorders price range for one-way or return flights
     // price_range_ow ... object of dates: prices
     // ow_ind ... one-way indicator 
     var arr_dates = [];
     var date_i;
     if (ow_ind) {
 	for (date_i in price_range)
-	    arr_dates.push(new Date(date_i));
+	    arr_dates.push(date_to_string_2(date_i));
 	arr_dates.sort(function(a, b) {return a-b;});
     } else {  // return flights 
 	for (date_i in price_range) {
-	    var date_i_spl = date_i.split('-');  // array (beg. date, end date)
-	    arr_dates.push([new Date(date_i_spl[0].substring(0, date_i_spl[0].length - 1)),
-			    new Date(date_i_spl[1].substring(1, date_i_spl[1].length))]);
+	    var date_i_spl = date_i.split(' - ');  // array (beg. date, end date)
+	    arr_dates.push([date_to_string_2(date_i_spl[0]), date_to_string_2(date_i_spl[1]) ] ) ;
 	}
 	arr_dates.sort(function(a,b) {return a[0] - b[0];});
     }
     return arr_dates;
 }
 
+
+function date_to_string(date_i) {
+    // converts the date in Date format to a string format e.g. '20180301'
+    var month = date_i.getMonth() + 1;
+    var day   = date_i.getDate();
+    var month_str, day_str;
+    if (month < 10)
+	month_str = "0" + String(month);
+    else
+	month_str = String(month);
+
+    if (day < 10) 
+	day_str = "0" + String(day);
+    else
+    	day_str = String(day);
+
+    return String(date_i.getFullYear()) + month_str + day_str;
+}
+
+function date_to_string_slash(date_i) {
+    // converts the date in Date format to the / format 
+    return String(date_i.getMonth() + 1) + '/' + date_i.getDate() + '/' + String(date_i.getFullYear());
+}
 
 function present_price_ranges(price_range) {
     // writes the price ranges into the field where it displays them 
@@ -137,10 +166,10 @@ function present_price_ranges(price_range) {
     var option_range;
     for (var ord=0; ord < dates_sorted.length; ord ++) {
 	if (one_way_ind)
-	    option_range = (dates_sorted[ord].getMonth() + 1) + '/' + dates_sorted[ord].getDate() + '/' + dates_sorted[ord].getFullYear();
+	    option_range = date_to_string(dates_sorted[ord])
 	else {
-	    var out_option_range = (dates_sorted[ord][0].getMonth() + 1) + '/' + dates_sorted[ord][0].getDate() + '/' + dates_sorted[ord][0].getFullYear();
-	    var in_option_range  = (dates_sorted[ord][1].getMonth() + 1) + '/' + dates_sorted[ord][1].getDate() + '/' + dates_sorted[ord][1].getFullYear();
+	    var out_option_range = date_to_string(dates_sorted[ord][0]);
+	    var in_option_range  = date_to_string(dates_sorted[ord][1]);
 	    option_range         = out_option_range + ' - ' + in_option_range;
 	}
 	var curr_val = price_range[option_range];
@@ -148,9 +177,11 @@ function present_price_ranges(price_range) {
 	// constructing button element
 	var button_elt = document.createElement("button");
 	if (one_way_ind) 
-	    button_elt.appendChild(document.createTextNode("Book departure until " + option_range + ": " + curr_val + " USD"));
+	    button_elt.appendChild(document.createTextNode("Book departure until " + date_to_string_slash(dates_sorted[ord]) + ": " + curr_val + " USD"));
 	else
-	    button_elt.appendChild(document.createTextNode("Book departure until " + out_option_range + ", return until " + in_option_range + ": " + curr_val + " USD"));
+	    button_elt.appendChild(document.createTextNode("Book departure until " + date_to_string_slash(dates_sorted[ord][0]) +
+							   ", return until " + date_to_string_slash(dates_sorted[ord][1]) +
+							   ": " + curr_val + " USD"));
 	button_elt.id = option_range;
 	button_elt.value = curr_val;
 	button_elt.onclick = function() {var res = book_range(this); return false;};
@@ -168,14 +199,14 @@ function present_price_ranges(price_range) {
 
 function display_results_init(response) {
     // displays the flights from the search query in the designated window
+    // response is already JSON parsed 
 
     document.getElementById("flights-section").style = "";
     var flights_presented = document.getElementById("flights_presented");  // reserved space for flights
     var options_display = document.getElementById('options-display');  // reserved space for options 
     options_display.style = "background: white;";  // enable options 
-    var obj = JSON.parse(response);
-    var price = obj.price;
-    if (!obj.valid_inp) {  // are inputs valid 
+    var price = response.price;
+    if (!response.valid_inp) {  // are inputs valid 
 	// delete children of options_display (if anything displayed before)
 	while (options_display.firstChild) {
 	    options_display.removeChild(options_display.firstChild);
@@ -185,12 +216,12 @@ function display_results_init(response) {
 	return price;  // else continue w/ this
     }
 
-    var flights       = obj.flights;
-    var reorg_flights = obj.reorg_flights;
-    var minmax        = obj.minmax;  // minmax over subsets
+    var flights       = response.flights;
+    var reorg_flights = response.reorg_flights;
+    var minmax        = response.minmax;  // minmax over subsets
 
     // present price ranges:
-    present_price_ranges(obj.price_range);
+    present_price_ranges(response.price_range);
     flights_presented.textContent = "";  // clearing up document 
     
     // store data to localStorage
@@ -203,7 +234,7 @@ function display_results_init(response) {
     localStorage.setItem("carrier"           , document.getElementById("airline-name").value     );
     localStorage.setItem("strike"            , document.getElementById("ticket-price").value     );
     localStorage.setItem("flights_curr"      , JSON.stringify(flights)                           );
-    localStorage.setItem("reorg_flights_curr", JSON.stringify(obj.reorg_flights)                 );
+    localStorage.setItem("reorg_flights_curr", JSON.stringify(response.reorg_flights)                 );
     localStorage.setItem("minmax"            , JSON.stringify(minmax)                            );
     
     var origin_station = document.getElementById('js-origin-input').value;
@@ -211,7 +242,7 @@ function display_results_init(response) {
     
     // add All/None selector - THIS ONE WORKS 
     // create_cb_sel_all(flights_presented, 'cb_sel_all', sel_all_flights);
-    if (obj.return_ind == "one-way") {
+    if (response.return_ind == "one-way") {
 	mm = minmax['min_max']
 	create_button_accordion(flights_presented
 				, "Departing flights: " + origin_station + " -> " + dest_station + ": from " + mm[0] + " USD to " + mm[1] + " USD."
@@ -524,7 +555,7 @@ function reorganize_results_inquiry(response) {
 
 
 function get_ow_ret(elt_name) {
-    // gets the return/one-way key from elt_name
+    // gets the return or one-way key from elt_name
     var trip_options = document.getElementsByName(elt_name);
     var return_ow;
     for(var i = 0; i < trip_options.length; i++){
@@ -676,44 +707,41 @@ function handle_computation(get_string) {
     // compte everything 
     var eventSource = new EventSource("myapp/compute_option" + get_string );
     eventSource.onmessage = handleMessage;  // how to handle the response from server 
+    //error: function(XMLHttpRequest, textStatus, errorThrown) {
+    //	alert("error: " + textStatus + " (" + errorThrown + ")");
+    //   }
 
-    
     return -100.; //  price, not important;  // TO FIX FIX FIX FIX FIX 
 }
 
 
 function handleMessage(server_message) {
-    // function handles the message from server
+    // function handles the return messages from server
+    // involving the option computation 
 
-    var data = server_message.data
+    var data = JSON.parse(server_message.data);
     console.log(data);  // for debugging 
     
-    if (e.data == 'success')  // FIX THIS HERE
+    if (data.finished)  // display elements 
     {  // success logic - data object with fields as defined 
- 	if (data['is_complete']) {  // finished, display stuff 
-	    // close the notification messages
-	    document.getElementById("notification_messages").style = "display:none;";
- 	    document.getElementById("option_price_frame").value = display_results_init(data['progress_notice']);
- 	    change_button_back(document.getElementById('find_flights_button')
-			       , 'Find flights', 'left');
- 	    // change the type of checkbox accorions 
- 	    $('.accordion input[type="checkbox"]').click(function(e) {
- 		e.stopPropagation();
- 	    });
- 	} else {  // not finished, add a part in the flights  
- 	    progress_notice = JSON.parse(data['progress_notice'])['progress_notice'];
- 	    // showing the style 
- 	    document.getElementById("flights-section").style = "";
- 	    if (data['progress']) { // progress in the data acquisition 
- 		document.createElement("p").appendChild(document.createTextNode(progress_notice));
- 		document.getElementById("notification_messages").appendChild(new_p);
- 	    }
- 	}
+	// close the notification messages
+	document.getElementById("notification_messages").style = "display:none;";
+ 	document.getElementById("option_price_frame").value = display_results_init(data.result);
+ 	change_button_back(document.getElementById('find_flights_button')
+			   , 'Find flights', 'left');
+ 	// change the type of checkbox accorions 
+ 	$('.accordion input[type="checkbox"]').click(function(e) {
+ 	    e.stopPropagation();
+ 	});
+    } else {  // not finished, display the message in the result 
+ 	// showing the style 
+ 	document.getElementById("flights-section").style = "";  // display this section 
+ 	document.getElementById("notification_messages")
+	        .appendChild(document.createElement("p")
+			             .appendChild(document.createTextNode(data.result)));
     }
-    //error: function(XMLHttpRequest, textStatus, errorThrown) {
-    //	alert("error: " + textStatus + " (" + errorThrown + ")");
-    //   }
 }
+
 
 
 function recompute_option_post() {
