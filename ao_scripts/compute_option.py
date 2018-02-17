@@ -69,8 +69,9 @@ def compute_option( form
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))
-        publisher_ao.publish(data_yield({ 'finished': True
-                                        , 'result': {} }))
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': True
+                                            , 'result': {} }))
     else:
         way_args = { 'origin_place':        origin_place
                    , 'dest_place':          dest_place
@@ -105,8 +106,9 @@ def compute_option( form
 
         if result == 'Invalid':
             logger.info(';'.join(['AO', json.dumps((False, {}))]))
-            publisher_ao.publish(data_yield({ 'finished': True
-                                            , 'results' : {} }))
+            if publisher_ao:
+                publisher_ao.publish(data_yield({ 'finished': True
+                                                , 'results' : {} }))
 
         else:  # actual display
             final_result = { 'finished'       : True
@@ -119,5 +121,7 @@ def compute_option( form
                            , 'minmax'         : minmax_v
                            , 'price_range'    : price_range}
 
-            logger.info(';'.join(['AO', json.dumps(final_result)]))
-            publisher_ao.publish(data_yield(final_result))
+            logger.info(';'.join(['AO', data_yield(final_result)]))
+
+            if publisher_ao:
+                publisher_ao.publish(data_yield(final_result))

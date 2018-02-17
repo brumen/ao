@@ -5,13 +5,13 @@ import uuid
 import unirest
 import os.path
 
+
 import config
 import ao_codes
 
 from time             import sleep, localtime
+from threading        import Thread
 from sse              import Publisher
-
-
 
 from logging.handlers import MemoryHandler
 from flask            import Flask, request, jsonify, Response
@@ -23,7 +23,7 @@ from ao_scripts.compute_option         import compute_option
 from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
 
 
-loggger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
+logger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
 
 
 class AOParsingFilter(logging.Filter):
@@ -79,22 +79,27 @@ class ComputeStream(object):
 
 
 # logger setup
+logging.basicConfig( filename = os.path.join(config.log_dir, 'ao.log')
+                   , level    = logging.CRITICAL)
 logger = logging.getLogger()  # root logger
 logger.setLevel(logging.INFO)
-logger_handler = logging.FileHandler(os.path.join(config.log_dir, 'ao.log'))
-logger_handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
-logger.addHandler(logger_handler)
-computeStream = ComputeStream()  # object keeping the messages
-stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
-                                               , flushLevel = logging.INFO
-                                               , target     = computeStream )
-logger.addHandler(stream_handler)
+# logger_handler = logging.FileHandler())
+# logger_handler.setFormatter(logging.Formatter(logger_format))
+# logger.addHandler(logger_handler)
+# computeStream = ComputeStream()  # object keeping the messages
+# stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
+#                                              , flushLevel = logging.INFO
+#                                               , target     = computeStream )
+# logger.addHandler(stream_handler)
 
 # Flask app
 app = Flask(__name__)
 app.debug = True
 app.use_debugger = False
 # app.use_reloader = False
+
+# publisher
+publisher_ao = Publisher()
 
 
 def time_now():
@@ -179,12 +184,12 @@ def compute_option_flask():
 
     """
 
-    publisher_ao = Publisher()
-    res = compute_option(request.args
-                        , publisher_ao  = publisher_ao
-                        , recompute_ind = False )
+    Thread( target = compute_option
+          , args   = (request.args, )
+          , kwargs = { "publisher_ao" : publisher_ao
+                     , "recompute_ind": False} ).start()
 
-    return Response( publisher_ao.subscribe()  # this will be returning the messages
+    return Response( publisher_ao.subscribe()
                    , mimetype="text/event-stream" )
 
 

@@ -100,6 +100,101 @@ def find_carrier(carrier_l, carrier_id):
     return None  # None indicates failure
 
 
+def get_cached_flights(flights_in_ldb):
+    """
+    Obtains the flight data from the local database
+
+    :param flights_in_ldb: flights as obtained from a local database.
+    :type flights_in_ldb: TODO:
+    :returns: F_v, flights_v_str, reorg_flights_v
+    :rtype: TODO
+    """
+
+    # construct F_v, flights_v, reorg_flights_v
+    F_v = [x[5] for x in flights_in_ldb]
+    flights_v_str = []
+
+    for fl in flights_in_ldb:
+        # dep_date/hour
+        dep_date_str = fl[2].isoformat()
+        dep_time_str = (dt.datetime.min + fl[3]).time().isoformat()  # converts to string
+        flights_v_str.append((fl[1],
+                              dep_date_str + 'T' + dep_time_str,
+                              fl[4].isoformat(), fl[5], fl[6] + fl[7]))
+
+    return F_v, flights_v_str, reorganize_ticket_prices(flights_v_str)
+
+
+def insert_into_flights_live( origin_place
+                            , dest_place
+                            , flights_v
+                            , cabinclass ):
+    """
+    Inserts the flights given in flights_v into the flights_live database
+
+    :param origin_place: IATA code of the origin airport
+    :type origin_place: str
+    :param dest_place: IATA code of the destination airport
+    :type dest_place: TODO
+    """
+
+    # construct ins_fl_l
+    lt = time.localtime()
+    as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
+            str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
+    live_fl_l = []
+
+    for it in flights_v:
+
+        dep_date, dep_time = it[1].split('T')
+        # arr_date = it[2]
+        carrier = it[4][:2]  # first 2 letters of this string
+        flight_nb = it[4][3:]  # next letters for flight_nb
+        live_fl_l.append(
+            (as_of, origin_place, dest_place, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
+
+    insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
+                                              arr_date, carrier, flight_nb, cabin_class) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
+    with MysqlConnectorEnv() as mysql_conn:
+        mysql_conn.cursor().executemany(insert_str, live_fl_l)
+        mysql_conn.commit()
+
+
+def extract_Fv_flights_from_results(result):
+    """
+    Extracts the flight forward prices and flight data from the results provided
+
+    :param results:
+    :type results:
+    :returns:
+    :rtype: tuple ( TODO  )
+    """
+    ri = result['Itineraries']
+    rl = result['Legs']  # legs and itineraries are the same in length
+    carriers = result['Carriers']
+    F_v = []
+    flights_v = []
+    for itin, leg in zip(ri, rl):
+        # determine if the flight is direct
+        direct_ind = len(leg['FlightNumbers']) == 1  # indicator if the flight is direct
+        outbound_leg_id = leg['Id']
+        dep_date = leg['Departure']
+        arr_date = leg['Arrival']
+        carrier_id_l = leg['Carriers']  # [0] (multiple carriers, list)
+        po = itin['PricingOptions']
+        flight_num_all = leg['FlightNumbers']
+        if direct_ind:  # the other test case is missing
+            carrier_id = carrier_id_l[0]  # first (and only) carrier
+            carrier = find_carrier(carriers, carrier_id)
+            price = po[0]["Price"]  # TODO: THIS PRICE CAN BE DIFFERENT
+            flight_num = flight_num_all[0]['FlightNumber']
+            F_v.append(price)
+            flights_v.append((outbound_leg_id, dep_date, arr_date, price, carrier + flight_num))
+
+    return F_v, flights_v
+
 def get_ticket_prices( origin_place
                      , dest_place
                      , outbound_date
@@ -111,14 +206,24 @@ def get_ticket_prices( origin_place
     """
     Returns the ticket prices for a flight
 
-    :param origin_place:  IATA code of the origin airport 'SIN'
-    :type origin_place:   str
-    :param dest_place:    IATA code of the destination airport 'KUL'
-    :type dest_place:     str
+    :param origin_place: IATA code of the origin airport 'SIN'
+    :type origin_place: str
+    :param dest_place: IATA code of the destination airport 'KUL'
+    :type dest_place: str
     :param outbound_date: outbound date # TODO: remove: in dash format '2017-02-15'
-    :type outbound_date:  datetime.date
+    :type outbound_date: datetime.date
+    :param include_carriers: IATA code of a _SINGLE_ airline code
+    :type include_carriers: str
+    :param cabinclass: cabin class of the flight ticket (one of 'Economy', 'Business')
+    :type cabinclass: str
+    :param adults: number of adult tickets booked
+    :type adults: int
+    :param: use_cache:
+    :type use_cache: bool
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
     :type insert_into_livedb:  bool
+    :returns: TODO
+    :rtype:
     """
 
     # local time
@@ -137,26 +242,14 @@ def get_ticket_prices( origin_place
         flights_live_local += "  AND carrier = '{0}'".format(include_carriers)  # include_carriers is only 1 in this case
 
     with MysqlConnectorEnv() as mysql_conn:
-        mysql_c = mysql_conn.cursor()
-        mysql_c.execute(flights_live_local)
-        flights_in_ldb = mysql_c.fetchall()
-    
-    if len(flights_in_ldb) > 0:  # we have this in the database
-        # construct F_v, flights_v, reorg_flights_v
-        F_v = [x[5] for x in flights_in_ldb]
-        flights_v_str = []
-        for fl in flights_in_ldb:
-            # dep_date/hour 
-            dep_date_str = fl[2].isoformat()  # ds.convert_dt_minus(fl_ch[2].date())
-            dep_time_str = (dt.datetime.min + fl[3]).time().isoformat()  # converts to string
-            flights_v_str.append((fl[1],
-                                  dep_date_str + 'T' + dep_time_str,
-                                  fl[4].isoformat(), fl[5], fl[6] + fl[7]))
+        mysql_curr = mysql_conn.cursor()
+        mysql_curr.execute(flights_live_local)
+        flights_in_ldb = mysql_curr.fetchall()
 
-        reorg_flights_v = reorganize_ticket_prices(flights_v_str)
-        return F_v, flights_v_str, reorg_flights_v
+    if flights_in_ldb:  # we have this in the database
+        return get_cached_flights(flights_in_ldb)
 
-    # otherwise continue here with skyscanner search 
+    # If flights not found in the cached db, continue with skyscanner fetch
     result = get_itins( origin_place    = origin_place
                       , dest_place      = dest_place
                       , outbound_date   = outbound_date
@@ -168,52 +261,13 @@ def get_ticket_prices( origin_place
     # returns all one ways on that date
     if result is None:  # nothing out
         return [], [], []
-    else:
-        ri = result['Itineraries']
-        rl = result['Legs']  # legs and itineraries are the same in length
-        carriers = result['Carriers']
-        F_v = []
-        flights_v = []
-        for itin, leg in zip(ri, rl):
-            # determine if the flight is direct
-            direct_ind = len(leg['FlightNumbers']) == 1  # indicator if the flight is direct
-            outbound_leg_id = leg['Id']
-            dep_date = leg['Departure']
-            arr_date = leg['Arrival']
-            carrier_id_l = leg['Carriers']  # [0] (multiple carriers, list)
-            po = itin['PricingOptions']
-            flight_num_all = leg['FlightNumbers']
-            if direct_ind:  # the other test case is missing 
-                carrier_id = carrier_id_l[0]  # first (and only) carrier
-                carrier = find_carrier(carriers, carrier_id)
-                price = po[0]["Price"]  # TODO: THIS PRICE CAN BE DIFFERENT
-                flight_num = flight_num_all[0]['FlightNumber']
-                F_v.append(price)
-                flights_v.append((outbound_leg_id, dep_date, arr_date, price, carrier + flight_num))
+    else:  # results are not empty
+        F_v, flights_v = extract_Fv_flights_from_results(result)
 
-        reorg_flights_v = reorganize_ticket_prices(flights_v)
+        if insert_into_livedb:  # insert obtained flights into livedb
+            insert_into_flights_live(origin_place, dest_place, flights_v, cabinclass)
 
-        if insert_into_livedb:  # insert obtained flights into livedb 
-            # construct ins_fl_l
-            lt = time.localtime()
-            as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
-                    str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
-            live_fl_l = []
-            for it in flights_v:
-                dep_date, dep_time = it[1].split('T')
-                # arr_date = it[2]
-                carrier = it[4][:2]  # first 2 letters of this string
-                flight_nb = it[4][3:]  # next letters for flight_nb
-                live_fl_l.append((as_of, origin_place, dest_place, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
-
-            insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
-                            arr_date, carrier, flight_nb, cabin_class) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-            with MysqlConnectorEnv() as mysql_conn:
-                mysql_c = mysql_conn.cursor()
-                mysql_c.executemany(insert_str, live_fl_l)
-                mysql_conn.commit()
-
-        return F_v, flights_v, reorg_flights_v
+        return F_v, flights_v, reorganize_ticket_prices(flights_v)
 
 
 def reorganize_ticket_prices(itin):
@@ -240,7 +294,8 @@ def reorganize_ticket_prices(itin):
     for (date, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
         time_of_day_res = ao_codes.get_tod(hour)
 
-        date_dt = ds.convert_datedash_date(date)
+        date_dt = date  # TODO: CHECK IF THIS HERE IS CORRECT ds.convert_datedash_date(date)
+
         # part to insert into dict d
         if date_dt not in reorgTickets.keys():
             reorgTickets[date_dt] = dict()

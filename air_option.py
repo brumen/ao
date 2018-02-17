@@ -355,14 +355,18 @@ def obtain_flights_mat( flights
     flights_mat = []
 
     for dd in flights:
+
         dd_day, dd_time = dd[1].split('T')
         dd_tod = ao_codes.get_tod(dd_time)
         flight_mat_res = (ds.convert_datedash_date(dd_day) - date_today_dt).days / 365.
+
         if flights_include is None:
             flights_mat.append(flight_mat_res)
+
         else:
             if flights_include[dd_day][dd_tod][dd_time][-1]:
                 flights_mat.append(flight_mat_res)
+
     return flights_mat
 
 
@@ -387,14 +391,14 @@ def obtain_flights( origin_place
                   , carrier
                   , in_out_date_range
                   , flights_include
-                  , cabinclass            = 'Economy'
-                  , adults                = 1
-                  , insert_into_livedb    = True
-                  , io_ind                = 'out'
-                  , correct_drift         = True
-                  , publisher_ao          = None ):
+                  , cabinclass         = 'Economy'
+                  , adults             = 1
+                  , insert_into_livedb = True
+                  , io_ind             = 'out'
+                  , correct_drift      = True
+                  , publisher_ao       = None ):
     """
-    get the flights for outbound and inbound flight
+    Get the flights for outbound and/or inbound flight
 
     :param origin_place:  origin of flights, IATA code (like 'EWR')
     :type origin_place:   str
@@ -423,13 +427,14 @@ def obtain_flights( origin_place
 
     for out_date in in_out_date_range:
 
+        out_date_str = out_date.isoformat()
         logger.info(';'.join([ 'AO'
-                              ,  json.dumps( {'is_complete': False,
-                                              'progress_notice': 'Fetching flights for ' + str(out_date)} ) ]) )
+                              ,  json.dumps( {'finished': False,
+                                              'results' : 'Fetching flights for ' + out_date_str} ) ]) )
 
         if publisher_ao:
             publisher_ao.publish(data_yield({ 'finished': False
-                                            , 'result'  : 'Fetching flights for ' + str(out_date)}))
+                                            , 'result'  : 'Fetching flights for ' + out_date_str}))
 
         ticket_val, flights, reorg_flights = \
             air_search.get_ticket_prices( origin_place       = origin_used
@@ -441,14 +446,15 @@ def obtain_flights( origin_place
                                         , insert_into_livedb = insert_into_livedb)
 
         logger.info(';'.join([ 'AO'
-                              , json.dumps({'is_complete'    : False,  # is_return_for_writing and last_elt,
-                                            'progress_notice': ' '.join(["Fetched flights for", str(out_date)]) }) ] ) )
+                              , json.dumps({'finished'    : False,  # is_return_for_writing and last_elt,
+                                            'results': ' '.join(["Fetched flights for", out_date_str]) }) ] ) )
 
-        publisher_ao.publish(data_yield({ 'finished': False
-                                        , 'result'  : ' '.join(["Fetched flights for", str(out_date)]) }) )
+        if publisher_ao:
+            publisher_ao.publish(data_yield({ 'finished': False
+                                            , 'result'  : ' '.join(["Fetched flights for", out_date_str ] ) } ) )
 
         # does the flight exist for that date??
-        if reorg_flights.has_key(out_date):
+        if reorg_flights.has_key(out_date_str):  # reorg_flights has string keys
 
             F_v.extend(ticket_val)
             io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( map(lambda x: x[1], flights) # just the departure time
@@ -462,7 +468,7 @@ def obtain_flights( origin_place
             d_v_obtain.extend([x[1] for x in io_dr_drift_vol])  # adding the drifts
             flights_v.extend(flights)
             F_mat.extend(obtain_flights_mat(flights, flights_include, date_today()))  # maturity of forwards
-            reorg_flights_v[out_date] = reorg_flights[out_date]
+            reorg_flights_v[out_date_str] = reorg_flights[out_date_str]
 
     F_v = np.array(F_v)
     F_mat = np.array(F_mat)
@@ -595,9 +601,7 @@ def obtain_flights_recompute( origin_place
                                        , date_today()))  # maturity of forwards
         reorg_flights_v[od] = reorg_flight
 
-    return np.array(F_v), np.array(F_mat),\
-           s_v_obtain, d_v_obtain, \
-           flights_v, reorg_flights_v, 'Valid'
+    return np.array(F_v), np.array(F_mat), s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
 
 
 def get_flight_data( flights_include     = None
@@ -930,6 +934,7 @@ def compute_option_val( origin_place          = 'SFO'
         if publisher_ao:
             publisher_ao.publish(data_yield({ 'finished': False
                                             , 'result'  : 'Initiating flight search.'  }))
+
         flights = get_flight_data( flights_include       = flights_include
                                  , origin_place          = origin_place
                                  , dest_place            = dest_place
@@ -968,7 +973,7 @@ def compute_option_val( origin_place          = 'SFO'
             (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), valid_ind = flights
         
     # sequential option parameter setup
-    if len(F_v_dep) == 0 or (not valid_ind):
+    if len(F_v_dep) == 0 or (not valid_ind):  # len
         opt_val_final = "Invalid"
         compute_all = False
 
