@@ -8,7 +8,7 @@ import time
 import sqlite3
 import matplotlib.pyplot as plt
 from scipy.stats import norm  # quantiles of normal distr. norm.ppf(x)
-from Tkinter     import Frame, Button, Label
+from tkinter     import Frame, Button, Label
 
 import ds
 import ao_db
@@ -636,7 +636,7 @@ def plot_from_flight_id(flight_id):
         df2,   ax1 = plot_flight_prices(df1, drift=drift)
         return df1, df2, ax1
     else:
-        print "No flights registered for flight_id", flight_id
+        print ("No flights registered for flight_id {0}".format(flight_id))
 
 
 class ArrayButtons(Frame):

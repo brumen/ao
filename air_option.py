@@ -454,7 +454,7 @@ def obtain_flights( origin_place
                                             , 'result'  : ' '.join(["Fetched flights for", out_date_str ] ) } ) )
 
         # does the flight exist for that date??
-        if reorg_flights.has_key(out_date_str):  # reorg_flights has string keys
+        if out_date_str in reorg_flights:  # reorg_flights has string keys
 
             F_v.extend(ticket_val)
             io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( map(lambda x: x[1], flights) # just the departure time

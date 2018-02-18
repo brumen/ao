@@ -3,7 +3,6 @@
 import sqlite3
 from   skyscanner.skyscanner import Flights
 import time
-from   sets                  import Set
 import logging
 
 import ao_codes
@@ -236,7 +235,7 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
             # cursor for inserting the flight_ids
             mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
 
-            fids_new = Set()
+            fids_new = set() # Set()
             fids_size = 0
 
             for row in c_ao.execute(all_flights):
@@ -405,22 +404,22 @@ def insert_into_db( flights
                             try:
                                 leg_orig_2 = find_location(seg_2['OriginStation'], flights)
                             except (KeyError, IndexError):
-                                print "Origin station not found, exiting"
+                                print ("Origin station not found, exiting")
                                 break
                             try:
                                 leg_dest_2 = find_location(seg_2['DestinationStation'], flights)
                             except (KeyError, IndexError):
-                                print "Destination station not found, exiting"
+                                print ("Destination station not found, exiting")
                                 break
                             try:
                                 dep_date_2_full = seg_2['DepartureDateTime']  # date in '2016-10-29' format
                             except (KeyError, IndexError):
-                                print "Departure date/time not found"
+                                print ("Departure date/time not found")
                                 break
                             try:
                                 dep_date_2 = seg_2['DepartureDateTime'].split('T')[0]
                             except (KeyError, IndexError):
-                                print "Departure time not found"
+                                print ("Departure time not found")
                                 break
                             # check if this combination exists in the database already (THIS CAN BE OPTIMIZED)
                             # check_exists_str = """
@@ -484,8 +483,8 @@ def insert_into_db( flights
 
         logger.debug(str(as_of) + "," + orig + "," + dest + "," + dep_date + "\n")
     else:
-        print "Flights:", ins_l[0]
-        
+        print ("Flights: {0}".format(ins_l[0]))
+
 
 def commit_insert( as_of
                  , orig
@@ -508,7 +507,7 @@ def commit_insert( as_of
     if ob_leg_res is None:  # nothing in flight_ids, insert flight_id into the flight_ids table 
         # mysql_c.execute("INSERT INTO flight_ids (flight_id_long, orig, dest, dep_date, arr_date, carrier)",
         #                (outbound_leg_id, orig, dest, dep_date, arr_date, carrier))
-        print "test_run"
+        g = 1  # TODO: REMOVE THIS LATER
     else:
         flight_id_used = ob_leg_res[0]
 
@@ -585,7 +584,7 @@ def insert_into_db_cache( flights
         c_ao.executemany('INSERT INTO flights_cache VALUES (?, ?, ?, ?, ?, ?)', ins_l)
         conn_ao.commit()
     else:
-        print "Flights:", ins_l
+        print ("Flights: {0}".format(ins_l))
 
         
 def insert_flight(origin_place    = 'SIN',
@@ -665,7 +664,7 @@ def ao_db_fill( dep_date_l
                                  , depth_max     = depth_max
                                  , dummy         = dummy )
                 except:  # catches all exception requests.HTTPError:
-                    print "Incorrect location values", (orig, dest)
+                    print ("Incorrect location values {0}, {1}".format(orig, dest))
 
 
 def find_city_code(name_part):

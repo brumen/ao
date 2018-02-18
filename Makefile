@@ -12,12 +12,7 @@ compile:
 
 # backups the public_html & ao folders 
 backup:
-	tar czvf /home/brumen/archive/ao/ao/ao_archive/public_html_ao_comb-`date +%F`.tar.gz /home/brumen/work/ao /home/brumen/public_html
-
-# backs up files separately
-backup2:
-	tar czvf /home/brumen/archive/ao/ao/public_html_archive/public_html-`date +%F`.tar.gz /home/brumen/public_html
-	tar czvf /home/brumen/archive/ao/ao/ao_archive/work_ao-`date +%F`.tar.gz /home/brumen/work/ao
+	tar czvf /home/brumen/archive/ao/backups/ao_all-`date +%F`.tar.gz /home/brumen/work/ao
 
 # copies the backed-up files to stick
 copy_stick:
