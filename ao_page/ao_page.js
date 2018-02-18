@@ -539,10 +539,8 @@ function display_flights_inner(flight_date, curr_time_of_day, flight_selector, o
 function reorganize_results_for_recompute(response) {
     // reorganizes results from the Python response 
     var obj = JSON.parse(response);
-    if (!obj.do_nothing)
-	present_price_ranges(obj.price_range);
-    var price = obj.price;  // this is handled lower (not optimal)
-    return price; 
+    present_price_ranges(obj.price_range);
+    return obj.price; // this price is handled lower (not optimal)
 }
 
 
@@ -749,10 +747,8 @@ function recompute_option_post() {
     if (localStorage.flights_found != "true")  // this guarantees that flights_selected exists
 	return;
     var info_o = get_basic_info();
-    var ow_ind = info_o['return_ow'];  // 'one_way' or 'return' indicator
     info_o['flights_selected'] = localStorage.reorg_flights_curr; // in string format
-    var price = document.getElementById('option_price_frame').value;
-    info_o['price'] = price; // previous price (not sure why needed) 
+    info_o['price'] = document.getElementById('option_price_frame').value; // previous price (not sure why needed) 
     var recomp_button = document.getElementById('recompute_button');
     change_button_to_searching(recomp_button, '  Working...', 'left-after');
     var req = new XMLHttpRequest();

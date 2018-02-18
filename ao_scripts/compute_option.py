@@ -1,8 +1,5 @@
 # Script for computing the air option
 
-from contextlib import contextmanager
-import sys, os
-import os.path
 import numpy as np
 import logging
 import json
@@ -15,17 +12,6 @@ from get_data     import get_data
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
-
-
-@contextmanager
-def suppress_stdout():
-    with open(os.devnull, 'w') as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:  
-            yield
-        finally:
-            sys.stdout = old_stdout
 
 
 def compute_option( form
@@ -45,15 +31,12 @@ def compute_option( form
     :rtype: dict
     """
 
-    is_one_way, data_very_raw = get_data(form)
+    is_one_way, ( all_valid, origin_place, dest_place, option_start, option_end,
+                  outbound_start, outbound_end, strike, carrier_used,
+                  option_start_ret, option_end_ret, inbound_start, inbound_end,
+                  return_ow, cabin_class, nb_people ) = get_data(form)
 
-    all_valid, origin_place, dest_place, option_start, option_end, \
-        outbound_start, outbound_end, strike, carrier_used, \
-        option_start_ret, option_end_ret, inbound_start, inbound_end, \
-        return_ow, cabin_class, nb_people = data_very_raw
-
-    # recompute part
-    if recompute_ind:
+    if recompute_ind:  # recompute part
         sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
 
     logger.info(';'.join(['AO', 'Initiating flight fetch.']))
@@ -64,11 +47,16 @@ def compute_option( form
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))
+        result_not_valid = { 'finished': True
+                           , 'result': { 'finished': True
+                                       , 'progress_notice': 'finished'  # also irrelevant
+                                       , 'valid_inp'      : False } }
         if publisher_ao:
-            publisher_ao.publish(data_yield({ 'finished': True
-                                            , 'result': { 'finished': True
-                                                        , 'progress_notice': 'finished'  # also irrelevant
-                                                        , 'valid_inp'      : False } } ) )
+            publisher_ao.publish(data_yield( result_not_valid ) )
+
+        if recompute_ind:  # recompute returns
+            return result_not_valid
+
     else:
         way_args = { 'origin_place':        origin_place
                    , 'dest_place':          dest_place
@@ -89,13 +77,15 @@ def compute_option( form
                              , 'inbound_date_end'     : inbound_end
                              , 'return_flight'        : True } )
 
+        if publisher_ao:
+            way_args.update( { 'publisher_ao': publisher_ao } )
+
         if recompute_ind:
             way_args.update({ 'flights_include': sel_flights_dict
                             , 'recompute_ind'  : True })
 
         logger.info(';'.join(['AO', 'Starting option computation.']))
 
-        # with suppress_stdout():
         result, price_range, flights_v, reorg_flights_v, minmax_v = \
             compute_option_val(**way_args)
 
@@ -106,6 +96,10 @@ def compute_option( form
             if publisher_ao:
                 publisher_ao.publish(data_yield({ 'finished': True
                                                 , 'results' : {} }))
+
+            if recompute_ind:  # recompute switch returns
+                return { 'finished': True
+                       , 'results' : {} }
 
         else:  # actual display
             final_result = {'finished': True
@@ -123,3 +117,6 @@ def compute_option( form
 
             if publisher_ao:
                 publisher_ao.publish(data_yield(final_result))
+
+            if recompute_ind:  # recompute switch returns
+                return final_result

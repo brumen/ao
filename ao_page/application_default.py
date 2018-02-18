@@ -157,8 +157,9 @@ def recompute_option_flask():
 
     """
 
-    return compute_option( request.args
-                         , recompute_ind = True)
+    return jsonify(compute_option( request.form
+                                 , publisher_ao = publisher_ao
+                                 , recompute_ind = True) )
 
 
 @app.route('/write_inquiry', methods=['POST'])
