@@ -146,7 +146,7 @@ class TestAirOption(unittest.TestCase):
 
         """
 
-        print aoe.all_vols_by_airline(airline, use_cache=True)
+        print(aoe.all_vols_by_airline(airline, use_cache=True))
         self.assertTrue(True)
 
     def test_simple(self):
@@ -176,7 +176,7 @@ class TestAirOption(unittest.TestCase):
                                   , underlyer             = 'n'
                                   , price_by_range        = False
                                   , return_flight         = True )
-        print v1
+        print(v1)
         self. assertTrue(True)
 
     def test_ao_new2( self
