@@ -8,3 +8,8 @@ comp_pdv:
 
 comp_pdv-g:
 	gcc -g $(INCLUDE_DIR) -fabi-version=2 -fno-omit-frame-pointer -shared -fPIC -o comp_pdv.so comp_pdv.c
+
+# add calibration functions to the ao library 
+add_fcts_to_lib:
+	mysql -u brumen -p ao < comp_pdf.sql 
+
