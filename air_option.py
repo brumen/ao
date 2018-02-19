@@ -345,11 +345,14 @@ def obtain_flights_mat( flights
                       , flights_include
                       , date_today_dt):
     """
-    Constucting the flight maturity
-     flights in the form [(id, dep, arr, price, flight_nb)...]
-     flights include: dict of flights as in reorg_flights,
-     censor flights that dont belong
+    Constucting the flight maturity, with censoring the flights that are not included in the flights_include list
 
+    :param flights: list of flights to be included in the construction of flights maturity
+    :type flights: list of [(id, dep, arr, price, flight_nb)...]
+    :param flights_include: flights to be included in the TODO:
+    :type flights_include: dict of flights as in reorg_flights,
+    :param date_today_dt: today's date in datetime format
+    :type date_today_dt: datetime.date
     """
 
     flights_mat = []

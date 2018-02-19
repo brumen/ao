@@ -179,6 +179,36 @@ class TestAirOption(unittest.TestCase):
         print(v1)
         self. assertTrue(True)
 
+    def test_simple_fixed(self):
+        """
+        Tests the compute_option_val function
+
+        """
+
+        v1 = ao.compute_option_val( origin_place          = 'SFO'
+                                  , dest_place            = 'EWR'
+                                  , option_start_date     = dt.date(2018, 2, 20)
+                                  , option_end_date       = dt.date(2018, 3, 4)
+                                  , option_ret_start_date = dt.date(2018, 2, 20)
+                                  , option_ret_end_date   = dt.date(2018, 3, 12)
+                                  , outbound_date_start   = dt.date(2018, 3, 5)
+                                  , outbound_date_end     = dt.date(2018, 3, 6)
+                                  , inbound_date_start    = dt.date(2018, 3, 13)
+                                  , inbound_date_end      = dt.date(2018, 3, 14)
+                                  , K                     = 800.0
+                                  , carrier               = 'UA'
+                                  , nb_sim                = 10000
+                                  , rho                   = 0.95
+                                  , adults                = 1
+                                  , cuda_ind              = False
+                                  , errors                = 'graceful'
+                                  , simplify_compute      = 'take_last_only'
+                                  , underlyer             = 'n'
+                                  , price_by_range        = True
+                                  , return_flight         = True )
+        print(v1)
+        self. assertTrue(True)
+
     def test_ao_new2( self
                     , simplify_compute = 'take_last_only'
                     , cuda_ind         = False ):
