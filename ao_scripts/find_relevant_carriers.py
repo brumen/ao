@@ -2,7 +2,7 @@
 import getpass  # for username
 import pandas as pd
 
-import get_data
+from ao_scripts.get_data import validate_airport
 
 from ao_codes            import iata_codes_airlines, error_log
 from mysql_connector_env import MysqlConnectorEnv
@@ -17,8 +17,8 @@ def get_carrier_l(origin, dest):
 
     """
     # get the three letter codes from origin, dest
-    origin_upper, origin_valid = get_data.validate_airport(origin)
-    dest_upper, dest_valid = get_data.validate_airport(dest)
+    origin_upper, origin_valid = validate_airport(origin)
+    dest_upper, dest_valid = validate_airport(dest)
 
     if origin_valid and dest_valid:  # return carriers
 

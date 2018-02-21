@@ -5,8 +5,8 @@ import logging
 import json
 
 # ao modules
-from air_option   import compute_option_val, data_yield
-from get_data     import get_data
+from air_option          import compute_option_val, data_yield
+from ao_scripts.get_data import get_data
 
 # logger declaration
 logger = logging.getLogger(__name__)
