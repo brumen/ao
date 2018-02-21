@@ -129,6 +129,50 @@ def normal_step( F_sim_prev
     return F_sim_next
 
 
+def create_vol_drift_vectors( T_curr
+                            , T_diff
+                            , s_v
+                            , d_v
+                            , ttm ):
+    """
+    Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
+    from s_v, d_v.
+    
+    :param T_curr: current time
+    :type T_curr: double
+    :param T_diff: difference to the next time
+    :type T_diff: double
+    :param s_v: array of vols for the corresponding flights
+    :type s_v: np.array of double
+    :param d_v: array of drifts for the corresponding flights (could be none)
+    :type d_v: np.array of double
+    :param ttm: time to maturity
+    :type ttm: np.array of times to maturity for the corresponding flights
+    :returns: a pair of calculated volatilities/drifts for the flights
+    :rtype: tuple of np.array (of doubles)
+    """
+
+    s_v_used = np.array([integrate_fct(lambda vol: s_vol
+                                       , T_curr
+                                       , T_curr + T_diff
+                                       , ttm_curr
+                                       , drift_vol_ind='vol')
+                         for (s_vol, ttm_curr) in zip(s_v, ttm)])  # volatility depends on time-to-maturity
+
+    if d_v:
+        d_v_used = np.array([integrate_fct(lambda drift: d_v_curr
+                                          , T_curr
+                                          , T_curr + T_diff
+                                          , ttm_curr
+                                          , drift_vol_ind='drift')
+                             for (d_v_curr, ttm_curr) in zip(d_v, ttm)])
+
+    else:
+        d_v_used = None
+
+    return s_v_used, d_v_used
+
+
 def mc_mult_steps( F_v
                  , s_v
                  , d_v
@@ -207,19 +251,9 @@ def mc_mult_steps( F_v
         
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
         ttm_used = np.array(T_v_exp) - T_curr
-        s_v_used = np.array([integrate_fct( lambda vol: s_vol
-                                          , T_curr
-                                          , T_curr + T_diff
-                                          , ttm_curr
-                                          , drift_vol_ind = 'vol')
-                             for (s_vol, ttm_curr) in zip(s_v, ttm_used)])  # volatility depends on time-to-maturity
 
-        d_v_used = np.array([integrate_fct( lambda drift: d_v_curr
-                                          , T_curr
-                                          , T_curr + T_diff
-                                          , ttm_curr
-                                          , drift_vol_ind = 'drift')
-                             for (d_v_curr, ttm_curr) in zip(d_v, ttm_used)])
+        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v, d_v, ttm_used)
+
 
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
@@ -350,28 +384,18 @@ def mc_mult_steps_ret( F_v
     :returns:        matrix [time_step, simulation, fwd] or ticket prices
     """
 
-    if not cuda_ind:
-        mn = mn_cpu
-    else:
-        mn = mn_gpu
+    mn = mn_cpu if not cuda_ind else mn_gpu
 
-    F_v_dep, F_v_ret = F_v
-    s_v_dep, s_v_ret = s_v
-    d_v_dep, d_v_ret = d_v
-    T_l_dep, T_l_ret = add_zero_to_Tl(T_l[0]), add_zero_to_Tl(T_l[1])
+    F_v_dep,     F_v_ret     = F_v
+    s_v_dep,     s_v_ret     = s_v
+    d_v_dep,     d_v_ret     = d_v
+    T_l_dep,     T_l_ret     = add_zero_to_Tl(T_l[0]), add_zero_to_Tl(T_l[1])
     T_v_exp_dep, T_v_exp_ret = T_v_exp  # expiry values 
-    rho_m_dep, rho_m_ret = rho_m
-    
-    nb_fwds_dep, nb_fwd_ret = len(F_v_dep), len(F_v_ret)
-    T_l_diff_dep = np.diff(T_l_dep)
+    rho_m_dep,   rho_m_ret   = rho_m
+    nb_fwds_dep, nb_fwd_ret  = len(F_v_dep), len(F_v_ret)
+    T_l_diff_dep             = np.diff(T_l_dep)
 
-    if not cuda_ind:
-        F_sim_prev = np.empty((nb_fwds_dep, nb_sim))
-        max_fct_used = np.maximum
-    else:
-        F_sim_prev = gpa.empty((nb_fwds_dep, nb_sim), np.double)
-        max_fct_used = gpa.maximum
-
+    F_sim_prev = np.empty((nb_fwds_dep, nb_sim)) if not cuda_ind else gpa.empty((nb_fwds_dep, nb_sim), np.double)
     F_v_shape = F_v_dep.shape
 
     # assumption F_v and s_v are in the same format
@@ -389,8 +413,6 @@ def mc_mult_steps_ret( F_v
 
     F_sim_next = np.empty((nb_fwds_dep, nb_sim))
         
-    ao_p_next = ao_p
-
     if d_v is not None:
         d_v_ret_used = d_v_ret
     else:
@@ -413,21 +435,10 @@ def mc_mult_steps_ret( F_v
 
     # iteration over simulation times 
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff_dep, T_l_dep[:-1])):  # current time 
-        ttm_dep = np.array(T_v_used) - T_curr  # time to maturity for departures 
-        s_v_used = np.array([integrate_fct( lambda vol: s_vol
-                                          , T_curr
-                                          , T_curr + T_diff
-                                          , ttm_curr
-                                          , drift_vol_ind = 'vol')
-                             for (s_vol, ttm_curr) in zip(s_v_dep, ttm_dep)])  # volatility depends on time-to-maturity
-        if d_v is not None:
-            d_v_used = np.array([integrate_fct( lambda drift: d_v_curr
-                                              , T_curr
-                                              , T_curr + T_diff
-                                              , ttm_curr
-                                              , drift_vol_ind = 'drift')
-                                 for (d_v_curr, ttm_curr) in zip(d_v_dep, ttm_dep)])
-            
+
+        ttm_dep = np.array(T_v_used) - T_curr  # time to maturity for departures
+        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v_dep, d_v_dep, ttm_dep)
+
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
             d_v_used = d_v_used.reshape((len(d_v_used), 1))

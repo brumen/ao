@@ -144,20 +144,24 @@ def import_iata_codes():
 
     """
 
-    iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
-    iata_cities_codes = {city: code for code, country, city in iata_reader}
-    iata_reader = csv.reader(open(iata_file, 'r'), delimiter=',')
-    iata_codes_cities = {code: city for code, country, city in iata_reader}
+    iata_cities_codes = {city: code
+                         for code, country, city in csv.reader( open(iata_file, 'r', encoding='utf-8')
+                                                              , delimiter=',')}
+
+    iata_codes_cities = {code: city
+                         for code, country, city in csv.reader( open(iata_file, 'r', encoding='utf-8')
+                                                              , delimiter=',')}
 
     # read iata airlines
-    iata_airlines_reader = csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r')
-                                     , delimiter=',')
     iata_codes_airlines = { code: airline
-                            for airline, code, three_digit, icao, country in iata_airlines_reader }
-    iata_airlines_reader = csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r')
-                                     , delimiter=',')
+                            for airline, code, three_digit, icao, country in
+                                csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
+                                          , delimiter=',') }
+
     iata_airlines_codes = { airline: code
-                            for airline, code, three_digit, icao, country in iata_airlines_reader }
+                            for airline, code, three_digit, icao, country in
+                                csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
+                                          , delimiter=',') }
 
     return iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
 

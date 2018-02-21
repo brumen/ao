@@ -58,7 +58,9 @@ def run_db_mysql(s):
     """
 
     with MysqlConnectorEnv() as new_mysql:
-        return new_mysql.cursor().execute(s).fetchall()
+        my_cursor = new_mysql.cursor()
+        my_cursor.execute(s)
+        return my_cursor.fetchall()
 
 
 def create_ao_db():
@@ -711,3 +713,26 @@ def perform_db_maintenance(action_list):
         if "insert_live_flights_into_db" in action_list:
             mysql_conn.cursor().execute("CALL insert_flight_ids_from_flights_live\(\);")
             mysql_conn.cursor().execute("CALL insert_flights_live_into_flights_ord\(\);")
+
+
+def calibrate_all_2():
+    """
+    Calibrates the parameters with multiple processing
+
+    """
+
+    flight_ids = run_db_mysql('SELECT DISTINCT(flight_id) FROM flight_ids;');
+    nb_flight_ids = len(flight_ids)
+    batch_size = 1000
+
+    curr_idx = 0
+    while curr_idx < nb_flight_ids:
+        batch_ids = flight_ids[curr_idx: (curr_idx+batch_size)]
+
+
+
+        curr_idx += batch_size
+
+
+
+

@@ -537,6 +537,7 @@ def filter_prices_and_flights( price_l
 
 def obtain_flights_recompute( origin_place
                             , dest_place
+                            , carrier
                             , io_dr_minus
                             , flights_include
                             , io_ind                = 'out'
@@ -565,26 +566,27 @@ def obtain_flights_recompute( origin_place
     else:
         origin_used, dest_used = dest_place, origin_place
 
-    for od in io_dr_minus:
+    for od in io_dr_minus:  # od ... outbound date, io_dr_minus ... date range in datetime.date format
         # fliter prices from flights_include
         ticket_val = []
         flights = []  # (id, dep, arr, price, flight_id)
         reorg_flight = {}
-        for tod in flights_include[od]:  # iterating over time of day
+        od_iso = od.isoformat()
+        for tod in flights_include[od_iso]:  # iterating over time of day
             reorg_flight[tod] = {}
-            for dep_time in flights_include[od][tod]:
-                res = flights_include[od][tod][dep_time]
+            for dep_time in flights_include[od_iso][tod]:
+                res = flights_include[od_iso][tod][dep_time]
                 if dep_time != 'min_max':
                     flight_id, _, dep_time, arr_date, arr_time, flight_price, flight_id, flight_included = res
-                    carrier = flight_id[:2]  # first two letters of id - somewhat redundant
+                    carrier_tmp = flight_id[:2]  # first two letters of id - somewhat redundant
                     if flight_included:
                         ticket_val.append(flight_price)
                         flights.append((flight_id,
-                                        od + 'T' + dep_time,
+                                        od_iso + 'T' + dep_time,
                                         arr_date + 'T' + arr_time,
                                         flight_price,
                                         flight_id))
-                        reorg_flight[tod][dep_time] = flights_include[od][tod][dep_time]
+                        reorg_flight[tod][dep_time] = flights_include[od_iso][tod][dep_time]
 
         # add together
         F_v.extend(ticket_val)
@@ -602,7 +604,7 @@ def obtain_flights_recompute( origin_place
         F_mat.extend(obtain_flights_mat( flights
                                        , flights_include
                                        , date_today()))  # maturity of forwards
-        reorg_flights_v[od] = reorg_flight
+        reorg_flights_v[od_iso] = reorg_flight
 
     return np.array(F_v), np.array(F_mat), s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
 
