@@ -539,7 +539,7 @@ function display_flights_inner(flight_date, curr_time_of_day, flight_selector, o
 function reorganize_results_for_recompute(response) {
     // reorganizes results from the Python response 
     var obj = JSON.parse(response);
-    present_price_ranges(obj.price_range);
+    present_price_ranges(obj.result.price_range);
     return obj.price; // this price is handled lower (not optimal)
 }
 
@@ -759,7 +759,7 @@ function recompute_option_post() {
 	    document.getElementById("option_price_frame").value = new_price;
 	change_button_back(recomp_button, 'Recompute', 'left-after');
     }
-    req.open("POST", "recompute_option", true);
+    req.open("POST", "myapp/recompute_option", true);
     req.setRequestHeader("Content-type", "application/json");
     req.send(JSON.stringify(info_o));
 }

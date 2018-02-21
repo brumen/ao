@@ -2,7 +2,7 @@
 import logging
 import json
 import uuid
-import unirest
+# import unirest
 import os.path
 
 
@@ -157,8 +157,7 @@ def recompute_option_flask():
 
     """
 
-    return jsonify(compute_option( request.form
-                                 , publisher_ao = publisher_ao
+    return jsonify(compute_option( request.get_json()
                                  , recompute_ind = True) )
 
 
