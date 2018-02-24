@@ -187,15 +187,15 @@ class TestAirOption(unittest.TestCase):
 
         v1 = ao.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
-                                  , option_start_date     = dt.date(2018, 2, 20)
-                                  , option_end_date       = dt.date(2018, 3, 4)
-                                  , option_ret_start_date = dt.date(2018, 2, 20)
-                                  , option_ret_end_date   = dt.date(2018, 3, 12)
-                                  , outbound_date_start   = dt.date(2018, 3, 5)
-                                  , outbound_date_end     = dt.date(2018, 3, 6)
-                                  , inbound_date_start    = dt.date(2018, 3, 13)
-                                  , inbound_date_end      = dt.date(2018, 3, 14)
-                                  , K                     = 800.0
+                                  , option_start_date     = dt.date(2018, 2, 25)
+                                  , option_end_date       = dt.date(2018, 5, 15)
+                                  , option_ret_start_date = dt.date(2018, 2, 25)
+                                  , option_ret_end_date   = dt.date(2018, 7, 10)
+                                  , outbound_date_start   = dt.date(2018, 5, 16)
+                                  , outbound_date_end     = dt.date(2018, 5, 17)
+                                  , inbound_date_start    = dt.date(2018, 7, 12)
+                                  , inbound_date_end      = dt.date(2018, 7, 13)
+                                  , K                     = 1240.0
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000
                                   , rho                   = 0.95

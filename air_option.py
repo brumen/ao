@@ -103,12 +103,12 @@ def air_option( F_v
         mc_used = mc.mc_mult_steps_ret
         kwargs['gen_first'] = gen_first
 
-    F_max_prev = mc_used(*args, **kwargs)
+    F_max = mc_used(*args, **kwargs)  # maximum over flight prices
 
     if not cuda_ind:
-        return np.mean(np.maximum (F_max_prev - K, 0.))
+        return np.mean(np.maximum (F_max - K, 0.))  # option payoff
     else:
-        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_prev) - K, 0.))
+        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))  # option payoff
 
 
 def compute_option_raw( F_v
@@ -957,7 +957,8 @@ def compute_option_val( origin_place          = 'SFO'
                 T_l_used = (T_l_dep_num, T_l_ret_num)
                 key_ind = ds.convert_datetime_str(outbound_date_consid) + ' - ' + ds.convert_datetime_str(inbound_date_consid)
 
-            # for debugging 
+            # for debugging
+            # print ("DEBUG:", F_v_used, s_v_used, d_v_used, T_l_used, F_mat_used)
             opt_val_scenario = compute_option_raw( F_v_used
                                                  , s_v_used
                                                  , d_v_used
