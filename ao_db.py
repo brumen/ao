@@ -5,10 +5,15 @@ from   skyscanner.skyscanner import Flights
 import time
 import logging
 
+# asynchronous mysql
+import asyncio
+import aiomysql
+
 import ao_codes
 from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
                                     COUNTRY, CURRENCY, LOCALE,\
-                                    SQLITE_FILE
+                                    SQLITE_FILE,\
+                                    DB_HOST, DB_USER
 import air_search
 import ds
 from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
@@ -715,24 +720,43 @@ def perform_db_maintenance(action_list):
             mysql_conn.cursor().execute("CALL insert_flights_live_into_flights_ord\(\);")
 
 
-def calibrate_all_2():
+async def calibrate_all_2(loop, flight_ids_fixed, batch_size):
     """
     Calibrates the parameters with multiple processing
 
     """
 
-    flight_ids = run_db_mysql('SELECT DISTINCT(flight_id) FROM flight_ids;');
-    nb_flight_ids = len(flight_ids)
-    batch_size = 1000
+    nb_flight_ids = len(flight_ids_fixed)
+    print ("FINISHED preliminary ")
+    pool = await aiomysql.create_pool( host     = 'localhost'
+                                     , port     = 3306
+                                     , user     = DB_USER
+                                     , password = ao_codes.brumen_mysql_pass
+                                     , db       = 'ao'
+                                     , loop     = loop)
 
     curr_idx = 0
     while curr_idx < nb_flight_ids:
-        batch_ids = flight_ids[curr_idx: (curr_idx+batch_size)]
+        batch_ids = flight_ids_fixed[curr_idx: (curr_idx+batch_size)]
+        print ('BS', batch_ids[0], batch_ids[-1], '\n')
 
+        batch_str = str(batch_ids)[1:-1]  # removing the [ and ]
 
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.callproc('calibrate_inner', args=(batch_str, ))
 
         curr_idx += batch_size
 
+    pool.close()
+    await pool.wait_closed()
 
 
+def run_calibrate_all_2(batch_size=1000):
+
+    flight_ids = run_db_mysql('SELECT DISTINCT(flight_id) FROM flight_ids;');
+    flight_ids_fixed = sorted([x[0] for x in flight_ids])
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(calibrate_all_2(loop, flight_ids_fixed, batch_size))
 

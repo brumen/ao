@@ -707,108 +707,61 @@ def get_flight_data( flights_include     = None
 
     else:  # return flights handling
 
-        if flights_include is None:
+        if flights_include:  # we have a restriction on which flights to include
+            flights_include_dep, flights_include_ret = flights_include
+        else:  # all flights taken for computation
+            flights_include_dep, flights_include_ret = None, None
 
-            F_v_dep_uns, F_mat_dep_uns, s_v_dep_raw_uns, d_v_dep_raw_uns, \
-                flights_v_dep_uns, reorg_flights_v_dep, valid_check_out = \
-                    obtain_flights_f( origin_place
-                                    , dest_place
-                                    , carrier
-                                    , outbound_date_range
-                                    , flights_include
-                                    , io_ind              = 'out'
-                                    , correct_drift       = correct_drift
-                                    , publisher_ao        = publisher_ao )
+        F_v_dep_uns, F_mat_dep_uns, \
+        s_v_dep_raw_uns, d_v_dep_raw_uns, \
+        flights_v_dep_uns, reorg_flights_v_dep, \
+        valid_check_out = obtain_flights_f(origin_place
+                                           , dest_place
+                                           , carrier
+                                           , outbound_date_range
+                                           , flights_include_dep
+                                           , io_ind        = 'out'
+                                           , correct_drift = correct_drift
+                                           , publisher_ao  = publisher_ao)
 
-            if valid_check_out != 'Valid':  # not valid, return immediately
-                return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
+        if valid_check_out != 'Valid':  # not valid, return immediately
+            return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
 
-            F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, \
-                flights_v_dep = sort_all( F_v_dep_uns
-                                        , F_mat_dep_uns
-                                        , s_v_dep_raw_uns
-                                        , d_v_dep_raw_uns
-                                        , flights_v_dep_uns )
+        F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, \
+        flights_v_dep = sort_all(F_v_dep_uns
+                                 , F_mat_dep_uns
+                                 , s_v_dep_raw_uns
+                                 , d_v_dep_raw_uns
+                                 , flights_v_dep_uns)
+        F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
+        F_mat_dep = np.array(F_mat_dep)
 
-            F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
-            F_mat_dep = np.array(F_mat_dep)
+        F_v_ret_uns, F_mat_ret_uns, \
+        s_v_ret_raw_uns, d_v_ret_raw_uns, \
+        flights_v_ret_uns, reorg_flights_v_ret, \
+        valid_check_in = obtain_flights_f(origin_place
+                                          , dest_place
+                                          , carrier
+                                          , inbound_date_range
+                                          , flights_include_ret
+                                          , io_ind        = 'in'
+                                          , correct_drift = correct_drift
+                                          , publisher_ao  = publisher_ao)
 
-            F_v_ret_uns, F_mat_ret_uns,\
-                s_v_ret_raw_uns, d_v_ret_raw_uns, \
-                flights_v_ret_uns, reorg_flights_v_ret,\
-                valid_check_in = obtain_flights_f( origin_place
-                                                 , dest_place
-                                                 , carrier
-                                                 , inbound_date_range
-                                                 , flights_include
-                                                 , io_ind        = 'in'
-                                                 , correct_drift = correct_drift
-                                                 , publisher_ao  = publisher_ao)
+        if valid_check_in != 'Valid':  # not valid, return immediately
+            return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
 
-            if valid_check_in != 'Valid':  # not valid, return immediately
-                return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
+        F_v_ret, F_mat_ret, \
+        s_v_ret_raw, d_v_ret_raw, \
+        flights_v_ret = sort_all(F_v_ret_uns
+                                 , F_mat_ret_uns
+                                 , s_v_ret_raw_uns
+                                 , d_v_ret_raw_uns
+                                 , flights_v_ret_uns)
 
-            F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, \
-                flights_v_ret = sort_all( F_v_ret_uns
-                                        , F_mat_ret_uns
-                                        , s_v_ret_raw_uns
-                                        , d_v_ret_raw_uns
-                                        , flights_v_ret_uns)
+        F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back
+        F_mat_ret = np.array(F_mat_ret)
 
-            F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back 
-            F_mat_ret = np.array(F_mat_ret)
-            
-        else:
-            F_v_dep_uns, F_mat_dep_uns, \
-                s_v_dep_raw_uns, d_v_dep_raw_uns, \
-                flights_v_dep_uns, reorg_flights_v_dep, \
-                valid_check_out = obtain_flights_f( origin_place
-                                                  , dest_place
-                                                  , carrier
-                                                  , outbound_date_range
-                                                  , flights_include[0]
-                                                  , io_ind        = 'out'
-                                                  , correct_drift = correct_drift
-                                                  , publisher_ao  = publisher_ao )
-
-            if valid_check_out != 'Valid':  # not valid, return immediately
-                return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
-
-            F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, \
-                flights_v_dep = sort_all( F_v_dep_uns
-                                        , F_mat_dep_uns
-                                        , s_v_dep_raw_uns
-                                        , d_v_dep_raw_uns
-                                        , flights_v_dep_uns )
-            F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back 
-            F_mat_dep = np.array(F_mat_dep)
-            
-            F_v_ret_uns, F_mat_ret_uns, \
-                s_v_ret_raw_uns, d_v_ret_raw_uns, \
-                flights_v_ret_uns, reorg_flights_v_ret,\
-                valid_check_in = obtain_flights_f( origin_place
-                                                 , dest_place
-                                                 , carrier
-                                                 , inbound_date_range
-                                                 , flights_include[1]
-                                                 , io_ind        ='in'
-                                                 , correct_drift = correct_drift
-                                                 , publisher_ao  = publisher_ao )
-
-            if valid_check_in != 'Valid':  # not valid, return immediately
-                return ([], []), ([], []),  ([], []), ([], []), ([], []), ([], []), False
-
-            F_v_ret, F_mat_ret, \
-                s_v_ret_raw, d_v_ret_raw, \
-                flights_v_ret = sort_all( F_v_ret_uns
-                                        , F_mat_ret_uns
-                                        , s_v_ret_raw_uns
-                                        , d_v_ret_raw_uns
-                                        , flights_v_ret_uns)
-
-            F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back
-            F_mat_ret = np.array(F_mat_ret)
-            
         valid_check = (valid_check_out == 'Valid') and (valid_check_in == 'Valid')
 
         if valid_check:
@@ -935,7 +888,7 @@ def compute_option_val( origin_place          = 'SFO'
     """
 
     # date today 
-    date_today_dt  = date_today()
+    date_today_dt = date_today()
 
     if flights_supplied is None:  # no flights are supplied, find them
 
