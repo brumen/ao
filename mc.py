@@ -180,7 +180,6 @@ def mc_mult_steps( F_v
                  , rho_m
                  , nb_sim
                  , T_v_exp
-                 , ao_f
                  , cva_vals = None
                  , model    = 'n'
                  , F_ret    = None
@@ -193,13 +192,13 @@ def mc_mult_steps( F_v
     :param s_v: vector of vols for forward vals
     :type s_v:  np.array
     :param T_l: list of time points at which all F_v should be simulated
+    :type T_l: np.array
     :param rho_m: correlation matrix
+    :type rho_m: 2-dimensional np.array
     :param nb_sim: number of sims
     :param T_v_exp: expiry of the forward contracts, maturity of aiplane tickets
     :type T_v_exp:  np.array
     :param F_prev:  previous values of the forward process TODO
-    :param ao_f: function to compute new vals from old ones
-    :type ao_f:  TODO
     :param d_v: drift of the forward ticket process
     :type d_v:  np.array
     :param cva_vals: None ... everything is regenerated anew
@@ -254,7 +253,6 @@ def mc_mult_steps( F_v
 
         s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v, d_v, ttm_used)
 
-
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
             d_v_used = d_v_used.reshape((len(d_v_used), 1))
@@ -281,7 +279,7 @@ def mc_mult_steps( F_v
                                    , cuda_ind = cuda_ind)
 
         if F_ret is None:  # no return flight given
-            F_sim_next_new = ao_f( F_sim_next, F_sim_next_new )
+            F_sim_next_new = np.maximum( np.amax(F_sim_next, 0), F_sim_next_new )
         else:
             if not cuda_ind:
                 F_sim_next_used = F_sim_next + F_ret
@@ -292,43 +290,17 @@ def mc_mult_steps( F_v
                 co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
                 F_sim_next_used = F_sim_next  # WRONG WRONG WRONG
 
-            F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
+            # F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
+            F_sim_next_new = np.maximum( np.amax(F_sim_next_used, axis=0), F_sim_next_new)
 
         F_sim_prev = F_sim_next_new
 
     return F_sim_prev  # TODO: CHECK IF THIS IS CORRECT
 
 
-def ao_compute_from_F( F_sim_l
-                     , T_l
-                     , ao_f
-                     , ao_p
-                     , cuda_ind = False):
-    """
-    computes the ao_f vectors from previously simulated F_sim_l
-
-    :param F_sim_l:   list of simulated forward ticket prices
-    :type F_sim_l:    numpy array of shape (len(T_l), nb_fwds, nb_sim))
-    :param T_l:       list of time points at which all F_v should be simulated
-    :param ao_f:      function to compute new vals from old ones
-    :param ao_p:      initial parameters
-    :param cuda_ind:  cuda inidcator 
-    :returns:         ao_p_next
-    :rtype:           ao_p_next # TODO: COMPLETE HERE??? 
-    """
-
-    ao_p_next = ao_p
-        
-    for T_ind in range(len(T_l) - 1): 
-        F_sim_next = F_sim_l[T_ind+1, :, :]
-        ao_p_next = ao_f(F_sim_next, ao_p_next, cuda_ind=cuda_ind)
-
-    return ao_p_next
-
-
 def add_zero_to_Tl(T_list):
     """
-    adds a zero to T_l if T_list doesnt already have it
+    Adds a zero to T_l if T_list doesnt already have it
 
     :param T_list:  list of simulation times
     :type T_list:   list
@@ -351,8 +323,6 @@ def mc_mult_steps_ret( F_v
                      , rho_m
                      , nb_sim
                      , T_v_exp
-                     , ao_f
-                     , ao_p      = None
                      , cva_vals  = None
                      , model     = 'n'
                      , cuda_ind  = False
@@ -370,8 +340,6 @@ def mc_mult_steps_ret( F_v
     :param nb_sim:  number of sims
     :type nb_sim:   int
     :param T_v_exp: expiry of forward contracts
-    :param ao_f: function to compute new vals from old ones
-    :param ao_p: initial parameters
     :param d_v: drift of the process, drift
        d_v[i] is a function of (ttm, params)
     :param cva_vals: None ... everything is regenerated anew
@@ -426,7 +394,6 @@ def mc_mult_steps_ret( F_v
                                  , rho_m_ret
                                  , nb_sim
                                  , T_v_exp_ret
-                                 , ao_f
                                  , cva_vals = cva_vals
                                  , model    = model
                                  , cuda_ind = cuda_ind)

@@ -37,9 +37,7 @@ class Publisher(object):
         the channel named "default channel".
         """
         for subscriber_list in self._get_subscribers_lists(channel):
-            # yield from subscriber_list
-            for x in subscriber_list:
-                yield x
+            yield from subscriber_list
 
     def _publish_single(self, data, queue):
         """

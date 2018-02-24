@@ -50,49 +50,12 @@ def data_yield(data_dict):
     return json.dumps(data_dict)
 
 
-def ao_f( F_sims
-        , F_max_prev):
-    """
-    air_option in-between function, an example, others can be used
-
-    :param ao_p['F_max_prev'] ... previous F_max
-                                  has to return the next ao_p object
-    """
-
-    return np.maximum(F_sims, F_max_prev)
-
-
-def ao_f_arb( F_sims
-            , F_max_prev
-            , cuda_ind = False):
-    """
-    air_option in-between function avoiding the arbitrage condition
-
-    :param F_sims:     current simulation ticket vals
-    :type F_sims:      np.array
-    :param F_max_prev: ticket vals from the previous simulation iteration
-    :type F_max_prev:  np.array
-    :param cuda_ind:   whether to use cuda or not; True for cuda, False for cpu
-    :type cuda_ind:    bool
-    :returns:          how the new air option value is computed from the old
-    :rtype:            np.array
-    """
-
-    if not cuda_ind:  # cpu computation
-        return np.maximum( np.amax(F_sims, axis=0)
-                         , F_max_prev)
-
-    else:  # gpu computation
-        return gpa.maximum(F_sims, F_max_prev)
-
-
 def air_option( F_v
               , s_v
               , d_v
               , T_l
               , T_mat
               , K
-              , ao_f      = ao_f_arb
               , nb_sim    = 1000
               , rho       = 0.9
               , cuda_ind  = False
@@ -103,13 +66,13 @@ def air_option( F_v
       memory impact
 
     :param F_v: vector of forward prices, or a tuple (F_1_v, F_2_v) for return flights
-    :param s_v: vector of vols, or a tuple, similarly to F_v
+    :type F_v: np.array or (np.array, np.array)
+    :param s_v: vector of vols, or a tuple for return flights, similarly to F_v
+    :type s_v: np.array or (np.array, np.array)
     :param T_l: simulation list, same as s_v
+    :type T_l: np.array or (np.array, np.array)
     :param T_mat: maturity list 
     :param K: strike price
-    :param ao_f: air_option function to compute next period's air option values from the
-                 previous one, should be in the form of ao_f_arb above
-    :param ao_p: air_option parameters to be used in ao_f
     :param d_v: functions that describe the drift of the forward (list form)
        d_v[i] is a function of (F_prev, ttm, time_step, params)
     :param nb_sim: simulation number
@@ -131,8 +94,7 @@ def air_option( F_v
         rho_m = vols.corr_hyp_sec_mat(rho, range(nb_fwds))
 
     args = [ F_v, s_v, d_v, T_l, rho_m, nb_sim, T_mat ]
-    kwargs = { 'ao_f'    : ao_f
-             , 'model'   : underlyer
+    kwargs = { 'model'   : underlyer
              , 'cuda_ind': cuda_ind}
 
     if not return_flight_ind:
@@ -195,7 +157,6 @@ def compute_option_raw( F_v
                               , T_l_num
                               , T_mat_num
                               , K
-                              , ao_f      = ao_f_arb
                               , nb_sim    = nb_sim
                               , rho       = rho
                               , cuda_ind  = cuda_ind
@@ -966,8 +927,8 @@ def compute_option_val( origin_place          = 'SFO'
                                           , underlyer  = underlyer
                                           , gen_first  = gen_first)\
                         * np.int(adults)
-        
-    # TO BE FURTHER IMPLEMENTED ??
+
+    # construct the price range
     price_range = dict()
     if price_by_range and compute_all:  # compute_all guarantees there is something to compute
         complete_set_options = 3  # how many options to compute (default = 3)
