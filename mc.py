@@ -172,6 +172,79 @@ def create_vol_drift_vectors( T_curr
     return s_v_used, d_v_used
 
 
+def mc_one_way( F_sim
+              , mn
+              , T_l_diff
+              , T_l_local
+              , T_v_exp
+              , s_v
+              , d_v
+              , cuda_ind
+              , nb_fwds
+              , nb_sim
+              , model
+              , F_ret
+              , rho_m ):
+    """
+    One way simulation of flights
+
+    :param F_sim: initial flight values
+    :type F_sim: 2-dimensional np.array(nb_fwds, nb_simulations)
+    :param mn: multivariate random number generator used
+    :type mn:
+    :param T_l_diff: difference between simulation times
+    :type T_l_diff: list[double] or np.array
+    :param T_l_local: ???
+    :type T_l_local: np.array
+    :param T_v_exp: vector of expiry values
+    :type T_v_exp: np.array
+    """
+
+    for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
+        ttm_used = np.array(T_v_exp) - T_curr
+
+        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v, d_v, ttm_used)
+
+        if not cuda_ind:
+            s_v_used = s_v_used.reshape((len(s_v_used), 1))
+            d_v_used = d_v_used.reshape((len(d_v_used), 1))
+
+        if nb_fwds == 1:
+            rn_sim_l = np.random.normal(size=(nb_sim, 1))
+        else:
+            if not cuda_ind:
+                rn_sim_l = mn(np.zeros(nb_fwds), rho_m, size=nb_sim).transpose()
+            else:
+                rn_sim_l = mn_gpu(0, rho_m, size=nb_sim)
+
+        one_step_params = [F_sim, T_diff, s_v_used, d_v_used, rn_sim_l]
+
+        if model == 'ln':  # log-normal model
+            one_step_model = ln_step
+        else:  # normal model
+            one_step_model = normal_step
+
+        F_sim_next = one_step_model( *one_step_params
+                                   , cuda_ind=cuda_ind)
+
+        if F_ret is None:  # no return flight given
+            F_sim = np.maximum(np.amax(F_sim_next, axis=0), F_sim)
+        else:
+            if not cuda_ind:
+                F_sim_next_ret = F_sim_next + F_ret
+            else:
+                # F_dep_plus_ret = F_sim_next + F_ret
+                # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
+                # F_dep_plus_ret = co.vtpm_rows_new_ao(F_ret, F_sim_next)
+                co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
+                F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
+
+            # F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
+            F_sim = np.maximum(np.amax(F_sim_next_ret, axis=0), F_sim)
+
+    return F_sim
+
+
 def mc_mult_steps( F_v
                  , s_v
                  , d_v
@@ -179,7 +252,6 @@ def mc_mult_steps( F_v
                  , rho_m
                  , nb_sim
                  , T_v_exp
-                 , cva_vals = None
                  , model    = 'n'
                  , F_ret    = None
                  , cuda_ind = False):
@@ -200,8 +272,6 @@ def mc_mult_steps( F_v
     :param F_prev:  previous values of the forward process TODO
     :param d_v: drift of the forward ticket process
     :type d_v:  np.array
-    :param cva_vals: None ... everything is regenerated anew
-                     a list of random numbers generated which can be reused all the time
     :param model: model used for simulation
     :type model:  string, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
@@ -244,55 +314,20 @@ def mc_mult_steps( F_v
         F_sim[:, :] = F_v_used
     else:
         F_sim = co.set_mat_by_vec(F_v_used, nb_sim)
-        
-    for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
-        ttm_used = np.array(T_v_exp) - T_curr
 
-        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v, d_v, ttm_used)
-
-        if not cuda_ind:
-            s_v_used = s_v_used.reshape((len(s_v_used), 1))
-            d_v_used = d_v_used.reshape((len(d_v_used), 1))
-        
-        if nb_fwds == 1:
-            rn_sim_l = np.random.normal(size=(nb_sim, 1))
-        else:
-            if cva_vals is None:
-                if not cuda_ind:
-                    rvs = mn(np.zeros(nb_fwds), rho_m, size=nb_sim).transpose()
-                else:
-                    rvs = mn_gpu(0, rho_m, size=nb_sim)
-            else:
-                rvs = cva_vals[T_ind]
-            rn_sim_l = rvs
-
-        print ("FSIM", F_sim)
-
-        one_step_params = [F_sim, T_diff, s_v_used, d_v_used, rn_sim_l]
-        if model == 'ln':  # log-normal model 
-            one_step_model = ln_step
-        else:  # normal model
-            one_step_model = normal_step
-
-        F_sim_next = one_step_model( *one_step_params
-                                   , cuda_ind = cuda_ind)
-
-        if F_ret is None:  # no return flight given
-            F_sim = np.maximum( np.amax(F_sim, axis=0), F_sim_next )
-        else:
-            if not cuda_ind:
-                F_sim_next_ret = F_sim_next + F_ret
-            else:
-                # F_dep_plus_ret = F_sim_next + F_ret
-                # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
-                # F_dep_plus_ret = co.vtpm_rows_new_ao(F_ret, F_sim_next)
-                co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
-                F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
-
-            # F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
-            F_sim = np.maximum( np.amax(F_sim, axis=0), F_sim_next_ret)
-
-    return F_sim
+    return mc_one_way( F_sim
+                     , mn
+                     , T_l_diff
+                     , T_l_local
+                     , T_v_exp
+                     , s_v
+                     , d_v
+                     , cuda_ind
+                     , nb_fwds
+                     , nb_sim
+                     , model
+                     , F_ret
+                     , rho_m)
 
 
 def add_zero_to_Tl(T_list):
@@ -320,10 +355,8 @@ def mc_mult_steps_ret( F_v
                      , rho_m
                      , nb_sim
                      , T_v_exp
-                     , cva_vals  = None
                      , model     = 'n'
-                     , cuda_ind  = False
-                     , gen_first = True):
+                     , cuda_ind  = False):
     """
     Simulates ticket prices for a return flight.
 
@@ -338,14 +371,11 @@ def mc_mult_steps_ret( F_v
     :type nb_sim:   int
     :param T_v_exp: expiry of forward contracts
     :param d_v: drift of the process, drift
-       d_v[i] is a function of (ttm, params)
-    :param cva_vals: None ... everything is regenerated anew
-                     a list of random numbers generated which can be reused all the time
+                  d_v[i] is a function of (ttm, params)
     :param model:   model 'ln' or 'n' for normal
     :type model:    str
     :param cuda_ind: whether cuda or cpu is used
     :type cuda_ind:  bool
-    :param gen_first: generates the return simulations first, then only runs over them 
     :returns:        matrix [time_step, simulation, fwd] or ticket prices
     """
 
@@ -376,88 +406,37 @@ def mc_mult_steps_ret( F_v
     else:
         F_sim = co.set_mat_by_vec(F_v_used, nb_sim)
 
-    F_sim_next = np.empty((nb_fwds_dep, nb_sim))
-        
     if d_v is not None:
         d_v_ret_used = d_v_ret
     else:
         d_v_ret_used = None
 
-    if gen_first:  # generates the return simulations & stores them
-        F_sim_ret_max = np.amax(mc_mult_steps( F_v_ret
-                                             , s_v_ret
-                                             , d_v_ret_used
-                                             , T_l_ret
-                                             , rho_m_ret
-                                             , nb_sim
-                                             , T_v_exp_ret
-                                             , cva_vals = cva_vals
-                                             , model    = model
-                                             , cuda_ind = cuda_ind)
-                               , axis=0 )
+    # return simulations generated
+    F_sim_ret_max = np.amax(mc_mult_steps( F_v_ret
+                                         , s_v_ret
+                                         , d_v_ret_used
+                                         , T_l_ret
+                                         , rho_m_ret
+                                         , nb_sim
+                                         , T_v_exp_ret
+                                         , model    = model
+                                         , cuda_ind = cuda_ind)
+                           , axis=0 )
 
-    # iteration over simulation times 
-    for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff_dep, T_l_dep[:-1])):  # current time 
-
-        ttm_dep = np.array(T_v_used) - T_curr  # time to maturity for departures
-        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v_dep, d_v_dep, ttm_dep)
-
-        if not cuda_ind:
-            s_v_used = s_v_used.reshape((len(s_v_used), 1))
-            d_v_used = d_v_used.reshape((len(d_v_used), 1))
-        
-        if nb_fwds_dep == 1:
-            rn_sim_l = np.random.normal(size=(nb_sim, 1))
-        else:
-            if cva_vals is None:
-                if not cuda_ind:
-                    rvs = mn(np.zeros(nb_fwds_dep), rho_m_dep, size = nb_sim).transpose()
-                else:
-                    rvs = mn_gpu(0, rho_m_dep, size = nb_sim)
-            else:
-                rvs = cva_vals[T_ind]
-            rn_sim_l = rvs
-
-        if model == 'ln':  # log-normal model 
-            if not cuda_ind:
-                # F_sim_next = F_sim_prev * np.exp(s_v_used * rn_sim_l - 0.5 * s_v_used**2 * T_diff)
-                expon_part = (np.sqrt(T_diff) * s_v_used) * rn_sim_l - 0.5 * s_v_used**2 * T_diff
-                if d_v is not None:
-                    expon_part += d_v_used * T_diff
-                F_sim_next = F_sim * np.exp(expon_part)
-            else:
-                # F_sim_part = co.vtpm_cols_new_hd(s_v_used, rn_sim_l, tm_ind='t')
-                # F_sim_part = co.vtpm_cols_new_hd(- 0.5 * s_v_used**2 * T_diff, F_sim_part, tm_ind='p')
-                # F_sim_part = co.vtpm_cols_new_hd_ao(- 0.5 * s_v_used**2 * T_diff, s_v_used, rn_sim_l)
-                co.vtpm_cols_new_hd_ao(- 0.5 * s_v_used**2 * T_diff, np.sqrt(T_diff) * s_v_used, rn_sim_l)
-                F_sim_part = rn_sim_l
-                if d_v is not None:
-                    F_sim_part = co.vtpm_cols_new_hd(d_v_used * T_diff, F_sim_part, tm_ind='p')
-                # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-                co.sin_cos_exp_d( F_sim_part
-                                , F_sim_part
-                                , sin_cos_exp='exp')
-                F_sim_next = F_sim * F_sim_part
-        else:  # normal model
-            if not cuda_ind:
-                F_sim_next = F_sim + s_v_used * np.sqrt(T_diff) * rn_sim_l
-                if d_v is not None:
-                    F_sim_next += d_v_used * T_diff
-
-                # speed-up:
-                # F_sim_shape_0, F_sim_shape_1 = F_sim_prev.shape
-                # vtpm_cpu.vm_ao(F_sim_prev, d_v_used * T_diff,
-                #               s_v_used * np.sqrt(T_diff), rn_sim_l, F_sim_next,
-                #               F_sim_shape_0, F_sim_shape_1)
-            else:
-                F_sim_next = co.vtpm_cols_new_hd(s_v_used * np.sqrt(T_diff), rn_sim_l, tm_ind='t')
-                if d_v is not None:
-                    F_sim_next = co.vtpm_cols_new_hd(d_v_used * T_diff, F_sim_next, tm_ind='p')
-                F_sim_next += F_sim
-
-        F_sim = np.maximum( F_sim_ret_max + F_sim_next, F_sim )
-
-    return F_sim
+    # departure and return connected
+    return mc_one_way( F_sim
+                     , mn
+                     , T_l_diff_dep
+                     , T_l_dep
+                     , T_v_used
+                     , s_v_dep
+                     , d_v_dep
+                     , cuda_ind
+                     , nb_fwds_dep
+                     , nb_sim
+                     , model
+                     , F_sim_ret_max
+                     , rho_m_dep)
 
 
 def mn_gpu(unimp, rho_m, size=100):

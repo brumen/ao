@@ -59,8 +59,7 @@ def air_option( F_v
               , nb_sim    = 1000
               , rho       = 0.9
               , cuda_ind  = False
-              , underlyer ='n'
-              , gen_first = False):
+              , underlyer ='n' ):
     """
     computes the value of the air option, has low
       memory impact
@@ -101,7 +100,6 @@ def air_option( F_v
         mc_used = mc.mc_mult_steps
     else:
         mc_used = mc.mc_mult_steps_ret
-        kwargs['gen_first'] = gen_first
 
     F_max = mc_used(*args, **kwargs)  # maximum over flight prices
 
@@ -120,8 +118,7 @@ def compute_option_raw( F_v
                       , rho
                       , nb_sim    = 10000
                       , cuda_ind  = False
-                      , underlyer = 'n'
-                      , gen_first = True):
+                      , underlyer = 'n' ):
     """
     Computes the value of the option sequentially, in order to minimize memory footprint
 
@@ -145,8 +142,6 @@ def compute_option_raw( F_v
     :type cuda_ind:   bool
     :param underlyer: which model to use - lognormal or normal ('ln' or 'n')
     :type underlyer:  string; 'ln' or 'n'
-    :param gen_first: TODO
-    :type gen_first:  TODO
     :returns:
     :rtype:
     """
@@ -160,8 +155,7 @@ def compute_option_raw( F_v
                               , nb_sim    = nb_sim
                               , rho       = rho
                               , cuda_ind  = cuda_ind
-                              , underlyer = underlyer
-                              , gen_first = gen_first)
+                              , underlyer = underlyer )
 
     # markups to the option value
     percentage_markup = ao_codes.reserves + ao_codes.tax_rate # 10 % markup 
@@ -924,8 +918,7 @@ def compute_option_val( origin_place          = 'SFO'
                                           , rho
                                           , nb_sim     = nb_sim
                                           , cuda_ind   = cuda_ind
-                                          , underlyer  = underlyer
-                                          , gen_first  = gen_first)\
+                                          , underlyer  = underlyer )\
                         * np.int(adults)
 
     # construct the price range
