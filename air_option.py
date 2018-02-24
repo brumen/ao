@@ -951,7 +951,6 @@ def compute_option_val( origin_place          = 'SFO'
                 key_ind = ds.convert_datetime_str(outbound_date_consid) + ' - ' + ds.convert_datetime_str(inbound_date_consid)
 
             # for debugging
-            # print ("DEBUG:", F_v_used, s_v_used, d_v_used, T_l_used, F_mat_used)
             opt_val_scenario = compute_option_raw( F_v_used
                                                  , s_v_used
                                                  , d_v_used
