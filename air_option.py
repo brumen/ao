@@ -31,8 +31,8 @@ def date_today():
     """
 
     lt = time.localtime()
-    return ds.convert_str_date(str(lt.tm_year) +\
-                               str(ds.d2s(lt.tm_mon)) +\
+    return ds.convert_str_date(str(lt.tm_year) +
+                               str(ds.d2s(lt.tm_mon)) +
                                str(ds.d2s(lt.tm_mday)))
 
 
@@ -495,9 +495,9 @@ def obtain_flights_recompute( origin_place
                             , carrier
                             , io_dr_minus
                             , flights_include
-                            , io_ind                = 'out'
-                            , correct_drift         = True
-                            , publisher_ao          = None):
+                            , io_ind        = 'out'
+                            , correct_drift = True
+                            , publisher_ao  = None):
     """
     Get the flights for recompute method.
 
@@ -648,7 +648,7 @@ def get_flight_data( flights_include     = None
                                                 , 'result'  : 'Outbound flight error.'}))
             return [], [], [], [], [], [], False
         
-        F_v_dep, F_mat_dep, s_v_dep_u, d_v_dep_u, \
+        F_v_dep, F_mat_dep, s_v_dep, d_v_dep, \
             flights_v_dep = sort_all( F_v_dep_uns
                                     , F_mat_dep_uns
                                     , s_v_dep_u_uns
@@ -657,8 +657,6 @@ def get_flight_data( flights_include     = None
 
         F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
         F_mat_dep = np.array(F_mat_dep)
-        s_v_dep = s_v_dep_u  # [lambda t: s_v_fct(s_v_u, t) for s_v_u in s_v_dep_u]
-        d_v_dep = s_v_dep_u  # [lambda t: d_v_fct(d_v_u, t) for d_v_u in d_v_dep_u]
 
     else:  # return flights handling
 
@@ -667,27 +665,28 @@ def get_flight_data( flights_include     = None
         else:  # all flights taken for computation
             flights_include_dep, flights_include_ret = None, None
 
-        F_v_dep_uns, F_mat_dep_uns, \
-        s_v_dep_raw_uns, d_v_dep_raw_uns, \
+        F_v_dep_uns      , F_mat_dep_uns      , \
+        s_v_dep_raw_uns  , d_v_dep_raw_uns    , \
         flights_v_dep_uns, reorg_flights_v_dep, \
-        valid_check_out = obtain_flights_f(origin_place
-                                           , dest_place
-                                           , carrier
-                                           , outbound_date_range
-                                           , flights_include_dep
-                                           , io_ind        = 'out'
-                                           , correct_drift = correct_drift
-                                           , publisher_ao  = publisher_ao)
+        valid_check_out = obtain_flights_f( origin_place
+                                          , dest_place
+                                          , carrier
+                                          , outbound_date_range
+                                          , flights_include_dep
+                                          , io_ind        = 'out'
+                                          , correct_drift = correct_drift
+                                          , publisher_ao  = publisher_ao)
 
         if valid_check_out != 'Valid':  # not valid, return immediately
             return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
 
-        F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, \
-        flights_v_dep = sort_all(F_v_dep_uns
-                                 , F_mat_dep_uns
-                                 , s_v_dep_raw_uns
-                                 , d_v_dep_raw_uns
-                                 , flights_v_dep_uns)
+        F_v_dep    , F_mat_dep  , \
+        s_v_dep_raw, d_v_dep_raw, \
+        flights_v_dep = sort_all( F_v_dep_uns
+                                , F_mat_dep_uns
+                                , s_v_dep_raw_uns
+                                , d_v_dep_raw_uns
+                                , flights_v_dep_uns)
         F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
         F_mat_dep = np.array(F_mat_dep)
 

@@ -184,7 +184,7 @@ def mc_one_way( F_sim
               , nb_sim
               , model
               , F_ret
-              , rho_m ):
+              , rho_m : np.array):
     """
     One way simulation of flights
 
@@ -198,6 +198,21 @@ def mc_one_way( F_sim
     :type T_l_local: np.array
     :param T_v_exp: vector of expiry values
     :type T_v_exp: np.array
+    :param s_v: volatilities for departure
+    :type s_v: np.array (nb_flights)
+    :param d_v: drift of departure flights
+    :type d_v: np.array(nb_flights)
+    :param cuda_ind: cuda indicator
+    :type cuda_ind: bool
+    :param nb_fwds: number of departure flights, the number of rows in F_sim
+    :type nb_fwds: int
+    :param nb_sim: number of simulations, nb. of columns in F_sim
+    :type nb_sim: int
+    :param model: underlying model: 'ln' or 'normal' - only 'normal' works so far
+    :type model: str
+    :param F_ret: return flight, already maximized over the return flights
+    :type F_ret: np.array(nb_simulations)
+    :param rho_m: correlation matrix
     """
 
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
@@ -228,10 +243,10 @@ def mc_one_way( F_sim
                                    , cuda_ind=cuda_ind)
 
         if F_ret is None:  # no return flight given
-            F_sim = np.maximum(np.amax(F_sim_next, axis=0), F_sim)
+            F_sim = np.maximum(F_sim_next, F_sim)  # more proper, although the same as w/ amax
         else:
             if not cuda_ind:
-                F_sim_next_ret = F_sim_next + F_ret
+                F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
             else:
                 # F_dep_plus_ret = F_sim_next + F_ret
                 # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
@@ -240,7 +255,7 @@ def mc_one_way( F_sim
                 F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
 
             # F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
-            F_sim = np.maximum(np.amax(F_sim_next_ret, axis=0), F_sim)
+            F_sim = np.maximum(F_sim_next_ret, F_sim)
 
     return F_sim
 

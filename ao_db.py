@@ -127,11 +127,11 @@ def find_dep_hour_day_inv(dep_date, dep_time):
     :returns:   month, dayofweek,
     :rtype:     TODO: FIX HERE
     """
-    if dep_time >= ao_codes.morning_dt[0] and dep_time < ao_codes.morning_dt[1]:
+    if ao_codes.morning_dt[0] <= dep_time < ao_codes.morning_dt[1]:
         dod = 'morning'
-    elif dep_time >= ao_codes.afternoon_dt[0] and dep_time < ao_codes.afternoon_dt[1]:
+    elif ao_codes.afternoon_dt[0] <= dep_time < ao_codes.afternoon_dt[1]:
         dod = 'afternoon'
-    elif dep_time >= ao_codes.evening_dt[0] and dep_time < ao_codes.evening_dt[1]:
+    elif ao_codes.evening_dt[0] <= dep_time < ao_codes.evening_dt[1]:
         dod = 'evening'
     else:
         dod = 'night' 
