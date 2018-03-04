@@ -14,12 +14,13 @@ function create_cb_sel_all(parent_node, id_name, sel_all_fct) {
     // apends the checkbox to a parent_node with id_name and
     // the function sel_all_fct that acts when one clicks the button 
     var cb_sel_all = document.createElement("input");
-    cb_sel_all.type = "checkbox";
-    cb_sel_all.style = "margin-left: 5px;"
-    cb_sel_all.id = id_name;
+    cb_sel_all.type    = "checkbox";
+    cb_sel_all.style   = "margin-left: 5px;"
+    cb_sel_all.id      = id_name;
     cb_sel_all.checked = true;
     cb_sel_all.onclick = sel_all_fct;
-    parent_node.appendChild(cb_sel_all);
+
+    parent_node.appendChild(cb_sel_all                    );
     parent_node.appendChild(document.createTextNode('All'));
 }
 
@@ -683,7 +684,7 @@ function compute_option_from_init() {
     // computes the option value and displays flights 
     change_button_to_searching(document.getElementById('find_flights_button')
 			       , '  Searching...', 'left');
-    var price = handle_computation(construct_get_req_string(get_basic_info()));
+    handle_computation(construct_get_req_string(get_basic_info()));
 }
 
 
@@ -702,23 +703,30 @@ function handle_computation(get_string) {
     while (od.hasChildNodes())
 	od.removeChild(od.lastChild);
 
+    // display the notification area 
+    document.getElementById("notification_messages").style = "";
+
     // compte everything 
     var eventSource = new EventSource("myapp/compute_option" + get_string );
-    eventSource.onmessage = handleMessage;  // how to handle the response from server 
-    //error: function(XMLHttpRequest, textStatus, errorThrown) {
-    //	alert("error: " + textStatus + " (" + errorThrown + ")");
-    //   }
+    eventSource.onmessage = handleAOMessage;  // how to handle the response from server 
+    eventSource.onerror   = handleAOError; 
 
-    return -100.; //  price, not important;  // TO FIX FIX FIX FIX FIX 
+}
+
+function handleAOError(server_message) {
+    var data = JSON.parse(server_message.data);
+    console.log(data);  // display error in console
+    document.getElementById("notification_messages").style = "";
+    document.getElementById("notification_messages").appendChild(document.createTextNode('Something went wrong. Please try again.'));
+    
 }
 
 
-function handleMessage(server_message) {
+function handleAOMessage(server_message) {
     // function handles the return messages from server
     // involving the option computation 
 
     var data = JSON.parse(server_message.data);
-    console.log(data);  // for debugging 
     
     if (data.finished)  // display elements 
     {  // success logic - data object with fields as defined 
@@ -731,12 +739,15 @@ function handleMessage(server_message) {
  	$('.accordion input[type="checkbox"]').click(function(e) {
  	    e.stopPropagation();
  	});
+	// close the SSE stream
+	
     } else {  // not finished, display the message in the result 
  	// showing the style 
  	document.getElementById("flights-section").style = "";  // display this section 
  	document.getElementById("notification_messages")
 	        .appendChild(document.createElement("p")
-			             .appendChild(document.createTextNode(data.result)));
+			     .appendChild(document.createTextNode(data.result)))
+ 	document.getElementById("notification_messages").appendChild(document.createElement("br"));
     }
 }
 
@@ -834,13 +845,13 @@ function show_details() {
     
     var chbox_elt = document.getElementById("js-details-input");
     if (chbox_elt.checked) {
-	page_part.style = "";
-	option_price_part.style = "";
-	book_details_button.style = "";
+	page_part.style               = "";
+	option_price_part.style       = "";
+	book_details_button.style     = "";
 	book_details_button.className = "js-search-button wc-button-large-left-after";
     } else {
-	page_part.style = "display: none";
-	option_price_part.style = "display: none";
+	page_part.style           = "display: none";
+	option_price_part.style   = "display: none";
 	book_details_button.style = "display: none";
     }
 }
