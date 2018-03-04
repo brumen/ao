@@ -4,6 +4,10 @@ import sqlite3
 from   skyscanner.skyscanner import Flights
 import time
 import logging
+import datetime
+
+# typing imports
+from typing import List
 
 # asynchronous mysql
 import asyncio
@@ -21,9 +25,9 @@ from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
 # logger
 logger = logging.getLogger(__name__)
 
+
 # instructions for db admin
-# 1. Copy from sqlite db on raspberry into mysql database on prasic:
-#     first must mount /home/brumen/rasp
+
 #     copy_sqlite_to_mysql_by_carrier(delete_flights_in_sqlite=True)
 # 2. database administration: (in mysql, run mysql-workbench)
 #      call calibrate_all() : calibrates all pairs, but does not write to params_new
@@ -66,26 +70,6 @@ def run_db_mysql(s):
         my_cursor = new_mysql.cursor()
         my_cursor.execute(s)
         return my_cursor.fetchall()
-
-
-def create_ao_db():
-    """
-    creates the sqlite3 database for collecting Flights
-
-    """
-
-    create_flights = """
-            CREATE TABLE flights 
-                (as_of TEXT, orig TEXT, dest TEXT, 
-                 dep_date TEXT, arr_date TEXT, 
-                 carrier TEXT, price REAL,
-                 id TEXT, direct_flight INTEGER)
-    """
-
-    with sqlite3.connect(SQLITE_FILE) as conn:
-        c = conn.cursor()
-        c.execute(create_flights)
-        conn.commit()  # TODO: DO YOU NEED THIS
 
 
 def find_dep_hour_day( dep_hour
@@ -144,27 +128,6 @@ def find_dep_hour_day_inv(dep_date, dep_time):
     return dod, dof
 
     
-def insert_into_reg_ids_db():
-    """
-    populates table reg_ids, for historical reference 
-
-    """
-
-    ins_l = []
-    for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
-        for dep_day in ['weekday', 'weekend']:
-            for dep_season in range(1,13):
-                ins_l.append((dep_season, dep_hour, dep_day))
-    add_regs_str = """INSERT INTO reg_ids
-                      (month, tod, weekday_ind)
-                      VALUES (%s, %s, %s)
-    """
-
-    with MysqlConnectorEnv() as mysql_conn:
-        mysql_conn.cursor().executemany(add_regs_str, ins_l)
-        mysql_conn.commit()
-
-
 def update_flights_w_regs():
     """
     fixes the column reg_id in table flights 
@@ -238,7 +201,7 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
     # this for loop finds all the flight_ids not previously in the database
     if add_flight_ids:
 
-        with make_pymysql_conn() as mysql_conn_fid_ins:
+        with MysqlConnectorEnv() as mysql_conn_fid_ins:
             # cursor for inserting the flight_ids
             mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
 
@@ -267,7 +230,7 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
             mysql_c_fid_ins.executemany(ins_new_fid_str, list(fids_new))
             mysql_conn_fid_ins.commit()
 
-    with make_pymysql_conn() as mysql_conn_fid_rid:
+    with MysqlConnectorEnv() as mysql_conn_fid_rid:
         mysql_c_fid_rid = mysql_conn_fid_rid.cursor()
 
         # this part inserts all the flight price data into the database
@@ -302,55 +265,9 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
         c_ao.close()
     
 
-def insert_into_itin( originplace      = 'SIN-sky'
-                    , destinationplace = 'KUL-sky'
-                    , date_today       = '2016-08-25'
-                    , outbounddate     = '2016-10-28'
-                    # inbounddate='2016-10-31',
-                    , country          = COUNTRY
-                    , currency         = CURRENCY
-                    , locale           = LOCALE
-                    , includecarriers  = 'SQ'
-                    , adults           = 1):
-    """
-    inserts itiniraries into the database 
-    uses sqlite db on the raspberry pi
-
-    """
-
-    flights_service = Flights(ao_codes.skyscanner_api_key)
-    result = flights_service.get_result( country          = country
-                                       , currency         = currency
-                                       , locale           = locale
-                                       , originplace      = originplace
-                                       , destinationplace = destinationplace
-                                       , outbounddate     = outbounddate
-                                       # inbounddate = inbounddate,
-                                       , includecarriers  = includecarriers
-                                       , adults           = adults).parsed
-
-    with sqlite3.connect(SQLITE_FILE) as conn:
-        c = conn.cursor()
-        # returns all one ways on that date
-        ri = result['Itineraries']
-        for itin in ri:
-            po = itin['PricingOptions']
-            for po_elt in po:
-                price = po_elt['Price']
-                ins_str = "INSERT INTO itins VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5})"\
-                          .format( date_today
-                                 , outbounddate
-                                 , originplace
-                                 , destinationplace
-                                 , includecarriers
-                                 , price)
-                c.execute(ins_str)
-        conn.commit()
-
-
 def find_location(loc_id, flights):
     """
-    finds the airport location as a string from loc_id (which is ID)
+    Finds the airport location as a string from loc_id (which is ID)
 
     """
     return [x['Code']
@@ -359,27 +276,28 @@ def find_location(loc_id, flights):
 
 
 def insert_into_db( flights
-                  , direct_only     = False
-                  , dummy           = False
-                  , depth           = 0
-                  , depth_max       = 0
-                  , use_cache       = False
-                  , existing_pairs  = None):
+                  , acc_flight_l = []
+                  , dummy        = False
+                  , curr_depth   = 0
+                  , depth_max    = 3 ):
     """
-    insert flights into db, uses sqlite on rasp pi
+    Insert flights into db.
 
     :param flights: flights object as generated
     :param direct_only: consider only direct flights 
     :param dummy: if True, don't insert into database, just print
-    :param depth: depth of the recursive search
+    :param depth: current depth of the recursive search
+    :param depth_max: maximum depth of the search
     """
 
-    if flights is None:
-        return
+    if (curr_depth >= depth_max) or (flights is None):  # only conduct the search in this case
+        return acc_flight_l
 
-    segms = flights['Segments']
-    if segms == []:
-        return 
+    # if none of these two, continue
+
+    segments = flights['Segments']
+    if not segments:  # if segments is empty
+        return acc_flight_l
 
     lt      = time.localtime()
     itins   = flights['Itineraries']
@@ -392,98 +310,115 @@ def insert_into_db( flights
     as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
             str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
 
-    ins_l = []
     for leg in legs:
         # checking if direct flights (accepts 1 or 0)
-        if len(leg['FlightNumbers']) == 1:  # direct flight
-            direct_ind = 1
+        flight_numbers = leg['FlightNumbers']
+        if len(flight_numbers) == 1:  # direct flight
+            direct_ind = True
         else:
-            direct_ind = 0
+            direct_ind = False
             # look for flights between the in-between places and insert only the direct ones
-            if depth < depth_max:  # only conduct the search in this case
-                # find origin and destination of all legs, and add those
-                for indiv_flights in leg['FlightNumbers']:
-                    # find this flight in segms
-                    carrier_id_2 = indiv_flights['CarrierId']
-                    flight_nb_2 = indiv_flights['FlightNumber']
-                    for seg_2 in segms:
-                        if carrier_id_2 == seg_2['Carrier'] and flight_nb_2 == seg_2['FlightNumber']:  # we found it 
-                            try:
-                                leg_orig_2 = find_location(seg_2['OriginStation'], flights)
-                            except (KeyError, IndexError):
-                                print ("Origin station not found, exiting")
-                                break
-                            try:
-                                leg_dest_2 = find_location(seg_2['DestinationStation'], flights)
-                            except (KeyError, IndexError):
-                                print ("Destination station not found, exiting")
-                                break
-                            try:
-                                dep_date_2_full = seg_2['DepartureDateTime']  # date in '2016-10-29' format
-                            except (KeyError, IndexError):
-                                print ("Departure date/time not found")
-                                break
-                            try:
-                                dep_date_2 = seg_2['DepartureDateTime'].split('T')[0]
-                            except (KeyError, IndexError):
-                                print ("Departure time not found")
-                                break
-                            # check if this combination exists in the database already (THIS CAN BE OPTIMIZED)
-                            # check_exists_str = """
-                            # SELECT COUNT(*) FROM flights WHERE as_of = '%s' AND orig = '%s' AND dest = '%s' AND dep_date = '%s'
-                            # """ %(as_of, leg_orig_2, leg_dest_2, dep_date_2_full)
-                            # res = c_ao.execute(check_exists_str).next()[0]
-                            # if res == 0:
-                            #if (as_of, leg_orig_2, leg_dest_2, dep_date_2_full) not in existing_pairs:
-                            #    # update the existing pairs
-                            insert_flight(origin_place     = leg_orig_2,
-                                          dest_place       = leg_dest_2,
-                                          outbound_date    = dep_date_2,
-                                          includecarriers  = None,
-                                          adults           = 1,
-                                          dummy            = dummy,
-                                          depth            = depth+1,
-                                          direct_only      = direct_only,
-                                          depth_max        = depth_max,
-                                          use_cache        = use_cache)
-            
+
+            # find origin and destination of all legs, and add those
+            for indiv_flights in flight_numbers:
+                # find this flight in segms
+                print ('Considering flight ', indiv_flights)
+                print ('Acc flights:', acc_flight_l)
+                carrier_id_2 = indiv_flights['CarrierId'   ]
+                flight_nb_2  = indiv_flights['FlightNumber']
+                for seg_2 in segments:
+                    if carrier_id_2 == seg_2['Carrier'] and flight_nb_2 == seg_2['FlightNumber']:  # we found it
+                        try:
+                            leg_orig_2 = find_location(seg_2['OriginStation'], flights)
+                        except (KeyError, IndexError):
+                            print ("Origin station not found, exiting")
+                            break
+                        try:
+                            leg_dest_2 = find_location(seg_2['DestinationStation'], flights)
+                        except (KeyError, IndexError):
+                            print ("Destination station not found, exiting")
+                            break
+                        try:
+                            dep_date_2_full = seg_2['DepartureDateTime']  # date in '2016-10-29' format
+                        except (KeyError, IndexError):
+                            print ("Departure date/time not found")
+                            break
+                        try:
+                            dep_date_2 = seg_2['DepartureDateTime'].split('T')[0]
+                        except (KeyError, IndexError):
+                            print ("Departure time not found")
+                            break
+                        # TODO: this combination might exist in the database already
+                        logger.debug(" ".join(["Inserting flight from"
+                                                  , leg_orig_2
+                                                  , "to"
+                                                  , leg_dest_2
+                                                  , "on"
+                                                  , dep_date_2]))
+
+                        acc_flight_l.extend(insert_into_db( air_search.get_itins( origin_place  = leg_orig_2
+                                                                                , dest_place    = leg_dest_2
+                                                                                , outbound_date = ds.convert_datedash_date(dep_date_2) )
+                                                          , acc_flight_l = []
+                                                          , dummy        = dummy
+                                                          , curr_depth   = curr_depth + 1
+                                                          , depth_max    = depth_max ) )
+
+        # This legs is direct flight
         outbound_leg_id = leg['Id']
-        # low_price = itin['PricingOptions'][0]['Price']
-        dep_date = leg['Departure']
-        arr_date = leg['Arrival']
-        carrier_id_l = leg['Carriers']  # [0] (multiple carriers, list)
-        carrier_l = []
-        for carrier_id in carrier_id_l:
-            carrier_used = [x['Code'] for x in flights['Carriers'] if x['Id'] == carrier_id][0]
-            carrier_l.append(carrier_used)
-        carrier = ",".join(carrier_l)
-        # find price (BADLY PROGRAMMED)
-        for itin in itins:
-            itin_leg_id = itin['OutboundLegId']
-            if itin_leg_id == outbound_leg_id:
-                # get pricing
-                price = itin['PricingOptions'][0]["Price"]  # THIS PRICE CAN BE DIFFERENT
-                break
-        if direct_only:
-            if direct_ind == 1:
-                # ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
-                # commits the insert with all the additional structures TO CORRECT TO CORRECT 
-                commit_insert( as_of
-                             , orig
-                             , dest
-                             , dep_date
-                             , arr_date
-                             , carrier
-                             , price
-                             , outbound_leg_id)
+        # TODO: CHECK THIS: low_price = itin['PricingOptions'][0]['Price']
+        dep_date = leg['Departure']  # dep date in format: '2018-03-05T12:23:15'
+        arr_date = leg['Arrival']    # same format as above
 
-                if existing_pairs is not None:
-                    existing_pairs.update([(as_of, orig, dest, dep_date)])
-        else:
-            ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
+        # TODO: WHAT HAPPENS IF THERE ARE MULTIPLE CARRIERS?
+        carrier = ",".join([ [x['Code'] for x in flights['Carriers'] if x['Id'] == carrier_id][0]
+                             for carrier_id in leg['Carriers'] ])
 
-    if not dummy:  # TO BE FURTHER CORRECTED 
-        with sqlite3.connect(SQLITE_FILE) as conn_ao:
+        # find price for the outbound leg one is searching
+        # TODO: Does it have to be at least one price, to do [0] at the end??
+        price = [itin['PricingOptions'][0]["Price"] for itin in itins if itin['OutboundLegId'] == outbound_leg_id][0]
+
+        print ("DIRECT IND:" + str(direct_ind))
+        if direct_ind:
+            acc_flight_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id))
+
+    return acc_flight_l
+
+
+def insert_into_db_final():
+    """
+    This does the actual insertion into the db
+    """
+
+    commit_insert(as_of
+                  , orig
+                  , dest
+                  , dep_date
+                  , arr_date
+                  , carrier
+                  , price
+                  , outbound_leg_id)
+
+    if direct_only:
+        if direct_ind:
+            # ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
+            # commits the insert with all the additional structures TO CORRECT TO CORRECT
+            commit_insert(as_of
+                          , orig
+                          , dest
+                          , dep_date
+                          , arr_date
+                          , carrier
+                          , price
+                          , outbound_leg_id)
+
+            if existing_pairs is not None:
+                existing_pairs.update([(as_of, orig, dest, dep_date)])
+    else:
+        ins_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, direct_ind))
+
+    if not dummy:  # actually write to database
+        with MysqlConnectorEnv() as conn_ao:
             conn_ao.executemany( 'INSERT INTO flights VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                                , ins_l)
             conn_ao.commit()
@@ -503,29 +438,38 @@ def commit_insert( as_of
                  , outbound_leg_id ):
 
     """
-    commits the flight into mysql db using mysql_conn, mysql_c is the cursor to the connection 
+    Commits the flight into database
+
+    :param as_of:    date when the flight was fetched
+    :param orig:     IATA code of the origin airport ('EWR')
+    :param dest:     IATA code of the dest.  airport ('SFO')
+    :param dep_date: departure date, in the form "dateTtime" TODO: FIX THIS PART
 
     """
 
     # check if outbound_leg_id is in the database, and return flight_id_used
-    find_ob_leg_str = "SELECT flight_id FROM flight_ids WHERE flight_id_long = '%s'"
-    find_ob_leg_id = mysql_c.execute(find_ob_leg_str % outbound_leg_id)
-    ob_leg_res = mysql_c.fetchone()
-    if ob_leg_res is None:  # nothing in flight_ids, insert flight_id into the flight_ids table 
-        # mysql_c.execute("INSERT INTO flight_ids (flight_id_long, orig, dest, dep_date, arr_date, carrier)",
-        #                (outbound_leg_id, orig, dest, dep_date, arr_date, carrier))
-        g = 1  # TODO: REMOVE THIS LATER
-    else:
-        flight_id_used = ob_leg_res[0]
+    find_leg_str = "SELECT flight_id FROM flight_ids WHERE flight_id_long = '{0}'"
+    reg_id_str = "SELECT reg_id FROM reg_ids WHERE month = {0} AND tod = '{1}' AND weekday_ind = '{2}'"
 
-    # find reg_id
-    dep_date, dep_time = dep_date.split('T')  # departure date/time
-    dep_date_dt = ds.convert_datedash_date(dep_date)
-    dep_time_dt = ds.convert_hour_time(dep_time)
-    month = dep_date_dt.month
-    dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)  # tod = dod, weekday_ind = dof
-    reg_id_str = "SELECT reg_id FROM reg_ids WHERE month = %s AND tod = '%s' AND weekday_ind = '%s'"
-    mysql_c.execute(reg_id_str % (month, dod, dof))
+    with MysqlConnectorEnv() as mysql_conn:
+        mysql_cur = mysql_conn.cursor()
+        flight_leg_id = mysql_cur.execute(find_leg_str.format(outbound_leg_id)).fetchone()
+
+        if flight_leg_id is None:  # nothing in flight_ids, insert flight_id into the flight_ids table
+            mysql_cur.execute( "INSERT INTO flight_ids (flight_id_long, orig, dest, dep_date, arr_date, carrier)"
+                             , (outbound_leg_id, orig, dest, dep_date, arr_date, carrier) )
+            flight_id_used = mysql_cur.execute()  # TODO: FINISH HERE
+        else:
+            flight_id_used = ob_leg_res[0]
+
+        # find reg_id
+        dep_date, dep_time = dep_date.split('T')  # departure date/time
+        dep_date_dt        = ds.convert_datedash_date(dep_date)
+        dep_time_dt        = ds.convert_hour_time(dep_time)
+        month              = dep_date_dt.month
+        dod, dof           = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)  # tod = dod, weekday_ind = dof
+
+        mysql_cur.execute(reg_id_str.format(month, dod, dof))
 
     # insert into db
     logger.debug( ",".join([ str(as_of)
@@ -533,117 +477,57 @@ def commit_insert( as_of
                            , dest
                            , dep_date
                            , outbound_leg_id]) + "\n" )
-    
-
-def insert_into_db_cache( flights
-                        , dummy          = False
-                        , existing_pairs = None):
-    """
-    insert flights into db from Skyscanner cache, a much simplified version of above
-
-    :param flights:     flights object as generated
-    :param direct_only: consider only direct flights 
-    :param conn_ao:     connection to ao
-    :param c_ao: cursor to ao
-    :param dummy: if True, don't insert into database, just print
-    :param depth: depth of the recursive search
-    """
-
-    existing_pairs_cache = existing_pairs  # existing_pairs: existing pairs in the database
-
-    def find_location(loc_id, flights):
-        """
-        finds the airport location as a string from loc_id (which is ID)
-        """
-        return [x['IataCode'] for x in flights['Places'] if x['PlaceId'] == loc_id][0]
-
-    def find_carrier(carrier_id, carriers):
-        """
-        finds the carrier from the carrier id
-        """
-        return [x['Name'] for x in carriers if x['CarrierId'] == carrier_id][0]
-        
-    if flights is None:
-        return
-    quotes = flights['Quotes']
-    if quotes is None:
-        return 
-    carriers = flights['Carriers']
-    
-    ins_l = []
-    for quote in quotes:  # iterate over flights 
-        direct_ind = quote['Direct'] == True
-        if direct_ind:
-            as_of = quote['QuoteDateTime']  # date and time of a quote
-            dest_id = int(quote['OutboundLeg']['DestinationId'])
-            orig_id = int(quote['OutboundLeg']['OriginId'])
-            orig = find_location(orig_id, flights)
-            dest = find_location(dest_id, flights)
-            carrier = find_carrier(quote['OutboundLeg']['CarrierIds'][0], carriers)  # this is fine as only direct flights considered
-            dep_date = quote['OutboundLeg']['DepartureDate']
-            min_price = quote['MinPrice']
-            if (as_of, orig, dest, dep_date) not in existing_pairs_cache:
-                ins_l.append((as_of, orig, dest, dep_date, carrier, min_price))
-                if existing_pairs is not None:
-                    existing_pairs_cache.update([(as_of, orig, dest, dep_date)])
-
-    if not dummy:
-        c_ao.executemany('INSERT INTO flights_cache VALUES (?, ?, ?, ?, ?, ?)', ins_l)
-        conn_ao.commit()
-    else:
-        print ("Flights: {0}".format(ins_l))
 
         
-def insert_flight(origin_place    = 'SIN',
-                  dest_place      = 'KUL',
-                  outbound_date   = '2016-10-28',
-                  includecarriers = None,
-                  adults          = 1,
-                  dummy           = False,
-                  depth           = 0,
-                  direct_only     = True,
-                  depth_max       = 0,
-                  use_cache       = False,
-                  existing_pairs  = None):
+def insert_flight( origin_place  : str
+                 , dest_place    : str
+                 , outbound_date : datetime.date
+                 , includecarriers = None
+                 , adults          = 1
+                 , dummy           = False
+                 , depth_max       = 0 ):
+    """
+    Finds flights between origin_place and dest_place on outbound_date and inserts them
+
+    :param origin_place: IATA value of the origin airport (like 'EWR')
+    :param dest_place: IATA value of dest. airport ('SFO')
+    :param outbound_date: date of the outbound flights one is trying to insert ('2016-10-28')
+    :param includecarriers: airlines to use, can be None TODO: WHAT DOES THAT MEAN?
+    :param adults:          how many adults to use
+    :param dummy:           whether to acutally insert into the database, or just mock it
+    :param depth:
+    :param direct_only:     whether to include only direct flights
+    :param depth_max:
+    :param existing_pairs:  TODO:
+    """
 
     logger.debug(" ".join([ "Inserting flight from"
                           , origin_place
                           , "to"
                           , dest_place
                           , "on"
-                          , outbound_date]))
+                          , outbound_date.isoformat() ]))
 
-    flights = air_search.get_itins( origin_place    = origin_place
-                                  , dest_place      = dest_place
-                                  , outbound_date   = outbound_date
-                                  , includecarriers = includecarriers
-                                  , adults          = adults
-                                  , use_cache       = use_cache)
-    if not use_cache:
-        insert_into_db( flights
-                      , dummy          = dummy
-                      , depth          = depth
-                      , direct_only    = direct_only
-                      , depth_max      = depth_max
-                      , existing_pairs = existing_pairs )
-    else:
-        insert_into_db_cache( flights
-                            , dummy          = dummy
-                            , existing_pairs = existing_pairs)
+    return insert_into_db( air_search.get_itins( origin_place    = origin_place
+                                               , dest_place      = dest_place
+                                               , outbound_date   = outbound_date
+                                               , includecarriers = includecarriers
+                                               , adults          = adults )
+                         , dummy          = dummy
+                         , curr_depth     = 0
+                         , depth_max      = depth_max)
 
 
-def ao_db_fill( dep_date_l
-              , dest_l
-              , dummy     = False
-              , depth_max = 0 ):
+def ao_db_fill( dep_date_l : List[datetime.date]
+              , dest_l     : List[str]
+              , dummy      = False
+              , depth_max  = 0 ):
     """
     Inserts into database all flights that can be found between
     IATA codes in the dep_date_l
 
-    :param dep_date_l: list of departure dates in the form 2016-10-28
-    :type dep_date_l:  list of str
+    :param dep_date_l: list of departure dates, in the form datetime.date
     :param dest_l:     list of IATA codes destinations, could use as iata_codes.keys()
-    :type dest_l:      list of str
     :param depth_max:  depth of searches, i.e. EWR - SFO goes over DFW, then start again
                           from DFW, this shouldnt be larger than 2
     :type depth_max:   int
@@ -660,14 +544,14 @@ def ao_db_fill( dep_date_l
                 if orig == dest:
                     break
                 try:
-                    insert_flight( origin_place  = orig
-                                 , dest_place    = dest
-                                 , outbound_date = dep_date
+                    insert_flight( orig
+                                 , dest
+                                 , dep_date
                                  , depth_max     = depth_max
                                  , dummy         = dummy )
-                    insert_flight( origin_place  = dest
-                                 , dest_place    = orig
-                                 , outbound_date = dep_date
+                    insert_flight( dest
+                                 , orig
+                                 , dep_date
                                  , depth_max     = depth_max
                                  , dummy         = dummy )
                 except:  # catches all exception requests.HTTPError:

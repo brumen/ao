@@ -31,6 +31,7 @@ def get_itins( origin_place    = 'SIN'
     :type dest_place:     str
     :param outbound_date: date for flights to fetch
     :type outbound_date:  datetime.date
+    :param includecarriers: IATA code of the airline to use
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
     :type cabinclass:     str
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
@@ -73,7 +74,6 @@ def get_itins( origin_place    = 'SIN'
                             , includecarriers = includecarriers
                             , cabinclass      = cabinclass
                             , adults          = adults
-                            , use_cache       = use_cache
                             , nb_tries        = nb_tries + 1 )
         else:
             return None  # this is handled appropriately in the get_ticket_prices
@@ -194,6 +194,7 @@ def extract_Fv_flights_from_results(result):
             flights_v.append((outbound_leg_id, dep_date, arr_date, price, carrier + flight_num))
 
     return F_v, flights_v
+
 
 def get_ticket_prices( origin_place
                      , dest_place

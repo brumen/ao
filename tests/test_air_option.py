@@ -149,9 +149,9 @@ class TestAirOption(unittest.TestCase):
         print(aoe.all_vols_by_airline(airline, use_cache=True))
         self.assertTrue(True)
 
-    def test_simple(self):
+    def test_simple_return(self):
         """
-        Tests the compute_option_val function
+        Tests the compute_option_val function on return flight
 
         """
 
@@ -176,6 +176,36 @@ class TestAirOption(unittest.TestCase):
                                   , underlyer             = 'n'
                                   , price_by_range        = False
                                   , return_flight         = True )
+        print(v1)
+        self. assertTrue(True)
+
+    def test_simple_one_way(self):
+        """
+        Tests the compute_option_val function on one-way flight
+
+        """
+
+        v1 = ao.compute_option_val( origin_place          = 'SFO'
+                                  , dest_place            = 'EWR'
+                                  , option_start_date     = self.optionOutDateStart
+                                  , option_end_date       = self.optionOutDateEnd
+                                  , option_ret_start_date = self.optionRetDateStart
+                                  , option_ret_end_date   = self.optionRetDateEnd
+                                  , outbound_date_start   = self.outDate
+                                  , outbound_date_end     = self.outDatePlusOne
+                                  , inbound_date_start    = self.retDate
+                                  , inbound_date_end      = self.retDatePlusOne
+                                  , K                     = 200.0
+                                  , carrier               = 'UA'
+                                  , nb_sim                = 10000
+                                  , rho                   = 0.95
+                                  , adults                = 1
+                                  , cuda_ind              = False
+                                  , errors                = 'graceful'
+                                  , simplify_compute      = 'take_last_only'
+                                  , underlyer             = 'n'
+                                  , price_by_range        = False
+                                  , return_flight         = False )
         print(v1)
         self. assertTrue(True)
 

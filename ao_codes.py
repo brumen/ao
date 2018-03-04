@@ -5,9 +5,9 @@ import ds
 import csv
 import os
 
-# database setup
-DB_HOST  = 'odroid.local'
-DATABASE = 'ao'
+# mysql database setup
+DB_HOST  = 'prasic.local'  # 'odroid.local'
+DATABASE = 'ao'  # 'ao'
 DB_USER  = 'brumen'
 
 # original sqlite db

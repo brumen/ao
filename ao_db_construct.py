@@ -44,3 +44,41 @@ def create_ao_db():
         c = conn.cursor()
         c.execute(create_flights)
         conn.commit()  # TODO: DO YOU NEED THIS
+
+
+def insert_into_itin( originplace      = 'SIN-sky'
+                    , destinationplace = 'KUL-sky'
+                    , date_today       = '2016-08-25'
+                    , outbounddate     = '2016-10-28'
+                    , includecarriers  = 'SQ'
+                    , adults           = 1):
+    """
+    Inserts itiniraries into the database.
+
+    """
+
+    flights_result = Flights(ao_codes.skyscanner_api_key).get_result( country          = COUNTRY
+                                                                    , currency         = CURRENCY
+                                                                    , locale           = LOCALE
+                                                                    , originplace      = originplace
+                                                                    , destinationplace = destinationplace
+                                                                    , outbounddate     = outbounddate
+                                                                    , includecarriers  = includecarriers
+                                                                    , adults           = adults).parsed
+    # extract flights to add and
+    flights_to_add = []
+    for itinerary in flights_result['Itineraries']:
+        for po_elt in itinerary['PricingOptions']:
+            flights_to_add.append([ date_today
+                                  , outbounddate
+                                  , originplace
+                                  , destinationplace
+                                  , includecarriers
+                                  , po_elt['Price'] ])
+
+    with MysqlConnectorEnv() as conn:
+        cursor = conn.cursor()
+        cursor.executemany( "INSERT INTO itins VALUES ('%s', '%s', '%s', '%s', '%s', %s)"
+                          , flights_to_add)
+
+
