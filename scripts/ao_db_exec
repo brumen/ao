@@ -2,11 +2,12 @@
 
 import time
 import ao_db
-import datetime as dt 
+import datetime as dt
+from datetime import date
 import ds
 
 # date when to finish the flight capture
-date_finish = '20180701'
+date_finish = dt.date.today() + dt.timedelta(days=365)  # finish one day from today
 
 
 def get_today_p2d():
@@ -19,14 +20,12 @@ def get_today_p2d():
     return date_today_p2d_str
 
 
-def ao_db_run( dep_start      = '20161201'
-             , dep_end        = '20171231'
+def ao_db_run( dep_start : date
+             , dep_end   : date
              , dest_l         = None
-             , mt_ind         = False
-             , nb_cores       = 8
+             , nb_cores       = 1
              , dummy          = False
              , depth_max      = 0
-             , use_cache      = False
              , existing_pairs = None):
 
     # if depth_max > 0:  # set global variables, only execute this in this case, as it takes a long time
@@ -76,19 +75,17 @@ def ao_db_run( dep_start      = '20161201'
     dest_l_used = dest_l_asia
 
     # ao_db_fill(dep_date_l, dest_l_used)
-    ao_db.ao_db_fill_mt( dep_date_l
-                       , dest_l_used
-                       , mt_ind=mt_ind
-                       , dummy=dummy
-                       , depth_max=depth_max
-                       , use_cache=use_cache
-                       , nb_cores=nb_cores
-                       , existing_pairs=existing_pairs)
+    ao_db.ao_db_fill( dep_date_l
+                    , dest_l_used
+                    , dummy=dummy
+                    , depth_max=depth_max )
 
 
 # main routine, repeat forever
 while True:
     try: 
-        ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
+        ao_db_run( dep_start = get_today_p2d()
+                 , dep_end   = date_finish )
     except:  # if there is any mistake here, restart it again 
-        ao_db_run(dep_start=get_today_p2d(), dep_end=date_finish)
+        ao_db_run( dep_start = get_today_p2d()
+                 , dep_end   = date_finish )
