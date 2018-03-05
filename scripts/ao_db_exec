@@ -6,6 +6,7 @@ import datetime as dt
 from datetime import date
 import ds
 
+
 # date when to finish the flight capture
 date_finish = dt.date.today() + dt.timedelta(days=365)  # finish one day from today
 
@@ -13,72 +14,50 @@ date_finish = dt.date.today() + dt.timedelta(days=365)  # finish one day from to
 def get_today_p2d():
     lt = time.localtime()
     date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    date_today_dt = ds.convert_str_date(date_today)
-    date_today_p2d = date_today_dt + dt.timedelta(days=2)
-    date_today_p2d_str = ds.convert_datetime_str(date_today_p2d)
-
-    return date_today_p2d_str
+    return ds.convert_str_date(date_today) + dt.timedelta(days=2)
 
 
 def ao_db_run( dep_start : date
              , dep_end   : date
-             , dest_l         = None
-             , nb_cores       = 1
+             , dest_l_choice  = 'USA'
              , dummy          = False
-             , depth_max      = 0
-             , existing_pairs = None):
+             , depth_max      = 2 ):
+    """
 
-    # if depth_max > 0:  # set global variables, only execute this in this case, as it takes a long time
-    #     check_exists_str_live = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights"
-    #     existing_pairs_live = set(run_db(check_exists_str_live))  # using set is very efficient, this is GLOBAL variable
-    #     check_exists_str_cache = "SELECT DISTINCT as_of, orig, dest, dep_date FROM flights_cache"
-    #     existing_pairs_cache = set(run_db(check_exists_str_cache))
-    #     if use_cache:
-    #         existing_pairs = existing_pairs_cache
-    #     else:
-    #         existing_pairs = existing_pairs_live
+    """
 
     # construct a set of already given pairs
     dep_date_l_dt = ds.construct_date_range(dep_start, dep_end)
-    dep_date_l = [ds.convert_dt_minus(x) for x in dep_date_l_dt]
-    if dest_l is None:
-        dest_l_used = ['JFK', 'LGA', 'EWR', 'SFO', 'LAX',
-                       'BOS', 'FLL', 'MIA', 'DEN', 'ORD',
-                       'HOU', 'IAH',
-                       'ATL', 'DFW', 'CLT', 'LAS', 'PHX', 'SEA', 'MCO',
-                       'MSP', 'DTW', 'PHL', 'BWI', 'DCA', 'MDW', 'SLC', 'IAD',
-                       'SAN', 'HNL', 'TPA', 'PDX', 'DAL', 'STL', 'AUS', 'BNA', 'MSY',
-                       'MCI', 'RDU', 'SNA', 'SJC', 'SMF', 'SJU', 'RSW', 'SAT', 'CLE',
-                       'PIT', 'IND', 'CMH', 'MKE', 'BDL', 'MEX',  # up to here US
-                       'PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
-                       'PVG', 'CGK', 'CAN', 'BKK', 'ICN', 'DEL',
-                       'BOM', 'DEL', 'SHA', 'MNL', 'TPE', 'SZX', 'JED',
-                       'CTU', 'KHI', 'KIX', 'GMP', 'HGH', 'CJU', 'SGN',
-                       'THR', 'XIY', 'RUH', 'MAA',
-                       # asia here
-                       'LHR', 'CDG', 'IST', 'FRA', 'AMS', 'MAD', 'MUC', 'FCO',
-                       'LGW', 'BCN', 'DME', 'SVO', 'ORY', 'AYT', 'CPH', 'ZRH',
-                       'DUB', 'OSL', 'BRU', 'PMI', 'ARN', 'MAN', 'VIE', 'STN',
-                       'DUS', 'TXL', 'LIS', 'MXP', 'ATH', 'HEL',
-                       'VKO', 'GVA', 'HAM'  # europe here
-                       ]
-        # dest_l_used = iata_codes_cities.keys()
-    else:
-        dest_l_used = dest_l
 
-    dest_l_usa = ['JFK', 'LGA', 'EWR',
-                  'MIA', 'DEN', 'ORD',
-                  'IAH',
-                  'ATL', 'SAN']
-    dest_l_asia = ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
-                   'PVG', 'CGK', 'CAN']
-    dest_l_used = dest_l_asia
+    dest_l = {'all': ['JFK', 'LGA', 'EWR', 'SFO', 'LAX',
+                      'BOS', 'FLL', 'MIA', 'DEN', 'ORD',
+                      'HOU', 'IAH',
+                      'ATL', 'DFW', 'CLT', 'LAS', 'PHX', 'SEA', 'MCO',
+                      'MSP', 'DTW', 'PHL', 'BWI', 'DCA', 'MDW', 'SLC', 'IAD',
+                      'SAN', 'HNL', 'TPA', 'PDX', 'DAL', 'STL', 'AUS', 'BNA', 'MSY',
+                      'MCI', 'RDU', 'SNA', 'SJC', 'SMF', 'SJU', 'RSW', 'SAT', 'CLE',
+                      'PIT', 'IND', 'CMH', 'MKE', 'BDL', 'MEX',  # up to here US
+                      'PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL',
+                      'PVG', 'CGK', 'CAN', 'BKK', 'ICN', 'DEL',
+                      'BOM', 'DEL', 'SHA', 'MNL', 'TPE', 'SZX', 'JED',
+                      'CTU', 'KHI', 'KIX', 'GMP', 'HGH', 'CJU', 'SGN',
+                      'THR', 'XIY', 'RUH', 'MAA',
+                      # asia here
+                      'LHR', 'CDG', 'IST', 'FRA', 'AMS', 'MAD', 'MUC', 'FCO',
+                      'LGW', 'BCN', 'DME', 'SVO', 'ORY', 'AYT', 'CPH', 'ZRH',
+                      'DUB', 'OSL', 'BRU', 'PMI', 'ARN', 'MAN', 'VIE', 'STN',
+                      'DUS', 'TXL', 'LIS', 'MXP', 'ATH', 'HEL',
+                      'VKO', 'GVA', 'HAM'  ]  # europe here
+             , 'USA':  ['JFK', 'LGA', 'EWR',
+                        'MIA', 'DEN', 'ORD',
+                        'IAH',
+                        'ATL', 'SAN']
+             , 'asia': ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL', 'PVG', 'CGK', 'CAN'] }
 
-    # ao_db_fill(dep_date_l, dest_l_used)
-    ao_db.ao_db_fill( dep_date_l
-                    , dest_l_used
-                    , dummy=dummy
-                    , depth_max=depth_max )
+    ao_db.ao_db_fill( dep_date_l_dt
+                    , dest_l[dest_l_choice]
+                    , dummy     = dummy
+                    , depth_max = depth_max )
 
 
 # main routine, repeat forever
