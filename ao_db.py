@@ -1,7 +1,6 @@
 # air option database construction functions
 
 import sqlite3
-from   skyscanner.skyscanner import Flights
 import time
 import logging
 import datetime
@@ -15,29 +14,26 @@ import aiomysql
 
 import ao_codes
 from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
-                                    COUNTRY, CURRENCY, LOCALE,\
-                                    SQLITE_FILE,\
-                                    DB_HOST, DB_USER
+                                    SQLITE_FILE
 import air_search
 import ds
 from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
 
-# logger
 logger = logging.getLogger(__name__)
 
 
 # instructions for db admin
 
 #     copy_sqlite_to_mysql_by_carrier(delete_flights_in_sqlite=True)
-# 2. database administration: (in mysql, run mysql-workbench)
-#      call calibrate_all() : calibrates all pairs, but does not write to params_new
+# 2. database administration:
+# 3. call calibrate_all() : calibrates all pairs, but does not write to params_new
 #      call insert_calibrate_all_to_params_new(): calibrates data and inserts them into params_new
 #      call compare_new_params(): compares parameters in params and params_new
 #      call copy_params_into_old(): copy params into params_old
 #      call delete_old_live_data(int hours_old): deletes from flights_
 #             live data that are older than hours_old
 #      call push_new_params_to_prod(): copies params_new to params;
-#      call insert_flights_live_into_flights_ord(): insert flights from flights_live db into flights_ord, historical db
+#      call insert_flights_live(): Inserts flights from flights_live db into flights_ord, along w/ proper flight ids
 # 3. potentially delete sqlite db on rasp
 
 
@@ -101,15 +97,16 @@ def find_dep_hour_day( dep_hour
     return (hr_s, hr_e), dof_l
     
 
-def find_dep_hour_day_inv(dep_date, dep_time):
+def find_dep_hour_day_inv( dep_date : datetime.date
+                         , dep_time : datetime.time ) -> tuple :
     """
-    inverse of the function above 
-    computes hour_start, hour_end and day_of_week list from 
+    Inverse of the function above
+    computes hour_start, hour_end and day_of_week list from dep_date, dep_time.
 
-    :param dep_time: departure in datetime
+    :param dep_date: departure date
+    :param dep_time: departure time
 
-    :returns:   month, dayofweek,
-    :rtype:     TODO: FIX HERE
+    :returns:   month, dayofweek of the date/time
     """
     if ao_codes.morning_dt[0] <= dep_time < ao_codes.morning_dt[1]:
         dod = 'morning'
@@ -384,8 +381,9 @@ def ao_db_fill( dep_date_l : List[datetime.date]
                                  , dep_date
                                  , depth_max     = depth_max
                                  , dummy         = dummy )
-                except:  # catches all exception requests.HTTPError:
+                except Exception as e:
                     logger.info("Incorrect location values {0}, {1}".format(orig, dest))
+                    logger.info('Error: {0}'.format(str(e)))
 
 
 def find_city_code(name_part):

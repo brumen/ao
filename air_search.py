@@ -23,7 +23,7 @@ def get_itins( origin_place    = 'SIN'
              , use_cache       = False
              , nb_tries        = 1 ):
     """
-    helper function that returns itineraries, uses skyscanner api 
+    Returns itineraries for the selection from the Skyscanner API.
 
     :param origin_place:  IATA code of the flight origin airport
     :type origin_place:   str
@@ -31,7 +31,8 @@ def get_itins( origin_place    = 'SIN'
     :type dest_place:     str
     :param outbound_date: date for flights to fetch
     :type outbound_date:  datetime.date
-    :param includecarriers: IATA code of the airline to use
+    :param includecarriers: IATA code of the airlines to use, if None, all airlines
+    :type includecarriers: list[str] or None
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
     :type cabinclass:     str
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner

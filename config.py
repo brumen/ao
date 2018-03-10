@@ -7,7 +7,7 @@ import os
 # Adding paths
 prod_dir = '/home/brumen/work/ao'
 work_dir = prod_dir
-tmp_dir  = '/tmp/ao'
+tmp_dir  = '/home/brumen/work/ao'
 log_dir  = os.path.join(prod_dir, 'log')
 
 sys.path.append(work_dir)  # basic path

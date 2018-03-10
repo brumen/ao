@@ -784,13 +784,11 @@ def compute_option_val( origin_place          = 'SFO'
                       , adults                = 1
                       , cabinclass            = 'Economy'
                       , cuda_ind              = False
-                      , errors                = 'graceful'
                       , simplify_compute      = 'take_last_only'
                       , underlyer             = 'n'
                       , price_by_range        = True
                       , return_flight         = False
                       , flights_supplied      = None
-                      , gen_first             = True
                       , recompute_ind         = False
                       , correct_drift         = True
                       , publisher_ao          = False ):
@@ -833,8 +831,6 @@ def compute_option_val( origin_place          = 'SFO'
     :type cabinclass:               str
     :param cuda_ind:                whether to use cuda for computation
     :type cuda_ind:                 bool
-    :param errors:                  how to handle skyscanner get tickets
-    :type errors:                   str
     :param simplify_compute:        simplifies the computation in that it only simulates the last simulation date
     :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
     :param publisher_ao:            publisher object where the function can publish its ongoing
@@ -961,16 +957,15 @@ def compute_option_val( origin_place          = 'SFO'
                                                  , cuda_ind  = cuda_ind
                                                  , underlyer = underlyer)\
                               * np.int(adults)
-
             price_range[key_ind] = int(np.ceil(opt_val_scenario))
 
     if compute_all:
 
         if price_by_range:  # compute ranges
-            if not return_flight:
+            if not return_flight:  # one-way
                 return opt_val_final, price_range, flights_v_dep, reorg_flights_v_dep, \
-                    find_minmax_flight_subset(reorg_flights_v_dep, ret_ind=False)  # reorg_flights_v_dep
-            else:
+                    find_minmax_flight_subset(reorg_flights_v_dep, ret_ind=False)
+            else:  # return
                 return opt_val_final, price_range, (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
                     find_minmax_flight_subset((reorg_flights_v_dep, reorg_flights_v_ret), ret_ind=True)
 
