@@ -778,21 +778,20 @@ function recompute_option_post() {
 
 function open_inquiry() {
     // open a small inquiry window for text entry & sending
-    // THIS NEEDS IMPROVEMENT
     var inquiry_form = document.getElementById("inquiry_form");
-    inquiry_form.style = ""; // "display: none;"
+    inquiry_form.style = "";
+    //$('inquiry_form').css('display','');
 }
 
 
 function close_inquiry() {
-    // open a small inquiry window for text entry & sending
-    // THIS NEEDS IMPROVEMENT
-    var inquiry_form = document.getElementById("inquiry_form");
-    inquiry_form.style = "display: none;"
+    // closes the inquiry window
+    $('#inquiry_form').hide();
 }
 
 
 function send_inquiry() {
+    // sends the inquiry 
     var info_o             = get_basic_info();
     info_o['message_text'] = document.getElementById("inquiry_text_form").value;
     info_o['email_text'  ] = document.getElementById("inquiry_email").value;
@@ -858,98 +857,31 @@ function show_details() {
 
 
 function copy_basics(btn_elt, opt_val) {
-    // copies the relevant elements from the page to the form 
-    var book_form = document.getElementById("payment_form");
-    book_form.style = "background: white;"; 
-
-    // copies basic values to the other form 
-    var option_value_final = document.getElementById('option_value_final');
-    option_value_final.value = opt_val;
-    var option_price_final_display = document.getElementById('option_price_final_display');
-    option_price_final_display.textContent = "Price: " + opt_val + ' USD';
-    // final flights that are selected
-    var flights_sel_final = document.getElementById('flights_sel_final');  
-    flights_sel_final.value = localStorage.reorg_flights_curr; 
-
-    // origin, destination copy
-    origin_final = document.getElementById('origin_final');
-    dest_final   = document.getElementById('dest_final');
-    origin_final.value = document.getElementById('js-origin-input').value;
-    dest_final.value = document.getElementById('js-destination-input').value;
-    var dep_start_final    = document.getElementById('dep_start_final');
-    var dep_end_final      = document.getElementById('dep_end_final');
-    var ret_start_final    = document.getElementById('ret_start_final');
-    var ret_end_final      = document.getElementById('ret_end_final');
-    var carrier_final      = document.getElementById('carrier_final');
-    var ticket_price_final = document.getElementById('ticket_price_final');
-    dep_start_final.value = document.getElementById('js-depart-input').value;
-    dep_end_final.value   = document.getElementById('js-return-input').value;
-    ret_start_final.value = document.getElementById('js-depart-input-return').value;
-    ret_end_final.value  = document.getElementById('js-return-input-return').value;
-    // carrier
-    carrier_final.value      = document.getElementById('airline-name').value;
-    ticket_price_final.value = document.getElementById('ticket-price').value;
-    // set number of people, class
-    var cabin_class     = get_cabin_class('cabin-class-type');
-    var cabin_class_set = document.getElementById('class_travel');
-    cabin_class_set.value = cabin_class;
-    var nb_people = get_nb_people('nb-people');
-    var nb_people_set = document.getElementById('nb_persons');
-    nb_people_set.value = nb_people;
-    // return or one way
-    var return_ow_orig = document.getElementsByName('trip-type');
-    var return_ow_final = document.getElementById('return_ow_final');
-    if (return_ow_orig[0].checked)  // first is return, second is one-way 
-	return_ow_final.value = 'return';
-    else
-	return_ow_final.value = 'one-way';
+    // copies the relevant elements from the page to a form, which can be sent for inquiry 
+    form_data = get_basic_info();  // returns the form w/ basic data 
+    form_data['curr_sel_option_value'] = opt_val;
+    form_data['curr_sel_flights_sel_final'] = localStorage.reorg_flights_curr;
     // option end dates 
-    var option_end_dates = btn_elt.id;  // id has the end value of the 
-    var option_end_dates_final;
-    if (return_ow_final.value == 'return') {  // return flight 
+    if (form_data['return_ow'] == 'return') {  // return flight 
 	var dep_ret_split = btn_elt.id.split('-');
-	var opt_end_dep = dep_ret_split[0].substring(0, dep_ret_split[0].length -1);
-	var opt_end_ret = dep_ret_split[1].substring(1, dep_ret_split[1].length);	
-	document.getElementById('opt_end_dep_final').value = opt_end_dep; 
-	document.getElementById('opt_end_ret_final').value = opt_end_ret;
-    } else {  // one-way flight 
-	document.getElementById('opt_end_dep_final').value = btn_elt.id;
-    }
+	form_data['opt_end_dep_final'] = dep_ret_split[0].substring(0, dep_ret_split[0].length -1);
+	form_data['opt_end_ret_final'] = dep_ret_split[1].substring(1, dep_ret_split[1].length);
+    } else  // one-way flight 
+	form_data['opt_end_dep_final'] = btn_elt.id;
     
+    return form_data;
 }
 
 
 function book_range(btn_elt) {
     // books the range for this particular element
-    copy_basics(btn_elt, btn_elt.value);  // copies the basic elements 
+    form_data = copy_basics(btn_elt, btn_elt.value);  // copies the basic elements 
+
     // scrolls to the element
-    document.getElementById('payment_form').scrollIntoView();
+    // document.getElementById('payment_form').scrollIntoView();
+    open_inquiry(); 
+    document.getElementById('options-display').scrollIntoView();
     return false;
-}
-
-
-function book_option_details() {
-    // open a small book window for text entry & sending
-    copy_basics(document.getElementById('option_price_frame').value);  // THIS IS WRONG 
-}
-
-
-function close_book_option_details() {
-    // open a small book window for text entry & sending
-    var book_form = document.getElementById("payment_form");
-    book_form.style = "display: none;"
-}
-
-
-function disable_paybutton() {
-    var button_sel = document.getElementById("card-nonce-submit");
-    var chbox_elt = document.getElementById("confirm-pay-cb");
-
-    if (chbox_elt.checked)
-	button_sel.disabled = false;
-    else
-	button_sel.disabled = true;
-    
 }
 
 

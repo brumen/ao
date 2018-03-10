@@ -17,8 +17,7 @@ from logging.handlers import MemoryHandler
 from flask            import Flask, request, jsonify, Response
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
-from ao_scripts.verify_airline         import is_valid_airline
-from ao_scripts.verify_origin          import is_valid_origin
+from ao_scripts.verify_origin          import is_valid_origin, is_valid_airline
 from ao_scripts.compute_option         import compute_option
 from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
 
@@ -35,49 +34,6 @@ class AOParsingFilter(logging.Filter):
         return not record.getMessage().startswith('AO')
 
 
-class ComputeStream(object):
-
-    def __init__(self):
-        self.__allMessages = []
-
-    def handle(self, record):
-        """
-        Handles the record, appends it to __allMessages
-
-        """
-        self.__allMessages.append(record)
-
-    def __filterRecord(self, record):
-        """
-        Returns true if record satisfies certain conditions
-
-        """
-
-        recordList = record.split(":")
-        recordList[3:]  # everything after: asctime, name, levelname
-        return record
-
-    def __processMessage(self, record):
-        return record
-
-    def getMessages(self):
-        """
-        Retrieve all the messages in the form of a generator.
-
-        """
-
-        while True:
-            sleep(1)  # sleep 1 second
-
-            while self.__allMessages:  # while this is not empty
-
-                currMessage = self.__allMessages.pop(0)
-
-                if self.__filterRecord(currMessage):
-                    yield "data: {0}\n\n".format(self.__processMessage(currMessage))
-                # otherwise discard the message, not relevant for printing
-
-
 # logger setup
 logging.basicConfig( filename = os.path.join(config.log_dir, 'ao.log')
                    , level    = logging.CRITICAL)
@@ -91,6 +47,7 @@ logger.setLevel(logging.INFO)
 #                                              , flushLevel = logging.INFO
 #                                               , target     = computeStream )
 # logger.addHandler(stream_handler)
+
 
 # Flask app
 app = Flask(__name__)
@@ -170,8 +127,7 @@ def write_inquiry():
 
     with open(ao_codes.inquiry_dir + '/inquiry_solo/' +
               'inquiry_' + time_now() + '.inq', 'w') as fo:
-        # TODO: THIS NEEDS FIXING
-        fo.write(json.dumps(request.form))
+        fo.write(json.dumps(request.get_json()))
 
     # succeeds, returns true
     return jsonify({'valid': True})

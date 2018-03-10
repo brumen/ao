@@ -11,7 +11,7 @@ def show_airport_l(term):
     """
 
     ret_cand_1 = filter( lambda x: term.upper() in x
-                       , iata_cities_codes.keys() + iata_codes_cities.keys() )
+                       , list(iata_cities_codes.keys()) + list(iata_codes_cities.keys()) )
 
     if not ret_cand_1:  # nothing found, report problem
         return []             , False
@@ -30,7 +30,7 @@ def show_airline_l(term):
     """
 
     ret_cand_1 = filter( lambda x: term.upper() in x.upper()
-                       , IATA_AIRLINES_CODES.keys())
+                       , list(IATA_AIRLINES_CODES.keys()))
 
     if len(ret_cand_1) < 10:
         return ret_cand_1

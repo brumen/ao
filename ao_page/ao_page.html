@@ -242,7 +242,6 @@
 		    	    onclick="compute_option_from_init()">Find flights</button>
 		    <button type="button" id="recompute_button" class="js-search-button wc-button-large-left-after" onclick="recompute_option_post()">Recompute</button>
 		    <button type="button" class="js-search-button wc-button-large-left-after" onclick="open_inquiry()">Send inquiry</button>
-		    <button type="button" id="book_details_button" class="js-search-button wc-button-large-left-after" style="display: none" onclick="book_option_details()">Book</button>
 		    
 		  </section>
 
@@ -269,63 +268,7 @@
 		    <input type="button" id="inquiry_submit_button" value="Send inquiry!" onclick="send_inquiry()">
 		    <input type="button" id="inquiry_submit_button" value="Close inquiry!" onclick="close_inquiry()">
 		  </div>
-		  <!-- Payments form  -->
 		</form>
-
-		<section> 
-		  <div id="payment_form" style="background: white; display: none;">
-		    <form id="nonce-form" novalidate action="cgi-bin/process_card.py" method="post">
-		      <label>Card Name</label>
-		      <input id="card-name" name="card-name" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0" style="font-size:15px;" type="text"></input>
-		      <!-- Address -->
-		      <label>Address</label>
-		      <input type="text" id="card-address" name="card-address" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
-		      <label>City, State</label>
-		      <input type="text" id="card-city" name="card-city" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
-		      <label>E-mail</label>
-		      <input type="text" id="email-addr" name="email-addr" class="sq-input" scrolling="no" width="100%" height="19" frameborder="0"></input>
-		      <label>Card Number 4532 7597 3454 5858</label>
-		      <div id="sq-card-number"></div>
-		      <label>CVV 111</label>
-		      <div id="sq-cvv"></div>
-		      <label>Expiration Date 11/17</label>
-		      <div id="sq-expiration-date"></div>
-		      <label>Postal Code 10032 </label>
-		      <div id="sq-postal-code"></div>
-		      <input type="hidden" id="sq-postal-code-final" name="sq-postal-code-final">
-		      <!-- card nonce -->
-		      <input type="hidden" id="card-nonce" name="nonce"> 
-		      <label id="option_price_final_display">Price: </label>
-		      <div> <!-- hiddenn things, for confirming -->
-			<input type="hidden" id="option_value_final" name="option_value_final">  <!-- this is where the option value gets written -->
-			<input type="hidden" id="origin_final" name="origin_final">
-			<input type="hidden" id="dest_final" name="dest_final">
-			<input type="hidden" id="nb_persons" name="nb_persons">
-			<input type="hidden" id="class_travel" name="class_travel">
-			<input type="hidden" id="carrier_final" name="carrier_final">
-			<input type="hidden" id="dep_start_final" name="dep_start_final">
-			<input type="hidden" id="dep_end_final" name="dep_end_final">
-			<input type="hidden" id="ret_start_final" name="ret_start_final">
-			<input type="hidden" id="ret_end_final" name="ret_end_final">
-			<input type="hidden" id="ticket_price_final" name="ticket_price_final">
-			<input type="hidden" id="return_ow_final" name="return_ow_final">
-			<input type="hidden" id="flights_sel_final" name="flights_sel_final">  <!-- this is where the selected flights get written -->
-			<input type="hidden" id="opt_end_dep_final" name="opt_end_dep_final">
-			<input type="hidden" id="opt_end_ret_final" name="opt_end_ret_final">
-			<input type="checkbox" id="confirm-pay-cb" value="details" tabindex="1" onclick="disable_paybutton()">
-			<label>I agree to Air Options LLC
-			  <a href="terms_conditions.html" target="_blank">terms and conditions</a>
-			</label>
-			<center>
-			  <input type="button" onclick="requestCardNonce(event)" id="card-nonce-submit" value="Pay!" disabled>
-			  <input type="button" onclick="close_book_option_details()" id="card-nonce-close" value="Close booking">
-			</center>
-		      </div>
-		    </form>
-		    <div id="result_transaction" style="background: white; display: none">
-		    </div>
-		  </div>
-		</section>
 	      </section>
             </div>
 	  </div>
@@ -387,6 +330,5 @@
     <!-- Square payments --> 
     <script type="text/javascript" src="https://js.squareup.com/v2/paymentform"></script>
     <script src="ao_autocomplete.js"> </script>
-    <script type="text/javascript" src="ao_payment.js"></script>
 </body>
 </html>

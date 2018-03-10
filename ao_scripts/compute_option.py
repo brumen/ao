@@ -67,8 +67,7 @@ def compute_option( form
                    , 'carrier':             carrier_used
                    , 'cabinclass':          cabin_class
                    , 'adults':              nb_people
-                   , 'K':                   np.double(strike)
-                   , 'errors':              'ignore' }
+                   , 'K':                   np.double(strike) }
 
         if return_ow != 'one-way':
             way_args.update( { 'option_ret_start_date': option_start_ret
