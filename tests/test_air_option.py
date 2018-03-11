@@ -171,7 +171,6 @@ class TestAirOption(unittest.TestCase):
                                   , rho                   = 0.95
                                   , adults                = 1
                                   , cuda_ind              = False
-                                  , errors                = 'graceful'
                                   , simplify_compute      = 'take_last_only'
                                   , underlyer             = 'n'
                                   , price_by_range        = False
@@ -201,10 +200,9 @@ class TestAirOption(unittest.TestCase):
                                   , rho                   = 0.95
                                   , adults                = 1
                                   , cuda_ind              = False
-                                  , errors                = 'graceful'
                                   , simplify_compute      = 'take_last_only'
                                   , underlyer             = 'n'
-                                  , price_by_range        = False
+                                  , price_by_range        = True
                                   , return_flight         = False )
         print(v1)
         self. assertTrue(True)
@@ -231,7 +229,6 @@ class TestAirOption(unittest.TestCase):
                                   , rho                   = 0.95
                                   , adults                = 1
                                   , cuda_ind              = False
-                                  , errors                = 'graceful'
                                   , simplify_compute      = 'take_last_only'
                                   , underlyer             = 'n'
                                   , price_by_range        = True

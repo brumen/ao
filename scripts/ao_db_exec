@@ -1,34 +1,23 @@
-#! /usr/bin/python 
+#! /usr/bin/python3
 
-import time
 import ao_db
 import datetime as dt
-from datetime import date
 import ds
 
 
-# date when to finish the flight capture
-date_finish = dt.date.today() + dt.timedelta(days=365)  # finish one day from today
-
-
-def get_today_p2d():
-    lt = time.localtime()
-    date_today = str(lt.tm_year) + str(ds.d2s(lt.tm_mon)) + str(ds.d2s(lt.tm_mday))
-    return ds.convert_str_date(date_today) + dt.timedelta(days=2)
-
-
-def ao_db_run( dep_start : date
-             , dep_end   : date
-             , dest_l_choice  = 'USA'
+def ao_db_run( dest_l_choice  = 'USA'
              , dummy          = False
              , depth_max      = 2 ):
     """
+    Acquires the flight info.
 
+    :param dest_l_choice: choice of destination, one of 'all', 'USA', 'asia'
+    :param dummy: whether one should insert into the database or not (run dummy)
+    :param depth_max: how many intermediary airports one should check between each
+                      airports given
     """
 
     # construct a set of already given pairs
-    dep_date_l_dt = ds.construct_date_range(dep_start, dep_end)
-
     dest_l = {'all': ['JFK', 'LGA', 'EWR', 'SFO', 'LAX',
                       'BOS', 'FLL', 'MIA', 'DEN', 'ORD',
                       'HOU', 'IAH',
@@ -54,7 +43,8 @@ def ao_db_run( dep_start : date
                         'ATL', 'SAN']
              , 'asia': ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL', 'PVG', 'CGK', 'CAN'] }
 
-    ao_db.ao_db_fill( dep_date_l_dt
+    ao_db.ao_db_fill( ds.construct_date_range( dt.date.today() + dt.timedelta(days=2)
+                                             , dt.date.today() + dt.timedelta(days=365) )
                     , dest_l[dest_l_choice]
                     , dummy     = dummy
                     , depth_max = depth_max )
@@ -62,9 +52,4 @@ def ao_db_run( dep_start : date
 
 # main routine, repeat forever
 while True:
-    try: 
-        ao_db_run( dep_start = get_today_p2d()
-                 , dep_end   = date_finish )
-    except:  # if there is any mistake here, restart it again 
-        ao_db_run( dep_start = get_today_p2d()
-                 , dep_end   = date_finish )
+    ao_db_run( dest_l_choice = 'USA' )
