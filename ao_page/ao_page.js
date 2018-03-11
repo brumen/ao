@@ -947,27 +947,23 @@ function close_flights_booking() {
 
 
 function populate_carriers() {
-    // populates carriers from the database (from ao_params)
+    // populates carriers from the database
 
-    var origin_inp = document.getElementById('js-origin-input');
-    var dest_inp = document.getElementById('js-destination-input');
     var req = new XMLHttpRequest();
-    var origin_name = origin_inp.value;
-    var dest_name = dest_inp.value; 
     req.onload = function() {
 	close_flights_booking(); // resets the values 
 	var resp_parsed = JSON.parse(req.responseText);
 	var is_valid = resp_parsed.is_valid;
 	var list_carriers = resp_parsed.list_carriers;
-	// console.log(list_carriers);
+
 	if (is_valid) {
 	    $("#airline-name").autocomplete({
 		source: list_carriers
 	    }); 
 	}
     }
-    req.open("GET", "myapp/find_relevant_carriers" + encodeURI("?origin=" + origin_name +
-								    "&dest=" + dest_name), true);
+    req.open("GET", "myapp/find_relevant_carriers" + encodeURI("?origin=" + document.getElementById('js-origin-input').value +
+							       "&dest="   + document.getElementById('js-destination-input').value, true);
     req.send();
 }
 

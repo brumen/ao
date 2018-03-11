@@ -1,15 +1,13 @@
 # Handling the requests of the webpage
 import logging
 import json
-import uuid
-# import unirest
 import os.path
 
 
 import config
 import ao_codes
 
-from time             import sleep, localtime
+from time             import localtime
 from threading        import Thread
 from sse              import Publisher
 
@@ -17,9 +15,11 @@ from logging.handlers import MemoryHandler
 from flask            import Flask, request, jsonify, Response
 
 from ao_scripts.find_relevant_carriers import get_carrier_l
-from ao_scripts.verify_origin          import is_valid_origin, is_valid_airline
+from ao_scripts.verify_origin          import is_valid_origin \
+                                            , is_valid_airline \
+                                            , show_airline_l \
+                                            , show_airport_l
 from ao_scripts.compute_option         import compute_option
-from ao_scripts.ao_auto_fill_origin    import show_airline_l, show_airport_l
 
 
 logger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
@@ -71,12 +71,6 @@ def time_now():
                     , str(lt.tm_hour), str(lt.tm_min), str(lt.tm_sec)])
 
 
-# TODO: REMOVE THIS IN THE FINAL APPLICATION
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
-
-
 @app.route('/verify_airline', methods = ['GET'])
 def verify_airline():
     """
@@ -121,7 +115,7 @@ def recompute_option_flask():
 @app.route('/write_inquiry', methods=['POST'])
 def write_inquiry():
     """
-    Writes a file about the inquiry to the inquiry folder
+    Writes a file about the inquiry to the inquiry folder.
 
     """
 
@@ -154,13 +148,11 @@ def ao_auto_fill_origin():
     """
     Returns the auto fill of the IATA origin airports
 
-
     """
 
-    # TODO: WHERE DO WE NEED found_ind
-
-    return_l, found_ind = show_airport_l(request.args.get("term"))
-    return jsonify(return_l)
+    airport_l, found_ind = show_airport_l(request.args.get("term"))
+    return Response( json.dumps(airport_l)  # jsonify doesnt work
+                   , mimetype = 'application/json')
 
 
 @app.route('/ao_auto_fill_airline')
@@ -170,32 +162,30 @@ def ao_auto_fill_airline():
 
     """
 
-    # TODO: WHERE DO WE NEED found_ind
-    return_l, found_ind = show_airline_l(request.args.get("term"))
-    return jsonify(return_l)
+    airline_l, found_ind = show_airline_l(request.args.get("term"))
+    return Response( json.dumps(airline_l)
+                   , mimetype = 'application/json' )
 
+#@app.route('/ao_payment', methods = ['GET'])
+#def ao_payment():
+#    # The following variables need to be assigned:
+#    #   card_nonce
+#    #   location_id
+#    #   access_token
 
-# TODO: FIX THIS ROUTE HERE
-@app.route('/ao_payment', methods = ['GET'])
-def ao_payment():
-    # The following variables need to be assigned:
-    #   card_nonce
-    #   location_id
-    #   access_token
+#    card_nonce = request.args.get('card_nonce', '')
+#    location_id = request.args.get('location_id', '')
+#    access_token = request.args.get('access_token', '')
 
-    card_nonce = request.args.get('card_nonce', '')
-    location_id = request.args.get('location_id', '')
-    access_token = request.args.get('access_token', '')
-
-    # work that is done
-    response = unirest.post( 'https://connect.squareup.com/v2/locations/' + location_id + '/transactions'
-                           , headers = { 'Accept': 'application/json'
-                                       , 'Content-Type': 'application/json'
-                                       , 'Authorization': 'Bearer ' + access_token
-                                       ,}
-                           , params = json.dumps({ 'card_nonce': card_nonce
-                                                 , 'amount_money': { 'amount': 100
-                                                                   , 'currency': 'USD' }
-                                                 , 'idempotency_key': str(uuid.uuid1()) }) )
-
-    return response.body
+#    # work that is done
+#    response = unirest.post( 'https://connect.squareup.com/v2/locations/' + location_id + '/transactions'
+#                           , headers = { 'Accept': 'application/json'
+#                                       , 'Content-Type': 'application/json'
+#                                       , 'Authorization': 'Bearer ' + access_token
+#                                       ,}
+#                           , params = json.dumps({ 'card_nonce': card_nonce
+#                                                 , 'amount_money': { 'amount': 100
+#                                                                   , 'currency': 'USD' }
+#                                                 , 'idempotency_key': str(uuid.uuid1()) }) )
+#
+#    return response.body
