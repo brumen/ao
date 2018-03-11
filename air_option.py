@@ -61,8 +61,7 @@ def air_option( F_v
               , cuda_ind  = False
               , underlyer ='n' ):
     """
-    computes the value of the air option, has low
-      memory impact
+    Computes the value of the air option with low memory impact.
 
     :param F_v: vector of forward prices, or a tuple (F_1_v, F_2_v) for return flights
     :type F_v: np.array or (np.array, np.array)
@@ -495,14 +494,17 @@ def obtain_flights_recompute( origin_place
                             , carrier
                             , io_dr_minus
                             , flights_include
+                            , cabinclass         = 'Economy'
+                            , adults             = 1
+                            , insert_into_livedb = True
                             , io_ind        = 'out'
                             , correct_drift = True
                             , publisher_ao  = None):
     """
     Get the flights for recompute method.
+    IMPORTANT: cabinclass, adults, insert_into_livedb HAVE TO BE THERE, to correspond to obtain_flights fct.
 
     :param origin_place:
-
     :param io_dr_minus:     input/output date range _minus (with - sign)
     :type io_dr_minus:
     :param flights_include: flights to be considered for recomputation

@@ -1,14 +1,14 @@
 # specialized monte carlo for AirOptions
 
 import config
-import sys
+# import sys
 import numpy as np
 import scipy.integrate
 from numpy.random import multivariate_normal as mn_cpu
-if sys.version_info < (3, 0):
-    import cuda.vtpm_cpu as vtpm_cpu  # avx & omp analysis
-else:
-    import cuda.vtpm_cpu3 as vtpm_cpu
+#if sys.version_info < (3, 0):
+#    import cuda.vtpm_cpu as vtpm_cpu  # avx & omp analysis
+#else:
+#    import cuda.vtpm_cpu3 as vtpm_cpu
 
 if config.CUDA_PRESENT:
     import cuda_ops as co

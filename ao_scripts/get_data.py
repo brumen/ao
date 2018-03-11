@@ -6,14 +6,13 @@ from ao_codes import iata_cities_codes, iata_codes_cities, \
                      iata_airlines_codes, iata_codes_airlines
 
 
-def validate_airport(airport):
+def validate_airport(airport : str) -> tuple :
     """
-    extract the code from the airport if code not given
-    1. if code given, return code, 
-    2. if airport name given, look into db 
+    Extract the code from the airport if code not given
+      1. if code given, return code,
+      2. if airport name given, look into db
 
     :param airport: IATA code or the full airport name
-    :type airport:  str
     :returns:       tuple of (IATA name, True/False if the airport was found)
     :rtype:         tuple of (str, bool)
     """
@@ -28,7 +27,7 @@ def validate_airport(airport):
 
         if airport_upper in airport_keys_upper:
             airport_idx  = airport_keys_upper.index(airport_upper)
-            airport_name = iata_cities_codes.keys()[airport_idx]
+            airport_name = list(iata_cities_codes.keys())[airport_idx]
             return iata_cities_codes[airport_name], True  # return the code
 
         else:
@@ -57,20 +56,18 @@ def validate_airline(airline):
 
         if airline_upper in iata_airlines_upper:
             airline_idx = iata_airlines_upper.index(airline_upper)
-            airline_name = iata_airlines_codes.keys()[airline_idx]
+            airline_name = list(iata_airlines_codes.keys())[airline_idx]
             return iata_airlines_codes[airline_name], True
         else:
             return 'Invalid', False
 
 
-def validate_dates(date_):
+def validate_dates(date_ : str) -> tuple:
     """
     Validates whether date_ is in the 1/2/2017 format, and converts it into - format
 
     :param date_: date in / format ('1/2/2017')
-    :type date: str
     :returns: date in - format '2017-01-05'
-    :rtype: str
     """
 
     try:
@@ -115,7 +112,7 @@ def get_data(form):
     outbound_start, obs_valid    = validate_dates(form.get('outbound_start'))
     outbound_end,   obe_valid    = validate_dates(form.get('outbound_end'))
     option_start,   os_valid     = outbound_start, True  # THIS IS WRONG
-    option_end,     oe_valid     = outbound_end, True
+    option_end,     oe_valid     = outbound_end  , True
 
     # check that outbound_start < outbound_end
     if obs_valid and obe_valid:

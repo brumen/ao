@@ -74,28 +74,6 @@ class TestAirOption(unittest.TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_25(self):
-        """
-        tests the air option
-
-        """
-
-        nb_sim = 50000
-        tickets = np.linspace(450., 400., 50)
-        s_v = 100. * np.ones(len(tickets))
-        T_l = np.linspace(1./365., 180./365., 180)
-
-        res = ao.air_option( tickets
-                           , s_v
-                           , s_v
-                           , T_l
-                           , 450.
-                           , 100.
-                           , 0.2
-                           , nb_sim = nb_sim)
-
-        self.assertTrue(True)
-
     def test_ao_26(self, nb_sim=10000):
         """
         tests the air option
@@ -111,7 +89,6 @@ class TestAirOption(unittest.TestCase):
                            , T_l
                            , T_mat
                            , 100.
-                           , ao_f   = ao.ao_f
                            , nb_sim = nb_sim)
 
         self.assertTrue(True)
@@ -134,7 +111,6 @@ class TestAirOption(unittest.TestCase):
                            , T_l
                            , T_l + 0.05
                            , 450.
-                           , ao_f   = ao.ao_f_arb
                            , nb_sim = nb_sim)
 
         self.assertTrue(True)

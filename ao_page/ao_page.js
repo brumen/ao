@@ -706,51 +706,44 @@ function handle_computation(get_string) {
     // display the notification area 
     document.getElementById("notification_messages").style = "";
 
-    // compte everything 
     var eventSource = new EventSource("myapp/compute_option" + get_string );
-    eventSource.onmessage = handleAOMessage;  // how to handle the response from server 
-    eventSource.onerror   = handleAOError; 
-
-}
-
-function handleAOError(server_message) {
-    var data = JSON.parse(server_message.data);
-    console.log(data);  // display error in console
-    document.getElementById("notification_messages").style = "";
-    document.getElementById("notification_messages").appendChild(document.createTextNode('Something went wrong. Please try again.'));
+    eventSource.onmessage = function (server_message) { // handling response from server
+	// function handles the return messages from server
+	// involving the option computation 
+	var data = JSON.parse(server_message.data);
     
-}
+	if (data.finished)  // display elements 
+	{   // success logic - data object with fields as defined 
+	    // close the notification messages
+	    document.getElementById("notification_messages").style = "display:none;";
+ 	    document.getElementById("option_price_frame").value = display_results_init(data.result);
+ 	    change_button_back(document.getElementById('find_flights_button')
+			       , 'Find flights', 'left');
+ 	    // change the type of checkbox accorions 
+ 	    $('.accordion input[type="checkbox"]').click(function(e) {
+ 		e.stopPropagation();
+ 	    });
 
+	    eventSource.close(); // close the SSE stream
 
-function handleAOMessage(server_message) {
-    // function handles the return messages from server
-    // involving the option computation 
-
-    var data = JSON.parse(server_message.data);
-    
-    if (data.finished)  // display elements 
-    {  // success logic - data object with fields as defined 
-	// close the notification messages
-	document.getElementById("notification_messages").style = "display:none;";
- 	document.getElementById("option_price_frame").value = display_results_init(data.result);
- 	change_button_back(document.getElementById('find_flights_button')
-			   , 'Find flights', 'left');
- 	// change the type of checkbox accorions 
- 	$('.accordion input[type="checkbox"]').click(function(e) {
- 	    e.stopPropagation();
- 	});
-	// close the SSE stream
-	
-    } else {  // not finished, display the message in the result 
- 	// showing the style 
- 	document.getElementById("flights-section").style = "";  // display this section 
- 	document.getElementById("notification_messages")
+	} else {  // not finished, display the message in the result 
+ 	    // showing the style 
+ 	    document.getElementById("flights-section").style = "";  // display this section 
+ 	    document.getElementById("notification_messages")
 	        .appendChild(document.createElement("p")
 			     .appendChild(document.createTextNode(data.result)))
- 	document.getElementById("notification_messages").appendChild(document.createElement("br"));
+ 	    document.getElementById("notification_messages").appendChild(document.createElement("br"));
+	}
+    }
+
+    eventSource.onerror = function (server_message) {
+	var data = JSON.parse(server_message.data);
+	console.log(data);  // display error in console
+	document.getElementById("notification_messages").style = "";
+	document.getElementById("notification_messages").appendChild(document.createTextNode('Something went wrong. Please try again.'));
+	eventSource.close();
     }
 }
-
 
 
 function recompute_option_post() {
@@ -932,17 +925,19 @@ function verify_airline() {
 
 function close_flights_booking() {
     // closes flights and booking if any of the relevant inputs change 
+
     localStorage.flights_found = "false";  // so that the flights are reset
-    var flights_presented = document.getElementById('flights-section');
+
     var options_display = document.getElementById('options-display');
-    var booking_display = document.getElementById('payment_form');
-    flights_presented.style = "display: none;";
+    // TODO: To remove after it works. 
+    // var flights_presented = document.getElementById('flights-section');
+    // flights_presented.style = "display: none;";
+    $('#flights-section').hide(); //
     // delete children of options_display (if anything displayed before
     options_display.style = "display: none;";
     while (options_display.firstChild) {
 	options_display.removeChild(options_display.firstChild);
     }
-    booking_display.style = "display: none;";
 }
 
 
@@ -963,7 +958,7 @@ function populate_carriers() {
 	}
     }
     req.open("GET", "myapp/find_relevant_carriers" + encodeURI("?origin=" + document.getElementById('js-origin-input').value +
-							       "&dest="   + document.getElementById('js-destination-input').value, true);
+							       "&dest="   + document.getElementById('js-destination-input').value), true);
     req.send();
 }
 
