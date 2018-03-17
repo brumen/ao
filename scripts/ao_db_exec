@@ -1,8 +1,10 @@
 #! /usr/bin/python3
 
-import ao_db
+import config  # this is _NEEDED_, as it adds path
 import datetime as dt
 import ds
+
+from ao_db import ao_db_fill
 
 
 def ao_db_run( dest_l_choice  = 'USA'
@@ -43,13 +45,14 @@ def ao_db_run( dest_l_choice  = 'USA'
                         'ATL', 'SAN']
              , 'asia': ['PEK', 'DXB', 'HND', 'HKG', 'SIN', 'KUL', 'PVG', 'CGK', 'CAN'] }
 
-    ao_db.ao_db_fill( ds.construct_date_range( dt.date.today() + dt.timedelta(days=2)
-                                             , dt.date.today() + dt.timedelta(days=365) )
-                    , dest_l[dest_l_choice]
-                    , dummy     = dummy
-                    , depth_max = depth_max )
+    ao_db_fill( ds.construct_date_range( dt.date.today() + dt.timedelta(days=2)
+                                       , dt.date.today() + dt.timedelta(days=365) )
+              , dest_l[dest_l_choice]
+              , dummy     = dummy
+              , depth_max = depth_max )
 
 
 # main routine, repeat forever
 while True:
-    ao_db_run( dest_l_choice = 'USA' )
+    ao_db_run( dest_l_choice = 'USA'
+             , depth_max     = 1 )  # 1 are direct flights only , 2 are in between flights

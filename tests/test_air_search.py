@@ -1,5 +1,6 @@
 import unittest
 import datetime as dt
+from pprint import pprint
 
 import ds
 import air_option as ao
@@ -18,6 +19,11 @@ class TestAirSearch(unittest.TestCase):
         """
 
         res = aos.get_itins(outbound_date = self.today_date_plus_2m)
+
+        #print(res.keys())
+        #pprint(res['Query'])
+        pprint(res['Itineraries'])
+        #pprint(res['Legs'])
 
         self.assertTrue(True)
 

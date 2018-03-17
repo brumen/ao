@@ -6,9 +6,10 @@ import csv
 import os
 
 # mysql database setup
-DB_HOST  = 'prasic.local'  # 'odroid.local'
-DATABASE = 'ao'  # 'ao'
-DB_USER  = 'brumen'
+DB_HOST           = 'odroid.local'  # db for service
+DB_HOST_CALIBRATE = 'prasic.local'  # db for calibration
+DATABASE          = 'ao'
+DB_USER           = 'brumen'
 
 # original sqlite db
 SQLITE_FILE       = os.path.join(config.work_dir, 'ao.db')

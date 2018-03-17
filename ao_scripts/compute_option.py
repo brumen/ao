@@ -16,7 +16,8 @@ logger.addHandler(logging.StreamHandler())
 
 def compute_option( form
                   , publisher_ao  = None
-                  , recompute_ind = False ):
+                  , recompute_ind = False
+                  , compute_id    = None ) -> dict :
     """
     Interface to the compute_option_val function from air_option, to
     be called from the flask interface
@@ -26,9 +27,8 @@ def compute_option( form
     :param publisher_ao: publisher object used for publishing the messages
     :type publisher_ao: sse.Publisher
     :param recompute_ind: indicator whether to do a recomputation or not
-    :type recompute_ind: bool
+    :param compute_id: id of the computation/flight fetching request - used if there are multiple requests
     :returns:
-    :rtype: dict
     """
 
     is_one_way, ( all_valid, origin_place, dest_place, option_start, option_end,
@@ -42,8 +42,9 @@ def compute_option( form
     logger.info(';'.join(['AO', 'Initiating flight fetch.']))
 
     if publisher_ao:
-        publisher_ao.publish(data_yield({ 'finished': False
-                                        , 'result'  : 'Initiating flight fetch.' } ) )
+        publisher_ao.publish(data_yield({ 'finished'  : False
+                                        , 'result'    : 'Initiating flight fetch.'
+                                        , 'compute_id': compute_id } ) )
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))

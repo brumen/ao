@@ -1,4 +1,4 @@
-# air option database construction functions
+# Air Option database construction functions
 
 import sqlite3
 import time
@@ -8,33 +8,15 @@ import datetime
 # typing imports
 from typing import List
 
-# asynchronous mysql
-import asyncio
-import aiomysql
-
 import ao_codes
-from   ao_codes              import iata_cities_codes, iata_airlines_codes,\
+from   ao_codes            import iata_cities_codes, \
+                                    iata_airlines_codes,\
                                     SQLITE_FILE
 import air_search
 import ds
-from   mysql_connector_env   import MysqlConnectorEnv, make_pymysql_conn
+from   mysql_connector_env import MysqlConnectorEnv
 
 logger = logging.getLogger(__name__)
-
-
-# instructions for db admin
-
-#     copy_sqlite_to_mysql_by_carrier(delete_flights_in_sqlite=True)
-# 2. database administration:
-# 3. call calibrate_all() : calibrates all pairs, but does not write to params_new
-#      call insert_calibrate_all_to_params_new(): calibrates data and inserts them into params_new
-#      call compare_new_params(): compares parameters in params and params_new
-#      call copy_params_into_old(): copy params into params_old
-#      call delete_old_live_data(int hours_old): deletes from flights_
-#             live data that are older than hours_old
-#      call push_new_params_to_prod(): copies params_new to params;
-#      call insert_flights_live(): Inserts flights from flights_live db into flights_ord, along w/ proper flight ids
-# 3. potentially delete sqlite db on rasp
 
 
 def run_db(s):
@@ -162,25 +144,30 @@ def find_location(loc_id, flights):
             if x['Id'] == loc_id][0]
 
 
-def insert_into_db( flights
-                  , acc_flight_l = []
-                  , dummy        = False
-                  , curr_depth   = 0
-                  , depth_max    = 3 ):
+def accumulate_flights( origin_place
+                      , dest_place
+                      , outbound_date
+                      , includecarriers = None
+                      , acc_flight_l    = []
+                      , curr_depth      = 0
+                      , depth_max       = 1 ):
     """
     Insert flights into db.
 
-    :param flights: flights object as generated
-    :param direct_only: consider only direct flights 
-    :param dummy: if True, don't insert into database, just print
+    :param
     :param depth: current depth of the recursive search
     :param depth_max: maximum depth of the search
     """
 
-    if (curr_depth >= depth_max) or (flights is None):  # only conduct the search in this case
+    if curr_depth >= depth_max:
         return acc_flight_l
 
-    # if none of these two, continue
+    # fetch flights
+    flights = air_search.get_itins( origin_place    = origin_place
+                                  , dest_place      = dest_place
+                                  , outbound_date   = outbound_date
+                                  , includecarriers = includecarriers
+                                  , adults          = 1 )
 
     segments = flights['Segments']
     if not segments:  # if segments is empty
@@ -188,9 +175,11 @@ def insert_into_db( flights
 
     lt      = time.localtime()
     itins   = flights['Itineraries']
-    legs    = flights['Legs']
+    legs    = flights['Legs'       ]
+
     dest_id = int(flights['Query']['DestinationPlace'])
-    orig_id = int(flights['Query']['OriginPlace'])
+    orig_id = int(flights['Query']['OriginPlace'     ])
+
     orig    = find_location(orig_id, flights)
     dest    = find_location(dest_id, flights)
 
@@ -201,11 +190,26 @@ def insert_into_db( flights
         # checking if direct flights (accepts 1 or 0)
         flight_numbers = leg['FlightNumbers']
         if len(flight_numbers) == 1:  # direct flight
-            direct_ind = True
-        else:
-            direct_ind = False
-            # look for flights between the in-between places and insert only the direct ones
+            # This legs is direct flight
+            flight_nb = flight_numbers[0]['FlightNumber']  # there is only one flight here
+            outbound_leg_id = leg['Id']
+            # TODO: CHECK THIS: low_price = itin['PricingOptions'][0]['Price']
+            dep_date = leg['Departure']  # dep date in format: '2018-03-05T12:23:15'
+            arr_date = leg['Arrival']  # same format as above
 
+            # TODO: WHAT HAPPENS IF THERE ARE MULTIPLE CARRIERS?
+            carrier = ",".join([[x['Code'] for x in flights['Carriers'] if x['Id'] == carrier_id][0]
+                                for carrier_id in leg['Carriers']])
+
+            # find price for the outbound leg one is searching
+            # TODO: Does it have to be at least one price, to do [0] at the end??
+            price = [itin['PricingOptions'][0]["Price"]
+                     for itin in itins
+                     if itin['OutboundLegId'] == outbound_leg_id][0]
+
+            acc_flight_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, flight_nb))
+
+        else:  # look for flights between the in-between places and insert only the direct ones
             # find origin and destination of all legs, and add those
             for indiv_flights in flight_numbers:
                 # find this flight in segms
@@ -217,7 +221,6 @@ def insert_into_db( flights
                         try:
                             leg_orig_2      = find_location(seg_2['OriginStation'     ], flights)
                             leg_dest_2      = find_location(seg_2['DestinationStation'], flights)
-                            # dep_date_2_full = seg_2['DepartureDateTime']  # date in '2016-10-29' format
                             dep_date_2      = seg_2['DepartureDateTime'].split('T')[0]
                         except (KeyError, IndexError):
                             logger.info("Origin, destination or departure dates not found.")
@@ -231,33 +234,39 @@ def insert_into_db( flights
                                                   , "on"
                                                   , dep_date_2]))
 
-                            acc_flight_l.extend(insert_into_db( air_search.get_itins( origin_place  = leg_orig_2
-                                                                                    , dest_place    = leg_dest_2
-                                                                                    , outbound_date = ds.convert_datedash_date(dep_date_2) )
-                                                              , acc_flight_l = []
-                                                              , dummy        = dummy
-                                                              , curr_depth   = curr_depth + 1
-                                                              , depth_max    = depth_max ) )
-
-        # This legs is direct flight
-        outbound_leg_id = leg['Id']
-        # TODO: CHECK THIS: low_price = itin['PricingOptions'][0]['Price']
-        dep_date = leg['Departure']  # dep date in format: '2018-03-05T12:23:15'
-        arr_date = leg['Arrival']    # same format as above
-
-        # TODO: WHAT HAPPENS IF THERE ARE MULTIPLE CARRIERS?
-        carrier = ",".join([ [x['Code'] for x in flights['Carriers'] if x['Id'] == carrier_id][0]
-                             for carrier_id in leg['Carriers'] ])
-
-        # find price for the outbound leg one is searching
-        # TODO: Does it have to be at least one price, to do [0] at the end??
-        price = [itin['PricingOptions'][0]["Price"] for itin in itins if itin['OutboundLegId'] == outbound_leg_id][0]
-
-        print ("DIRECT IND:" + str(direct_ind))
-        if direct_ind:
-            acc_flight_l.append((as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id))
+                            acc_flight_l.extend(accumulate_flights( leg_orig_2
+                                                                  , leg_dest_2
+                                                                  , ds.convert_datedash_date(dep_date_2)
+                                                                  , includecarriers = None
+                                                                  , acc_flight_l    = []  # THIS HERE IS ABSOLUTELY NECC.
+                                                                  , curr_depth      = curr_depth + 1
+                                                                  , depth_max       = depth_max ) )
 
     return acc_flight_l
+
+
+def commit_flights_to_live(flights_l : List):
+    """
+    Inserts flights_l into live table.
+
+    :param flights_l: list of (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id)
+                      types of these are:
+
+    :returns: None
+    """
+
+    with MysqlConnectorEnv() as conn:  # odroid db.
+        conn.cursor().executemany(
+            """INSERT INTO flights_live(as_of, orig, dest, price, flight_id, dep_date, dep_time,
+                                        arr_date, carrier, flight_nb, cabin_class)
+               VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
+                                 , [( as_of, orig, dest, price, outbound_leg_id,
+                                      dep_date.split('T')[0]
+                                    , dep_date.split('T')[1]
+                                    , arr_date, carrier, flight_nb, 'economy')
+                                    for (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, flight_nb)
+                                    in flights_l ] )
+        conn.commit()
 
 
 def commit_flights_to_db(flights_l : List):
@@ -270,7 +279,7 @@ def commit_flights_to_db(flights_l : List):
     :returns: None
     """
 
-    with MysqlConnectorEnv() as conn:
+    with MysqlConnectorEnv(calibrate_db=True) as conn:
         cur = conn.cursor()
         # first add all ids to the flights to insert
         # this will ignore duplicates on outbound_leg_id, which is a unique index
@@ -282,7 +291,8 @@ def commit_flights_to_db(flights_l : List):
 
         # check if outbound_leg_id is in the database, and return flight_id_used
         find_leg_str = "SELECT flight_id FROM flight_ids WHERE flight_id_long = '{0}'"
-        reg_id_str = "SELECT reg_id FROM reg_ids WHERE month = {0} AND tod = '{1}' AND weekday_ind = '{2}'"
+        # find reg id from month, weekday, time of day
+        reg_id_str   = "SELECT reg_id    FROM reg_ids    WHERE month = {0} AND tod = '{1}' AND weekday_ind = '{2}'"
 
         # this has to be done one by one
         for (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id) in flights_l:
@@ -290,11 +300,13 @@ def commit_flights_to_db(flights_l : List):
             dep_date, dep_time = dep_date.split('T')  # departure date/time
             dep_date_dt = ds.convert_datedash_date(dep_date)
             dep_time_dt = ds.convert_hour_time(dep_time)
-            month = dep_date_dt.month
-            dod, dof = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)  # tod = dod, weekday_ind = dof
 
-            cur.execute(reg_id_str.format(month, dod, dof))
+            time_of_day, weekday_ind = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)
+
+            # check reg id
+            cur.execute(reg_id_str.format(dep_date_dt.month, time_of_day, weekday_ind))
             reg_id = cur.fetchone()
+
             cur.execute(find_leg_str.format(outbound_leg_id))
             flight_id = cur.fetchone()
 
@@ -310,19 +322,18 @@ def insert_flight( origin_place  : str
                  , dest_place    : str
                  , outbound_date : datetime.date
                  , includecarriers = None
-                 , adults          = 1
                  , dummy           = False
                  , depth_max       = 0 ):
     """
     Finds flights between origin_place and dest_place on outbound_date and inserts them
 
-    :param origin_place: IATA value of the origin airport (like 'EWR')
-    :param dest_place: IATA value of dest. airport ('SFO')
-    :param outbound_date: date of the outbound flights one is trying to insert ('2016-10-28')
+    :param origin_place:    IATA value of the origin airport (like 'EWR')
+    :param dest_place:      IATA value of dest. airport ('SFO')
+    :param outbound_date:   date of the outbound flights one is trying to insert ('2016-10-28')
     :param includecarriers: airlines to use, can be None TODO: WHAT DOES THAT MEAN?
-    :param adults:          how many adults to use
     :param dummy:           whether to acutally insert into the database, or just mock it
-    :param depth:
+    :param depth:           recursive depth, i.e. if a flight is btw EWR -> ORD -> SFO,
+                            if depth = 2 it will also check EWR -> ORD and ORD -> SFO
     :param direct_only:     whether to include only direct flights
     :param depth_max:
     :param existing_pairs:  TODO:
@@ -335,14 +346,16 @@ def insert_flight( origin_place  : str
                           , "on"
                           , outbound_date.isoformat() ]))
 
-    commit_flights_to_db(insert_into_db( air_search.get_itins( origin_place    = origin_place
-                                                             , dest_place      = dest_place
-                                                             , outbound_date   = outbound_date
-                                                             , includecarriers = includecarriers
-                                                             , adults          = adults )
-                                       , dummy          = dummy
-                                       , curr_depth     = 0
-                                       , depth_max      = depth_max))
+    flights_to_insert = accumulate_flights( origin_place
+                                          , dest_place
+                                          , outbound_date
+                                          , includecarriers = includecarriers
+                                          , acc_flight_l    = []
+                                          , curr_depth      = 0
+                                          , depth_max       = depth_max)
+
+    if not dummy:
+        commit_flights_to_live(flights_to_insert)
 
 
 def ao_db_fill( dep_date_l : List[datetime.date]
@@ -367,7 +380,7 @@ def ao_db_fill( dep_date_l : List[datetime.date]
     for dep_date in dep_date_l:
         for orig in dest_l:
             for dest in dest_l:
-
+                print ("Inserting " + orig + " to " + dest + ".")
                 if orig == dest:
                     break
                 try:
@@ -416,26 +429,74 @@ def find_airline_code(name_part):
             if name_part in airline]
 
 
-def perform_db_maintenance(action_list):
+def call_mysql_proc( procedure_name : str
+                   , mysql_conn ):
     """
-    Performs the database maintanance.
+    Executes the procedure name on the mysql connection.
 
-    :param action_list: list of actions to perform
-    :type action_list:  list of str
-    :returns:           None
-    :rtype:             None
+    :param procedure_name: procedure
+    :param mysql_conn: mysql connection to use
+    """
+    mysql_conn.cursor().callproc(procedure_name)
+
+
+def perform_db_maintenance(action_list : List[str]) -> None :
+    """
+    Performs the database maintanance: actions that should be undertaken
+
+    :param action_list: list of actions to perform:
+                           insert_flights_live_into_flights_ord_prasic
+                           calibrate_and_push_prasic
+                           copy_params_to_odroid
+                           copy_flights_live_odroid_to_prasic
+
     """
 
-    with MysqlConnectorEnv() as mysql_conn:
-        if "insert_live_flights_into_db" in action_list:
-            mysql_conn.cursor().execute("CALL insert_flight_ids_from_flights_live\(\);")
-            mysql_conn.cursor().execute("CALL insert_flights_live_into_flights_ord\(\);")
+    if "insert_flights_live_into_flights_ord_prasic" in action_list:
+        # inserts flights_live into (flights_ord & flight_ids) _ON THE SAME DATABASE_
+        # TODO: NOT SURE IF THIS WORKS
+        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn:
+            mysql_conn.cursor().callproc('insert_flights_live')
+
+    elif 'calibrate_and_push_prasic' in action_list:
+        # calibrates the parameters and pushes them to params on the same database
+        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn:
+            mysql_conn.cursor().callproc('insert_calibrate_all_to_params_new')
+            mysql_conn.cursor().callproc('copy_params_into_old'   )
+            mysql_conn.cursor().callproc('push_new_params_to_prod')
+
+    elif 'copy_params_to_odroid' in action_list:
+        # copies parameters from prasic to odroid
+        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn_calibrate, MysqlConnectorEnv() as mysql_conn_odroid:
+            calibrate_cur = mysql_conn_calibrate.cursor()
+            odroid_cur    = mysql_conn_odroid.cursor()
+            odroid_cur.execute('DELETE FROM params')
+            mysql_conn_odroid.commit()  # making sure it deletes parameters
+            calibrate_cur.execute('SELECT * from params;')
+            odroid_cur.executemany( 'INSERT INTO params VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+                                  , calibrate_cur.fetchall() )
+            mysql_conn_odroid.commit()
+
+    elif 'copy_flights_live_odroid_to_prasic' in action_list:
+        # copies live flights from odroid to prasic
+        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn_calibrate, MysqlConnectorEnv() as mysql_conn_odroid:
+            calibrate_cur = mysql_conn_calibrate.cursor()
+            odroid_cur    = mysql_conn_odroid.cursor()
+
+            # this takes care if duplicates
+            odroid_cur.execute('SELECT * from flights_live;')
+            calibrate_cur.executemany( """INSERT INTO flights_live 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                                     , odroid_cur.fetchall() )
+            mysql_conn_calibrate.commit()
+
+            # remove the live flights from odroid
+            odroid_cur.execute('DELETE FROM flights_live;')
+            mysql_conn_odroid.commit()
 
 
-def run_calibrate_all_2(batch_size=1000):
-
-    flight_ids = run_db_mysql('SELECT DISTINCT(flight_id) FROM flight_ids;');
-    flight_ids_fixed = sorted([x[0] for x in flight_ids])
-
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(calibrate_all_2(loop, flight_ids_fixed, batch_size))
+# certain other maintanance operations:
+#   : to crate a schema and functions on the target database
+#     run on prasic.local:  mysqldump --routines -u brumen -d ao | mysql -h odroid.local -u brumen -p  ao
+#   : to copy table reg_ids between databases
+#     run on prasic.local:  mysqldump -u brumen ao reg_ids | mysql -h odroid.local -u brumen -p  ao

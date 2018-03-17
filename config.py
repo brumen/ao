@@ -11,7 +11,7 @@ tmp_dir  = '/home/brumen/work/ao'
 log_dir  = os.path.join(prod_dir, 'log')
 
 sys.path.append(work_dir)  # basic path
-subdirs = ['cubl', 'cublas', 'tests', 'cuda', 'vols', 'pricers', 'db']
+subdirs = ['cubl', 'cublas', 'tests', 'cuda', 'vols', 'pricers', 'db', 'scripts']
 for sd in subdirs:
     sys.path.append(work_dir + sd)
 

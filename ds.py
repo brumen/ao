@@ -2,6 +2,8 @@
 import datetime as dt
 import calendar as cal
 
+from typing import List
+
 
 def conv_local(date_str):
     """
@@ -19,12 +21,13 @@ def conv_local(date_str):
 
 def convert_str_datetime(date_):
     """
-    converts yyyymmdd into datetime
+    Converts yyyymmdd into datetime
+
     """
 
     if type(date_) is list:
         return [conv_local(d_elt) for d_elt in date_]
-    else:
+    else:  # str. case
         return conv_local(date_)
 
     
@@ -185,10 +188,14 @@ def convert_dateslash_dash(dates):
     return '-'.join([year, d2s(int(mon)), d2s(int(day))])
 
 
-def process_mm(m, year, month, day_b, day_e):
+def process_mm( m     : cal.monthcalendar
+              , year  : int
+              , month : int
+              , day_b : int
+              , day_e : int ) -> dt.date :
     """
-    process the month matrix between day_b and day_e,
-    a helper function for construct_date_range below
+    Process the month matrix between day_b and day_e,
+    A helper function for construct_date_range below
 
     """
 
@@ -202,21 +209,17 @@ def process_mm(m, year, month, day_b, day_e):
     return T_l
 
 
-def construct_date_range(date_b, date_e):
+def construct_date_range( date_b : dt.date
+                        , date_e : dt.date ) -> List[dt.date]:
     """
-    constructs the date range between date_b and date_e, i.e.
-    every date between these two dates
+    Constructs the date range between date_b and date_e, i.e.
+    every date between these two dates.
 
     :param date_b: begin date (as in 20180317)
-    :type date_b:  datetime.date  # str
     :param date_e: end date (same as date_b
-    :type date_e:  datetime.date  # str
     :returns:      list of dates between date_b and date_e
-    :rtype:        list of datetime.date
     """
 
-    # date_b_dt = convert_str_date(date_b)
-    # date_e_dt = convert_str_date(date_e)
     year_b, month_b, day_b = date_b.year, date_b.month, date_b.day
     year_e, month_e, day_e = date_e.year, date_e.month, date_e.day
     T_l = []  # construction of the date list 
@@ -280,6 +283,8 @@ def time_diff( date1
 
 def add_days_str(date_, days):
     """
-    adds the number of days to date_
+    Adds the number of days to date_
+
     """
+
     return convert_datetime_str(convert_str_datetime(date_) + dt.timedelta(days=days))

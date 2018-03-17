@@ -21,7 +21,7 @@ def get_itins( origin_place    = 'SIN'
              , cabinclass      = 'Economy'
              , adults          = 1
              , use_cache       = False
-             , nb_tries        = 1 ):
+             , nb_tries        = 1 ) -> dict:
     """
     Returns itineraries for the selection from the Skyscanner API.
 
@@ -37,8 +37,17 @@ def get_itins( origin_place    = 'SIN'
     :type cabinclass:     str
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
     :type nb_tries:       int
-    :returns:          TODO
-    :rtype:            TODO
+    :returns:             Resulting flights from SkyScanner, dictionary structure:
+                          'Itineraries'
+                          'Currencies'
+                          'Agents'
+                          'Carriers'
+                          'Query'
+                          'Segments'
+                          'Places'
+                          'SessionKey'
+                          'Legs'
+                          'Status'
     """
 
     params_all = dict( country          = COUNTRY
@@ -143,7 +152,7 @@ def insert_into_flights_live( origin_place
     lt = time.localtime()
     as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
             str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
-    live_fl_l = []
+    live_flight_l = []
 
     for it in flights_v:
 
@@ -151,7 +160,7 @@ def insert_into_flights_live( origin_place
         # arr_date = it[2]
         carrier = it[4][:2]  # first 2 letters of this string
         flight_nb = it[4][3:]  # next letters for flight_nb
-        live_fl_l.append(
+        live_flight_l.append(
             (as_of, origin_place, dest_place, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
 
     insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
@@ -159,7 +168,7 @@ def insert_into_flights_live( origin_place
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
     with MysqlConnectorEnv() as mysql_conn:
-        mysql_conn.cursor().executemany(insert_str, live_fl_l)
+        mysql_conn.cursor().executemany(insert_str, live_flight_l)
         mysql_conn.commit()
 
 

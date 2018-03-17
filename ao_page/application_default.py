@@ -2,7 +2,7 @@
 import logging
 import json
 import os.path
-
+import datetime
 
 import config
 import ao_codes
@@ -104,12 +104,16 @@ def find_relevant_carriers():
 @app.route('/recompute_option', methods = ['POST'])
 def recompute_option_flask():
     """
-    Recomputes the option value, makes the same call as the compute_option with the additional flag.
+    Recomputes the option value,
+    makes the same call as the compute_option with the additional flag.
+    No need for publisher here, as this is fast.
 
     """
 
+    # compute_id identifies the computation request
     return jsonify(compute_option( request.get_json()
-                                 , recompute_ind = True) )
+                                 , recompute_ind = True
+                                 , compute_id    = str(datetime.datetime.now()) ) )
 
 
 @app.route('/write_inquiry', methods=['POST'])
@@ -134,12 +138,15 @@ def compute_option_flask():
 
     """
 
+    publisher_ao_local = Publisher()
+
     Thread( target = compute_option
           , args   = (request.args, )
-          , kwargs = { "publisher_ao" : publisher_ao
-                     , "recompute_ind": False} ).start()
+          , kwargs = { "publisher_ao" : publisher_ao_local  # publisher_ao
+                     , "recompute_ind": False
+                     , 'compute_id': str(datetime.datetime.now()) } ).start()
 
-    return Response( publisher_ao.subscribe()
+    return Response( publisher_ao_local.subscribe()
                    , mimetype="text/event-stream" )
 
 
