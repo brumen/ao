@@ -95,17 +95,15 @@ def air_option( F_v
     kwargs = { 'model'   : underlyer
              , 'cuda_ind': cuda_ind}
 
-    if not return_flight_ind:
-        mc_used = mc.mc_mult_steps
-    else:
-        mc_used = mc.mc_mult_steps_ret
+    mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 
-    F_max = mc_used(*args, **kwargs)  # maximum over flight prices
+    F_max = mc_used(*args, **kwargs)  # simulation of all flight prices
 
+    # final option payoff
     if not cuda_ind:
-        return np.mean(np.maximum (F_max - K, 0.))  # option payoff
+        return np.mean(np.maximum (np.amax(F_max, axis=0) - K, 0.))
     else:
-        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))  # option payoff
+        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))
 
 
 def compute_option_raw( F_v
