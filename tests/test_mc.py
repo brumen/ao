@@ -16,56 +16,51 @@ class TestMC(unittest.TestCase):
 
     """
 
-    def test_0( self
-              , nb_sim     = 1000
-              , nb_tickets = 5
-              , sim_times  = np.array([0.2, 0.3, 0.4])):
+    def setUp(self):
+
+        self.nb_tickets = 5
+        # mostly used for one-way flights
+        self.F_v = np.linspace(100., 200., self.nb_tickets)
+        self.s_v = np.linspace(0.2 , 0.6 , self.nb_tickets)
+        self.d_v = self.s_v
+        self.rho_m = corr_hyp_sec_mat(0.95, range(self.nb_tickets))
+        self.F_exp = np.linspace(1, 2, self.nb_tickets)  # expiry times
+
+    def test_0(self):
         """
-        tests whether the mc_mult_steps_cpu function works
+        Tests whether the mc_mult_steps_cpu function works
 
         """
 
-        F_v = np.zeros(nb_tickets) + 100.
-        s_v = np.zeros(nb_tickets) + 0.2
-        d_v = s_v
-        rho_m = corr_hyp_sec_mat(0.95, range(nb_tickets))
-        v1 = mc.mc_mult_steps( F_v
-                             , s_v
-                             , d_v
+        nb_sim = 1000
+        sim_times = np.array([0.2, 0.3, 0.4])
+        v1 = mc.mc_mult_steps( self.F_v
+                             , self.s_v
+                             , self.d_v
                              , sim_times
-                             , rho_m
+                             , self.rho_m
                              , nb_sim
-                             , sim_times + 0.01
-                             , ao_f = ao.ao_f_arb)
-        print "V1:", v1
+                             , np.ones(self.nb_tickets) )  # this last par. is maturity of forwards
+        print ("V1:", v1)
         self.assertTrue(True)
 
     def test_2(self):
         """
-        Martingale test for 1 single underlyer - the average of this should be very close to the
-        of the underlyer
+        Martingale test for underlyers.
 
         """
-        # TODO: TO FINISH THIS TEST
 
-        F = np.array([100.])
-        s = np.array([0.25])
-        s_d_fct = [lambda t: s[[0]]]
-        d_v_fct = [lambda t: 0.01]
-        nb_sim = 1048575  # 2**20 - 1
-        rho_m = np.array([[1.]])
-        T_l = np.linspace(0.1, 1., 10)
-        F_sim_l = mc.mc_mult_steps( F
-                                  , s_d_fct
-                                  , d_v_fct
+        T_l     = np.linspace(0.1, 1., 10)  # forward expiry times
+        nb_sim  = 50000
+        F_sim_l = mc.mc_mult_steps( self.F_v
+                                  , self.s_v
+                                  , np.zeros(self.nb_tickets)
                                   , T_l
-                                  , rho_m
+                                  , self.rho_m
                                   , nb_sim
-                                  , T_l+0.01 )
+                                  , self.F_exp )
 
-        print np.average(F_sim_l[-1, :, 0])
-
-        self.assertTrue(True)
+        self.assertTrue(np.abs(np.average(F_sim_l[-1, :]) - self.F_v[-1]) < 5)
 
     def test_3(self):
         """
