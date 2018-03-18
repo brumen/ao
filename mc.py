@@ -1,10 +1,14 @@
 # specialized monte carlo for AirOptions
 
 import config
-# import sys
 import numpy as np
 import scipy.integrate
+import logging
+
 from numpy.random import multivariate_normal as mn_cpu
+
+logger = logging.getLogger(__name__)  # mc logger
+
 #if sys.version_info < (3, 0):
 #    import cuda.vtpm_cpu as vtpm_cpu  # avx & omp analysis
 #else:
@@ -158,7 +162,7 @@ def create_vol_drift_vectors( T_curr
                                        , drift_vol_ind='vol')
                          for (s_vol, ttm_curr) in zip(s_v, ttm)])  # volatility depends on time-to-maturity
 
-    if d_v:
+    if d_v is not None:
         d_v_used = np.array([integrate_fct(lambda drift: d_v_curr
                                           , T_curr
                                           , T_curr + T_diff
@@ -232,15 +236,13 @@ def mc_one_way( F_sim
             else:
                 rn_sim_l = mn_gpu(0, rho_m, size=nb_sim)
 
-        one_step_params = [F_sim, T_diff, s_v_used, d_v_used, rn_sim_l]
-
-        if model == 'ln':  # log-normal model
-            one_step_model = ln_step
-        else:  # normal model
-            one_step_model = normal_step
-
-        F_sim_next = one_step_model( *one_step_params
-                                   , cuda_ind=cuda_ind)
+        one_step_model  = ln_step if model == 'ln' else normal_step  # normal model
+        F_sim_next      = one_step_model( F_sim
+                                        , T_diff
+                                        , s_v_used
+                                        , d_v_used
+                                        , rn_sim_l
+                                        , cuda_ind = cuda_ind )
 
         if F_ret is None:  # no return flight given
             F_sim = np.maximum(F_sim_next, F_sim)  # more proper, although the same as w/ amax
@@ -295,27 +297,11 @@ def mc_mult_steps( F_v
     :rtype:   TODO
     """
 
-    if not cuda_ind:
-        mn = mn_cpu
-    else:
-        mn = mn_gpu
-
-    # add 0 to simulation times if not already there
-    if T_l[0] != 0.:
-        T_l_local = np.zeros(len(T_l)+1)
-        T_l_local[1:] = T_l
-    else:
-        T_l_local = T_l
-
+    T_l_extend = add_zero_to_Tl(T_l)  # add 0 to simulation times if not already there
     nb_fwds = len(F_v)
-    T_l_diff = np.diff(T_l_local)
+    T_l_diff = np.diff(T_l_extend)
 
-    if not cuda_ind:
-        F_sim = np.empty((nb_fwds, nb_sim))
-    else:
-        F_sim = gpa.empty( (nb_fwds, nb_sim)
-                         , np.double)
-
+    F_sim = np.empty((nb_fwds, nb_sim)) if not cuda_ind else gpa.empty( (nb_fwds, nb_sim), np.double)
     F_v_shape = F_v.shape
 
     # assumption F_v and s_v are in the same format
@@ -331,9 +317,9 @@ def mc_mult_steps( F_v
         F_sim = co.set_mat_by_vec(F_v_used, nb_sim)
 
     return mc_one_way( F_sim
-                     , mn
+                     , mn_cpu if not cuda_ind else mn_gpu  # multivariate generator
                      , T_l_diff
-                     , T_l_local
+                     , T_l_extend  # T_l w/ 0 prepended if not already there
                      , T_v_exp
                      , s_v
                      , d_v
@@ -394,8 +380,6 @@ def mc_mult_steps_ret( F_v
     :returns:        matrix [time_step, simulation, fwd] or ticket prices
     """
 
-    mn = mn_cpu if not cuda_ind else mn_gpu
-
     F_v_dep,     F_v_ret     = F_v
     s_v_dep,     s_v_ret     = s_v
     d_v_dep,     d_v_ret     = d_v
@@ -440,7 +424,7 @@ def mc_mult_steps_ret( F_v
 
     # departure and return connected
     return mc_one_way( F_sim
-                     , mn
+                     , mn_cpu if not cuda_ind else mn_gpu
                      , T_l_diff_dep
                      , T_l_dep
                      , T_v_used
