@@ -229,7 +229,7 @@ def mc_one_way( F_sim
             d_v_used = d_v_used.reshape((len(d_v_used), 1))
 
         if nb_fwds == 1:
-            rn_sim_l = np.random.normal(size=(nb_sim, 1))
+            rn_sim_l = np.random.normal(size=(1, nb_sim))
         else:
             if not cuda_ind:
                 rn_sim_l = mn(np.zeros(nb_fwds), rho_m, size=nb_sim).transpose()
@@ -245,6 +245,7 @@ def mc_one_way( F_sim
                                         , cuda_ind = cuda_ind )
 
         if F_ret is None:  # no return flight given
+            # logger.info('FSHAPE:' + str(F_sim_next.shape) + str(F_sim.shape))
             F_sim = np.maximum(F_sim_next, F_sim)  # more proper, although the same as w/ amax
         else:
             if not cuda_ind:

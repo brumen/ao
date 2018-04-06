@@ -380,7 +380,7 @@ def ao_db_fill( dep_date_l : List[datetime.date]
     for dep_date in dep_date_l:
         for orig in dest_l:
             for dest in dest_l:
-                print ("Inserting " + orig + " to " + dest + ".")
+                logger.info("Inserting " + orig + " to " + dest + ".")
                 if orig == dest:
                     break
                 try:
