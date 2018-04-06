@@ -11,14 +11,15 @@ from time             import localtime
 from threading        import Thread
 from sse              import Publisher
 
-from logging.handlers import MemoryHandler
+# from logging.handlers import MemoryHandler
 from flask            import Flask, request, jsonify, Response
 
-from ao_scripts.find_relevant_carriers import get_carrier_l
+# from ao_scripts.find_relevant_carriers import get_carrier_l
 from ao_scripts.verify_origin          import is_valid_origin \
                                             , is_valid_airline \
                                             , show_airline_l \
-                                            , show_airport_l
+                                            , show_airport_l \
+                                            , get_carrier_l
 from ao_scripts.compute_option         import compute_option
 
 
@@ -173,8 +174,9 @@ def ao_auto_fill_airline():
     return Response( json.dumps(airline_l)
                    , mimetype = 'application/json' )
 
-#@app.route('/ao_payment', methods = ['GET'])
-#def ao_payment():
+
+# @app.route('/ao_payment', methods = ['GET'])
+# def ao_payment():
 #    # The following variables need to be assigned:
 #    #   card_nonce
 #    #   location_id
