@@ -485,9 +485,14 @@ def perform_db_maintenance(action_list : List[str]) -> None :
 
             # this takes care if duplicates
             odroid_cur.execute('SELECT * from flights_live;')
-            calibrate_cur.executemany( """INSERT INTO flights_live 
-                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-                                     , odroid_cur.fetchall() )
+            # old way, does not always work:
+            #calibrate_cur.executemany( """INSERT INTO flights_live
+            #                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+            #                         , odroid_cur.fetchall() )
+            for flight_entry in odroid_cur:
+                calibrate_cur.execute('INSERT INTO flights_live VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                                      flight_entry)
+
             mysql_conn_calibrate.commit()
 
             # remove the live flights from odroid
