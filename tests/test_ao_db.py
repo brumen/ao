@@ -6,7 +6,6 @@ import datetime as dt
 
 import ao_db
 import air_option as ao
-import air_search as aos
 
 
 class TestAoDb(unittest.TestCase):
@@ -87,5 +86,15 @@ class TestAoDb(unittest.TestCase):
                                       , includecarriers= ['UA']
                                       , curr_depth = 0
                                       , depth_max  = 2 )
+
+        self.assertTrue(True)
+
+    def test_copy_flights_to_odroid(self):
+        """
+        Checks if one can execute the copy to prasic
+
+        """
+
+        ao_db.perform_db_maintenance(['copy_flights_live_odroid_to_prasic'])
 
         self.assertTrue(True)

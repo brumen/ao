@@ -14,24 +14,12 @@ class TestAirSearch(unittest.TestCase):
 
     def test_get_itins(self):
         """
-        checks if the get_itins functions run at all
+        Checks if the get_itins functions run at all
 
         """
 
         res = aos.get_itins(outbound_date = self.today_date_plus_2m)
-
-        #print(res.keys())
-        #pprint(res['Query'])
         pprint(res['Itineraries'])
-        #pprint(res['Legs'])
-
-        self.assertTrue(True)
-
-    def test_find_carrier(self):
-        """
-        tests whether the find_carrier function runs
-
-        """
 
         self.assertTrue(True)
 
@@ -50,10 +38,21 @@ class TestAirSearch(unittest.TestCase):
     def test_get_ticket_prices(self):
         res1 = aos.get_ticket_prices( 'SIN'
                                     , 'KUL'  # possible NYCA-sky
-                                    , ds.convert_date_datedash(self.today_date_plus_2m))
+                                    , self.today_date_plus_2m)
 
         res2 = aos.get_ticket_prices( 'EWR'
                                     , 'SFO'
                                     , self.today_date_plus_2m)
 
+        self.assertTrue(True)
+
+    def test_flight_particular(self):
+        """
+        Tests for UA flight between LGA and ATL.
+
+        """
+
+        res1 = aos.get_ticket_prices('LGA', 'ATL', dt.date(2018, 4, 17))
+
+        print(1)
         self.assertTrue(True)

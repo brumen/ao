@@ -57,7 +57,8 @@ def get_itins( origin_place    = 'SIN'
                      , destinationplace = dest_place + '-sky'
                      , outbounddate     = ds.convert_date_datedash(outbound_date)
                      , cabinclass       = cabinclass
-                     , adults           = adults )
+                     , adults           = adults
+                     , stops            = 0 )  # only direct flights
 
     if includecarriers is not None:
         params_all['includecarriers'] = includecarriers
@@ -176,32 +177,33 @@ def extract_Fv_flights_from_results(result):
     """
     Extracts the flight forward prices and flight data from the results provided
 
-    :param results:
-    :type results:
+    :param result: result of output from SkyScanner, dictionary structure:
+                          'Itineraries'
+                          'Currencies'
+                          'Agents'
+                          'Carriers'
+                          'Query'
+                          'Segments'
+                          'Places'
+                          'SessionKey'
+                          'Legs'
+                          'Status'
+    :type result: dict
     :returns:
     :rtype: tuple ( TODO  )
     """
-    ri = result['Itineraries']
-    rl = result['Legs']  # legs and itineraries are the same in length
-    carriers = result['Carriers']
+
     F_v = []
     flights_v = []
-    for itin, leg in zip(ri, rl):
-        # determine if the flight is direct
-        direct_ind = len(leg['FlightNumbers']) == 1  # indicator if the flight is direct
-        outbound_leg_id = leg['Id']
-        dep_date = leg['Departure']
-        arr_date = leg['Arrival']
-        carrier_id_l = leg['Carriers']  # [0] (multiple carriers, list)
-        po = itin['PricingOptions']
+    for itinerary, leg in zip(result['Itineraries'], result['Legs']):
         flight_num_all = leg['FlightNumbers']
-        if direct_ind:  # the other test case is missing
-            carrier_id = carrier_id_l[0]  # first (and only) carrier
-            carrier = find_carrier(carriers, carrier_id)
-            price = po[0]["Price"]  # TODO: THIS PRICE CAN BE DIFFERENT
+        if len(flight_num_all) == 1:  # indicator if the flight is direct, the other test case is missing
+            carrier = find_carrier(result['Carriers'], leg['Carriers'][0])  # carriers = all carriers, leg['carriers'] are id of carrier
+            price = itinerary['PricingOptions'][0]['Price']  # TODO: THIS PRICE CAN BE DIFFERENT
             flight_num = flight_num_all[0]['FlightNumber']
             F_v.append(price)
-            flights_v.append((outbound_leg_id, dep_date, arr_date, price, carrier + flight_num))
+            # leg['Departure'] is departure date
+            flights_v.append((leg['Id'], leg['Departure'], leg['Arrival'], price, carrier + flight_num))
 
     return F_v, flights_v
 
