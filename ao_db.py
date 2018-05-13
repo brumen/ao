@@ -380,7 +380,7 @@ def ao_db_fill( dep_date_l : List[datetime.date]
     for dep_date in dep_date_l:
         for orig in dest_l:
             for dest in dest_l:
-                logger.info("Inserting " + orig + " to " + dest + ".")
+                print ("Inserting " + orig + " to " + dest + ".")
                 if orig == dest:
                     break
                 try:
@@ -485,14 +485,27 @@ def perform_db_maintenance(action_list : List[str]) -> None :
 
             # this takes care if duplicates
             odroid_cur.execute('SELECT * from flights_live;')
-            # old way, does not always work:
-            #calibrate_cur.executemany( """INSERT INTO flights_live
-            #                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-            #                         , odroid_cur.fetchall() )
-            for flight_entry in odroid_cur:
-                calibrate_cur.execute('INSERT INTO flights_live VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                                      flight_entry)
-
+            for row in odroid_cur:
+                date_fetched, orig, dest, price, flight_nb, start_date, duration, end_date, airline, code, coach_class = row 
+                # row in the form: 
+                # datetime.datetime(2018, 5, 11, 11, 34, 35), 'BDL', 'FLL', 101.98, '9796-1806191642--32171-0-11560-1806191950', datetime.date(2018, 6, 19), datetime.timedelta(0, 60120), datetime.datetime(2018, 6, 19, 19, 50), 'B6', '1459', 'economy')
+                start_date_tmp = datetime.datetime(start_date.year, start_date.month, start_date.day)
+                calibrate_cur.execute( "INSERT INTO flights_live VALUES ('" + \
+                                           "','".join([ date_fetched.isoformat()
+                                                        , orig
+                                                        , dest
+                                                        , str(price)
+                                                        , flight_nb
+                                                        , start_date.isoformat()
+                                                        , (start_date_tmp + duration).time().isoformat()
+                                                        , end_date.isoformat()
+                                                        , airline
+                                                        , code
+                                                        , coach_class]) + "')")
+            # old routines 
+            # calibrate_cur.executemany( """INSERT INTO flights_live 
+            #                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+            #                          , odroid_cur.fetchall() )
             mysql_conn_calibrate.commit()
 
             # remove the live flights from odroid
