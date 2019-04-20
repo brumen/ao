@@ -7,12 +7,7 @@ import logging
 
 from numpy.random import multivariate_normal as mn_cpu
 
-logger = logging.getLogger(__name__)  # mc logger
-
-#if sys.version_info < (3, 0):
-#    import cuda.vtpm_cpu as vtpm_cpu  # avx & omp analysis
-#else:
-#    import cuda.vtpm_cpu3 as vtpm_cpu
+logger = logging.getLogger(__name__)
 
 if config.CUDA_PRESENT:
     import cuda_ops as co
@@ -63,7 +58,7 @@ def ln_step( F_sim_prev
            , rn_sim_l
            , cuda_ind = False):
     """
-    log-normal step of one step monte carlo
+    Log-normal step of one step monte carlo
 
     """
 
@@ -72,9 +67,6 @@ def ln_step( F_sim_prev
         expon_part += d_v_used * T_diff
         return F_sim_prev * np.exp(expon_part)
     else:  # gpu
-        # F_sim_part = co.vtpm_cols_new_hd(s_v_used, rn_sim_l, tm_ind='t')
-        # F_sim_part = co.vtpm_cols_new_hd(- 0.5 * s_v_used**2 * T_diff, F_sim_part, tm_ind='p')
-        # F_sim_part = co.vtpm_cols_new_hd_ao(- 0.5 * s_v_used**2 * T_diff, s_v_used, rn_sim_l)
         co.vtpm_cols_new_hd_ao(- 0.5 * s_v_used ** 2 * T_diff, np.sqrt(T_diff) * s_v_used, rn_sim_l)
         F_sim_part = rn_sim_l
         F_sim_part = co.vtpm_cols_new_hd(d_v_used * T_diff, F_sim_part, tm_ind='p')
@@ -109,17 +101,10 @@ def normal_step( F_sim_prev
 
     if not cuda_ind:
         F_sim_next = F_sim_prev + s_v_used * np.sqrt(T_diff) * rn_sim_l
+
         if d_v_used is not None:
            F_sim_next += d_v_used * T_diff
 
-        #F_sim_cols, F_sim_rows = F_sim_prev.shape
-        #vtpm_cpu.vm_ao( F_sim_prev
-        #              , d_v_used * T_diff
-        #              , s_v_used * np.sqrt(T_diff)
-        #              , rn_sim_l
-        #              , F_sim_next
-        #              , F_sim_cols
-        #              , F_sim_rows)
     else:
         F_sim_next = co.vtpm_cols_new_hd( s_v_used * np.sqrt(T_diff)
                                         , rn_sim_l
@@ -132,27 +117,21 @@ def normal_step( F_sim_prev
     return F_sim_next
 
 
-def create_vol_drift_vectors( T_curr
-                            , T_diff
-                            , s_v
-                            , d_v
-                            , ttm ):
+def create_vol_drift_vectors( T_curr : float
+                            , T_diff : float
+                            , s_v    : np.array
+                            , d_v    : np.array
+                            , ttm    : np.array ) -> np.array :
     """
     Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
     from s_v, d_v.
     
     :param T_curr: current time
-    :type T_curr: double
     :param T_diff: difference to the next time
-    :type T_diff: double
     :param s_v: array of vols for the corresponding flights
-    :type s_v: np.array of double
     :param d_v: array of drifts for the corresponding flights (could be none)
-    :type d_v: np.array of double
-    :param ttm: time to maturity
-    :type ttm: np.array of times to maturity for the corresponding flights
+    :param ttm: to maturity for the corresponding flights
     :returns: a pair of calculated volatilities/drifts for the flights
-    :rtype: tuple of np.array (of doubles)
     """
 
     s_v_used = np.array([integrate_fct(lambda vol: s_vol
@@ -334,7 +313,7 @@ def mc_mult_steps( F_v
 
 def add_zero_to_Tl(T_list):
     """
-    Adds a zero to T_l if T_list doesnt already have it
+    Adds a zero to T_l if T_list doesnt already have it.
 
     :param T_list:  list of simulation times
     :type T_list:   list
@@ -345,9 +324,9 @@ def add_zero_to_Tl(T_list):
     if T_list[0] != 0.:
         T_l_local = np.zeros(len(T_list) + 1)
         T_l_local[1:] = T_list
-    else:
-        T_l_local = T_list
-    return T_l_local
+        return T_l_local
+
+    return T_list
 
 
 def mc_mult_steps_ret( F_v
@@ -388,10 +367,7 @@ def mc_mult_steps_ret( F_v
     T_v_exp_dep, T_v_exp_ret = T_v_exp  # expiry values 
     rho_m_dep,   rho_m_ret   = rho_m
     nb_fwds_dep, nb_fwd_ret  = len(F_v_dep), len(F_v_ret)
-    T_l_diff_dep             = np.diff(T_l_dep)
-
-    F_sim = np.empty((nb_fwds_dep, nb_sim)) if not cuda_ind else gpa.empty((nb_fwds_dep, nb_sim), np.double)
-    F_v_shape = F_v_dep.shape
+    F_v_shape                = F_v_dep.shape
 
     # assumption F_v and s_v are in the same format
     if len(F_v_shape) == 1 or F_v_shape[0] == 1:
@@ -401,32 +377,10 @@ def mc_mult_steps_ret( F_v
         F_v_used = F_v_dep
         T_v_used = T_v_exp_dep
 
-    if not cuda_ind:
-        F_sim[:, :] = F_v_used
-    else:
-        F_sim = co.set_mat_by_vec(F_v_used, nb_sim)
-
-    if d_v is not None:
-        d_v_ret_used = d_v_ret
-    else:
-        d_v_ret_used = None
-
-    # return simulations generated
-    F_sim_ret_max = np.amax(mc_mult_steps( F_v_ret
-                                         , s_v_ret
-                                         , d_v_ret_used
-                                         , T_l_ret
-                                         , rho_m_ret
-                                         , nb_sim
-                                         , T_v_exp_ret
-                                         , model    = model
-                                         , cuda_ind = cuda_ind)
-                           , axis=0 )
-
     # departure and return connected
-    return mc_one_way( F_sim
+    return mc_one_way( F_v_used if not cuda_ind else co.set_mat_by_vec(F_v_used, nb_sim)
                      , mn_cpu if not cuda_ind else mn_gpu
-                     , T_l_diff_dep
+                     , np.diff(T_l_dep)
                      , T_l_dep
                      , T_v_used
                      , s_v_dep
@@ -435,7 +389,17 @@ def mc_mult_steps_ret( F_v
                      , nb_fwds_dep
                      , nb_sim
                      , model
-                     , F_sim_ret_max
+                     # return simulations generated
+                     , np.amax(mc_mult_steps( F_v_ret
+                                            , s_v_ret
+                                            , d_v_ret if d_v is not None else None
+                                            , T_l_ret
+                                            , rho_m_ret
+                                            , nb_sim
+                                            , T_v_exp_ret
+                                            , model    = model
+                                            , cuda_ind = cuda_ind)
+                              , axis = 0 )
                      , rho_m_dep)
 
 
