@@ -20,7 +20,7 @@ import ao_params
 from ao_codes import MAX_TICKET, MIN_PRICE
 
 
-logger = logging.getLogger(__name__)  # root logger
+logger = logging.getLogger(__name__)
 
 
 def date_today():
@@ -38,7 +38,7 @@ def date_today():
 
 def data_yield(data_dict):
     """
-    Returns the data_dict in the form that server understands
+    Returns the data_dict in the form that server understands.
 
     :param data_dict: dictionary to be sent to the browser
     :type data_dict: dict
@@ -46,7 +46,6 @@ def data_yield(data_dict):
     :rtype: str
     """
 
-    # return "data: {0}\n\n".format(json.dumps(data_dict))
     return json.dumps(data_dict)
 
 
@@ -69,7 +68,7 @@ def air_option( F_v
     :type s_v: np.array or (np.array, np.array)
     :param T_l: simulation list, same as s_v
     :type T_l: np.array or (np.array, np.array)
-    :param T_mat: maturity list 
+    :param T_mat: maturity list
     :param K: strike price
     :param d_v: functions that describe the drift of the forward (list form)
        d_v[i] is a function of (F_prev, ttm, time_step, params)
@@ -91,13 +90,17 @@ def air_option( F_v
         nb_fwds = len(F_v)
         rho_m = vols.corr_hyp_sec_mat(rho, range(nb_fwds))
 
-    args = [ F_v, s_v, d_v, T_l, rho_m, nb_sim, T_mat ]
-    kwargs = { 'model'   : underlyer
-             , 'cuda_ind': cuda_ind}
-
     mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 
-    F_max = mc_used(*args, **kwargs)  # simulation of all flight prices
+    F_max = mc_used(F_v
+                    , s_v
+                    , d_v
+                    , T_l
+                    , rho_m
+                    , nb_sim
+                    , T_mat
+                    , model= underlyer
+                    , cuda_ind=cuda_ind)  # simulation of all flight prices
 
     # final option payoff
     if not cuda_ind:
@@ -155,7 +158,7 @@ def compute_option_raw( F_v
                               , underlyer = underlyer )
 
     # markups to the option value
-    percentage_markup = ao_codes.reserves + ao_codes.tax_rate # 10 % markup 
+    percentage_markup = ao_codes.reserves + ao_codes.tax_rate
 
     if type(F_v) is not tuple:
         F_v_max = np.max(F_v)
@@ -166,7 +169,7 @@ def compute_option_raw( F_v
     min_payoff = max(MIN_PRICE, F_v_max / ao_codes.ref_base_F * MIN_PRICE)
 
     return max(min_payoff, (1. + percentage_markup) * opt_val_final)
-    
+
 
 def construct_sim_times( date_start
                        , date_end
@@ -258,10 +261,10 @@ def find_minmax_flight_subset( reorg_flights_v
 
     if not ret_ind:  # outbound flight only
         return find_minmax_ow(reorg_flights_v)
-    else:  # return flight 
+    else:  # return flight
         return find_minmax_ow(reorg_flights_v[0]), find_minmax_ow(reorg_flights_v[1])
 
-    
+
 # these two functions (d_v_fct and s_v_fct) are here for pickle reasons
 def s_v_fct(s, t):
     """
@@ -335,10 +338,7 @@ def sort_all(F_v, F_mat, s_v, d_v, fl_v):
 
     """
 
-    zip_ls = sorted(zip(F_v, F_mat, s_v, d_v, fl_v))
-    F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s = zip(*zip_ls)
-
-    return F_v_s, F_mat_s, s_v_s, d_v_s, fl_v_s
+    return zip(*sorted(zip(F_v, F_mat, s_v, d_v, fl_v)))
 
 
 def obtain_flights( origin_place
@@ -412,7 +412,7 @@ def obtain_flights( origin_place
         if out_date_str in reorg_flights:  # reorg_flights has string keys
 
             F_v.extend(ticket_val)
-            io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( map(lambda x: x[1], flights) # just the departure time
+            io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( [x[1] for x in flights]  # just the departure time
                                                                      , origin_used
                                                                      , dest_used
                                                                      , carrier
@@ -611,11 +611,8 @@ def get_flight_data( flights_include     = None
     if return_flight:
         inbound_date_range = ds.construct_date_range(inbound_date_start, inbound_date_end)
 
-    if recompute_ind:
-        obtain_flights_f = obtain_flights_recompute
-    else:
-        obtain_flights_f = obtain_flights
-        
+    obtain_flights_f = obtain_flights_recompute if recompute_ind else obtain_flights
+
     # departure flights, always establish
     if not return_flight:
 
@@ -647,7 +644,7 @@ def get_flight_data( flights_include     = None
                 publisher_ao.publish(data_yield({ 'finished': True
                                                 , 'result'  : 'Outbound flight error.'}))
             return [], [], [], [], [], [], False
-        
+
         F_v_dep, F_mat_dep, s_v_dep, d_v_dep, \
             flights_v_dep = sort_all( F_v_dep_uns
                                     , F_mat_dep_uns
@@ -791,7 +788,9 @@ def compute_option_val( origin_place          = 'SFO'
                       , flights_supplied      = None
                       , recompute_ind         = False
                       , correct_drift         = True
-                      , publisher_ao          = False ):
+                      , publisher_ao          = False
+                      , compute_all           = True
+                      , complete_set_options  = 3 ):
     """
     computes the flight option
 
@@ -874,74 +873,54 @@ def compute_option_val( origin_place          = 'SFO'
                                          , option_ret_end_date
                                          , date_today_dt
                                          , simplify_compute = simplify_compute)
-        
-    if not return_flight:  # one-way flight
-        F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, valid_ind = flights
 
-    else:  # return flight
-        (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), \
-            (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
-            (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), valid_ind = flights
-        
+    F_v_used, F_mat_used, flights_v_used, reorg_flights_v_used, s_v_used, d_v_used, valid_ind = flights
+    F_v_dep = F_v_used if not return_flight else F_v_used[0]  # departure flights
+
     # sequential option parameter setup
-    if len(F_v_dep) == 0 or (not valid_ind):  # len
-        opt_val_final = "Invalid"
-        compute_all = False
+    if len(F_v_dep) == 0 or (not valid_ind):  # wrong inputs, no flights
+        return 'Invalid', [], [], [],
 
-    else:
-        compute_all = True
-        if not return_flight:  # one way flight
-            F_v_used = F_v_dep
-            F_mat_used = F_mat_dep
-            s_v_used = s_v_dep
-            d_v_used = d_v_dep
-            T_l_used = T_l_dep_num
+    T_l_used = T_l_dep_num if not return_flight else (T_l_dep_num, T_l_ret_num)
 
-        else:  # return flight
-            F_v_used = (F_v_dep, F_v_ret)
-            F_mat_used = (F_mat_dep, F_mat_ret)
-            s_v_used = (s_v_dep, s_v_ret)
-            d_v_used = (d_v_dep, d_v_ret)
-            T_l_used = (T_l_dep_num, T_l_ret_num)
+    opt_val_final = compute_option_raw( F_v_used
+                                      , s_v_used
+                                      , d_v_used
+                                      , T_l_used
+                                      , F_mat_used
+                                      , K
+                                      , rho
+                                      , nb_sim     = nb_sim
+                                      , cuda_ind   = cuda_ind
+                                      , underlyer  = underlyer )\
+                    * np.int(adults)
 
-        opt_val_final = compute_option_raw( F_v_used
-                                          , s_v_used
-                                          , d_v_used
-                                          , T_l_used
-                                          , F_mat_used
-                                          , K
-                                          , rho
-                                          , nb_sim     = nb_sim
-                                          , cuda_ind   = cuda_ind
-                                          , underlyer  = underlyer )\
-                        * np.int(adults)
+    def __getOutboundTL(outbound_date_start):
+        """
+        Ancilliary function for getting the outbound dates and simulation times.
+        TODO: Comment better.
+        """
+
+        return compute_date_by_fraction(date_today_dt
+                                       , outbound_date_start
+                                       , complete_set_options - ri
+                                       , complete_set_options) \
+             , construct_sim_times(date_today_dt
+                                  , outbound_date_consid
+                                  , date_today_dt
+                                  , simplify_compute=simplify_compute)
 
     # construct the price range
-    price_range = dict()
-    if price_by_range and compute_all:  # compute_all guarantees there is something to compute
-        complete_set_options = 3  # how many options to compute (default = 3)
+    if price_by_range:  # compute_all guarantees there is something to compute
+        price_range = {}
         for ri in range(complete_set_options):
-            outbound_date_consid = compute_date_by_fraction( date_today_dt
-                                                           , outbound_date_start
-                                                           , complete_set_options-ri
-                                                           , complete_set_options)
-            T_l_dep_num = construct_sim_times( date_today_dt
-                                             , outbound_date_consid
-                                             , date_today_dt
-                                             , simplify_compute = simplify_compute)
+            outbound_date_consid, T_l_dep_num = __getOutboundTL(outbound_date_start)
 
             if not return_flight:
                 T_l_used = T_l_dep_num
                 key_ind = ds.convert_datetime_str(outbound_date_consid)
             else:
-                inbound_date_consid = compute_date_by_fraction( date_today_dt
-                                                              , inbound_date_start
-                                                              , complete_set_options-ri
-                                                              , complete_set_options)
-                T_l_ret_num = construct_sim_times( date_today_dt
-                                                 , inbound_date_consid
-                                                 , date_today_dt
-                                                 , simplify_compute = simplify_compute)
+                inbound_date_consid, T_l_ret_num = __getOutboundTL(inbound_date_start)
                 T_l_used = (T_l_dep_num, T_l_ret_num)
                 key_ind = ds.convert_datetime_str(outbound_date_consid) + ' - ' + ds.convert_datetime_str(inbound_date_consid)
 
@@ -959,22 +938,8 @@ def compute_option_val( origin_place          = 'SFO'
                               * np.int(adults)
             price_range[key_ind] = int(np.ceil(opt_val_scenario))
 
-    if compute_all:
-
-        if price_by_range:  # compute ranges
-            if not return_flight:  # one-way
-                return opt_val_final, price_range, flights_v_dep, reorg_flights_v_dep, \
-                    find_minmax_flight_subset(reorg_flights_v_dep, ret_ind=False)
-            else:  # return
-                return opt_val_final, price_range, (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
-                    find_minmax_flight_subset((reorg_flights_v_dep, reorg_flights_v_ret), ret_ind=True)
-
-        else:  # dont compute range
-            if not return_flight:
-                return opt_val_final, [], flights_v_dep, reorg_flights_v_dep, \
-                    find_minmax_flight_subset(reorg_flights_v_dep, ret_ind=False)  # reorg_flights_v_dep
-            else:
-                return opt_val_final, [], (flights_v_dep, flights_v_ret), (reorg_flights_v_dep, reorg_flights_v_ret), \
-                    find_minmax_flight_subset((reorg_flights_v_dep, reorg_flights_v_ret), ret_ind=True)
-    else:
-        return opt_val_final, [], [], [], []
+    return opt_val_final, \
+           price_range if price_by_range else [], \
+           flights_v_used,\
+           reorg_flights_v_used, \
+           find_minmax_flight_subset(reorg_flights_v_used, ret_ind=return_flight)
