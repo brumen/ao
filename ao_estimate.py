@@ -1,14 +1,15 @@
 # estimate the volatility and drift of air option stochastic processes
 #
 
-import numpy as np
-import pandas as pd
-import datetime as dt
+import datetime
 import time
 import sqlite3
+
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm  # quantiles of normal distr. norm.ppf(x)
-from tkinter     import Frame, Button, Label
+from tkinter import Frame, Button, Label
 
 import ds
 import ao_db
@@ -21,14 +22,14 @@ class EmptyFlights(Exception):
     pass
 
 
-def date_in_season(date, season):
+def date_in_season(date : datetime.date, season : str):
     """
     checks whether date is in season
     :param date: given in date format, datetime format or any list related format 
     :param season: either 'summer' or 'winter'
     """
 
-    cnd_outer = type(date) is dt.date or type(date) is dt.datetime
+    cnd_outer = type(date) is datetime.date or type(date) is datetime.datetime
 
     if season == 'summer':
         if cnd_outer:
@@ -71,7 +72,7 @@ def hour_in_section(hour, section):
     :type section:  str
     """
 
-    if type(hour) is dt.time:
+    if type(hour) is datetime.time:
         return hour_in_section_atomic(hour.hour, section)
     else:  # a list, go over
         return [hour_in_section_atomic(h.hour, section) for h in hour]
@@ -232,9 +233,9 @@ def flight_vol_mysql( orig
                                  , correct_drift_vol = correct_drift_vol )
 
 
-def flight_vol_intern( orig
-                     , dest
-                     , carrier
+def flight_vol_intern( orig : str
+                     , dest : str
+                     , carrier : str
                      , df1
                      , dep_hour          = 'morning'
                      , dep_day           = 'weekday'
@@ -248,11 +249,8 @@ def flight_vol_intern( orig
     compute the volatility of particular flight between orig, dest and carrier
 
     :param orig: IATA code of the originating airport (like 'EWR')
-    :type orig:  str
     :param dest: IATA code of the dest. airport
-    :type orig:  str
     :param carrier: IATA code of the carrier airline ('UA')
-    :type carrier:  str
     :param df1: data frame related to flights, has to be in the form given in flight_vol
     :param dep_hour: departure hour, one of 'morning', 'afternoon', 'evening', 'night'
     :param dep_day: 'weekday', 'weekend' 

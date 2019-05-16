@@ -95,8 +95,7 @@ def normal_step( F_sim_prev
     :type d_v_used:    np.array, shape = (nb_contracts, 1)
     :param rn_sim_l:   simulation numbers,
     :type rn_sim_l:    np.array, shape = (nb_contracts, nb_sims)
-    :param cuda_ind:   indicator whether to use cuda or not
-    :type cuda_ind:    bool
+    :param cuda_ind:   indicator whether to use cuda or not, True or False
     """
 
     if not cuda_ind:
@@ -121,7 +120,7 @@ def create_vol_drift_vectors( T_curr : float
                             , T_diff : float
                             , s_v    : np.array
                             , d_v    : np.array
-                            , ttm    : np.array ) -> np.array :
+                            , ttm    : np.array ) -> np.array:
     """
     Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
     from s_v, d_v.
@@ -158,8 +157,8 @@ def create_vol_drift_vectors( T_curr : float
 def mc_one_way( F_sim
               , mn
               , T_l_diff
-              , T_l_local
-              , T_v_exp
+              , T_l_local : np.array
+              , T_v_exp   : np.array
               , s_v
               , d_v
               , cuda_ind
@@ -178,9 +177,7 @@ def mc_one_way( F_sim
     :param T_l_diff: difference between simulation times
     :type T_l_diff: list[double] or np.array
     :param T_l_local: ???
-    :type T_l_local: np.array
     :param T_v_exp: vector of expiry values
-    :type T_v_exp: np.array
     :param s_v: volatilities for departure
     :type s_v: np.array (nb_flights)
     :param d_v: drift of departure flights
@@ -243,12 +240,12 @@ def mc_one_way( F_sim
 
 
 def mc_mult_steps( F_v
-                 , s_v
-                 , d_v
+                 , s_v : np.array
+                 , d_v : np.array
                  , T_l
                  , rho_m
                  , nb_sim
-                 , T_v_exp
+                 , T_v_exp : np.array
                  , model    = 'n'
                  , F_ret    = None
                  , cuda_ind = False):
@@ -258,7 +255,6 @@ def mc_mult_steps( F_v
     :param F_v: list of forward values
     :type F_v:  list??/ numpy array of forward values 
     :param s_v: vector of vols for forward vals
-    :type s_v:  np.array
     :param T_l: list of time points at which all F_v should be simulated
     :type T_l: np.array
     :param rho_m: correlation matrix
@@ -268,9 +264,7 @@ def mc_mult_steps( F_v
     :type T_v_exp:  np.array
     :param F_prev:  previous values of the forward process TODO
     :param d_v: drift of the forward ticket process
-    :type d_v:  np.array
-    :param model: model used for simulation
-    :type model:  string, 'ln' for log-normal, or 'n' for normal
+    :param model: model used for simulation, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
     :param cuda_ind: cuda inidcator 
     :returns: matrix of simulation values in the shape [time_step, simulation, fwd] or new parameters
@@ -405,14 +399,13 @@ def mc_mult_steps_ret( F_v
 
 def mn_gpu(unimp, rho_m, size=100):
     """
-    standard multivariate normal with rho_m as correlation variable
+    Standard multivariate normal with rho_m as correlation variable
 
     :param unimp: unimportant, so that it coincides w/ mn from numpy
     :type unimp:  None
     :param rho_m: correlation matrix
     :type rho_m:  rectangular 2-dimensional np.array
-    :param size:  number of simulation variables
-    :type size:   int
+    :param size:  number of simulation variables, an integer
     """
 
     nb_fwds = rho_m.shape[0]

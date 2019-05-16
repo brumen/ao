@@ -89,7 +89,6 @@ def get_tod(time_str):
     morning_ind = morning_dt[0] < hour_dt < morning_dt[1]
     afternoon_ind = afternoon_dt[0] < hour_dt < afternoon_dt[1]
     evening_ind = evening_dt[0] < hour_dt < evening_dt[1]
-    # night_ind = night_dt[0] < hour_dt < night_dt[1]
 
     if morning_ind:
         time_of_day_res = 'morning'
@@ -103,20 +102,15 @@ def get_tod(time_str):
     return time_of_day_res 
 
 
-def get_weekday_ind(week_day_int):
+def get_weekday_ind(week_day_int : int) -> str:
     """
     returns whether the week_day in integer format is a week day or a weekend day
 
     :param week_day_int: integer value of the week day
-    :type week_day_int:  int
     :returns:            weekday, weekend
-    :rtype:              str
     """
 
-    if week_day_int in weekday_days:
-        return 'weekday'
-    else:
-        return 'weekend'
+    return 'weekday' if week_day_int in weekday_days else 'weekend'
 
 
 # clusters of airports that can be considered together
@@ -141,7 +135,7 @@ fees = {"Airtran"  : {"ticket_change": 150.,
 
 def import_iata_codes():
     """
-    import iata codes from the file iata_file
+    Import iata codes from the file iata_file
 
     """
 
