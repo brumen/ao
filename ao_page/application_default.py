@@ -7,40 +7,28 @@ import datetime
 import config
 import ao_codes
 
-from time             import localtime
-from threading        import Thread
-from sse              import Publisher
+from time import localtime
 
 # from logging.handlers import MemoryHandler
-from flask            import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response
 
 # from ao_scripts.find_relevant_carriers import get_carrier_l
-from ao_scripts.verify_origin          import is_valid_origin \
-                                            , is_valid_airline \
-                                            , show_airline_l \
-                                            , show_airport_l \
-                                            , get_carrier_l
-from ao_scripts.compute_option         import compute_option
+from ao_scripts.verify_origin import is_valid_origin \
+                                   , is_valid_airline \
+                                   , show_airline_l \
+                                   , show_airport_l \
+                                   , get_carrier_l
+
+from ao_scripts.compute_option import compute_option
 
 
-logger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-
-
-class AOParsingFilter(logging.Filter):
-    """
-    Filters out the records which AO produces
-    """
-
-    def filter(self, record):
-        return not record.getMessage().startswith('AO')
-
-
-# logger setup
 logging.basicConfig( filename = os.path.join(config.log_dir, 'ao.log')
                    , level    = logging.CRITICAL)
+
 logger = logging.getLogger()  # root logger
 logger.setLevel(logging.INFO)
 # logger_handler = logging.FileHandler())
+# logger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
 # logger_handler.setFormatter(logging.Formatter(logger_format))
 # logger.addHandler(logger_handler)
 # computeStream = ComputeStream()  # object keeping the messages
@@ -54,10 +42,6 @@ logger.setLevel(logging.INFO)
 app = Flask(__name__)
 app.debug = True
 app.use_debugger = False
-# app.use_reloader = False
-
-# publisher
-publisher_ao = Publisher()
 
 
 def time_now():
@@ -132,6 +116,7 @@ def write_inquiry():
     return jsonify({'valid': True})
 
 
+# TODO: CHECK IF THIS IS GET???/
 @app.route('/compute_option', methods = ['GET'])
 def compute_option_flask():
     """
@@ -139,16 +124,9 @@ def compute_option_flask():
 
     """
 
-    publisher_ao_local = Publisher()
+    # compute_option has to be a generator
 
-    Thread( target = compute_option
-          , args   = (request.args, )
-          , kwargs = { "publisher_ao" : publisher_ao_local  # publisher_ao
-                     , "recompute_ind": False
-                     , 'compute_id': str(datetime.datetime.now()) } ).start()
-
-    return Response( publisher_ao_local.subscribe()
-                   , mimetype="text/event-stream" )
+    return Response(compute_option(request.args), mimetype="text/event-stream")
 
 
 @app.route('/ao_auto_fill_origin')

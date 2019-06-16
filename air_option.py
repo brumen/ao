@@ -302,10 +302,16 @@ def obtain_flights_mat( flights
 
 
 def sort_all( F_v : np.array
-            , F_mat, s_v, d_v, fl_v):
+            , F_mat
+            , s_v
+            , d_v
+            , fl_v
+            , reorg_flights_v ):
     """
     Sorts the flights according to the F_v,
     _Important_ assmption being that similar flights by values are most correlated.
+
+    regorg_flights_v is useless TODO: FIX LATER.
 
     :param F_v: vector of flight prices
     """
@@ -322,8 +328,7 @@ def obtain_flights( origin_place : str
                   , adults             = 1
                   , insert_into_livedb = True
                   , io_ind             = 'out'
-                  , correct_drift      = True
-                  , publisher_ao       = None ):
+                  , correct_drift      = True):
     """
     Get the flights for outbound and/or inbound flight
 
@@ -336,29 +341,20 @@ def obtain_flights( origin_place : str
     :param io_ind:        inbound/outbound indicator ('in', 'out')
     :param correct_drift: whether to correct the drift, as described in the documentation
     :param cabinclass:    cabin class, one of 'Economy', ...
-    :returns:
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
 
     reorg_flights_v = dict()
 
-    if io_ind == 'out':  # outbound
-        origin_used, dest_used = origin_place, dest_place
-    else:  # inbound, reverse the origin, destination
-        origin_used, dest_used = dest_place, origin_place
+    # outbound, else inbound, reverse the origin, destination
+    origin_used, dest_used = (origin_place, dest_place) if io_ind == 'out' else (dest_place, origin_place)
 
     for out_date in in_out_date_range:
 
         out_date_str = out_date.isoformat()
-        logger.info(';'.join([ 'AO'
-                              ,  json.dumps( {'finished': False,
-                                              'results' : 'Fetching flights for ' + out_date_str} ) ]) )
 
-        if publisher_ao:
-            publisher_ao.publish(json.dumps({ 'finished': False
-                                            , 'result'  : 'Fetching flights for ' + out_date_str}))
-
+        yield out_date  # TODO: check this HERE
         ticket_val, flights, reorg_flights = \
             air_search.get_ticket_prices( origin_place       = origin_used
                                         , dest_place         = dest_used
@@ -367,14 +363,6 @@ def obtain_flights( origin_place : str
                                         , cabinclass         = cabinclass
                                         , adults             = adults
                                         , insert_into_livedb = insert_into_livedb)
-
-        logger.info(';'.join([ 'AO'
-                              , json.dumps({'finished'    : False,  # is_return_for_writing and last_elt,
-                                            'results': 'Fetched flights for ' + out_date_str } ) ] ) )
-
-        if publisher_ao:
-            publisher_ao.publish(json.dumps({ 'finished': False
-                                            , 'result'  : 'Fetched flights for ' + out_date_str } ) )
 
         # does the flight exist for that date??
         if out_date_str in reorg_flights:  # reorg_flights has string keys
@@ -398,9 +386,9 @@ def obtain_flights( origin_place : str
     F_mat = np.array(F_mat)
 
     if len(F_v) > 0:  # there are actual flights
-        return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
-    else:  # no flights, indicate that it is wrong
-        return [], [], [], [], [], [], 'Invalid'
+        yield F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
+
+    yield None  # no flights
 
 
 def filter_prices_and_flights( price_l
@@ -585,43 +573,23 @@ def get_flight_data( flights_include     = None
     # departure flights, always establish
     if not return_flight:
 
-        if publisher_ao:
-            publisher_ao.publish(json.dumps({ 'finished': False
-                                            , 'result' : 'Fetching outbound data.'}))
+        obtained_flights = obtain_flights_f( origin_place
+                                           , dest_place
+                                           , carrier
+                                           , outbound_date_range
+                                           , flights_include
+                                           , cabinclass            = cabinclass
+                                           , adults                = adults
+                                           , insert_into_livedb    = insert_into_livedb
+                                           , io_ind                = 'out'
+                                           , correct_drift         = correct_drift
+                                           , publisher_ao          = publisher_ao )
 
-        F_v_dep_uns, F_mat_dep_uns,\
-            s_v_dep_u_uns, d_v_dep_u_uns,\
-            flights_v_dep_uns, reorg_flights_v_dep,\
-            valid_check = obtain_flights_f( origin_place
-                                          , dest_place
-                                          , carrier
-                                          , outbound_date_range
-                                          , flights_include
-                                          , cabinclass            = cabinclass
-                                          , adults                = adults
-                                          , insert_into_livedb    = insert_into_livedb
-                                          , io_ind                = 'out'
-                                          , correct_drift         = correct_drift
-                                          , publisher_ao          = publisher_ao )
+        if not obtained_flights:  # if None, flights are not obtained.
+            return None
 
-        if publisher_ao:
-            publisher_ao.publish(json.dumps({ 'finished': False
-                                            , 'result'  : 'Finished outbound flights fetch.' } ))
-
-        if valid_check != 'Valid':  # not valid, return immediately
-            if publisher_ao:
-                publisher_ao.publish(json.dumps({ 'finished': True
-                                                , 'result'  : 'Outbound flight error.'}))
-            return [], [], [], [], [], [], False
-
-        F_v_dep, F_mat_dep, s_v_dep, d_v_dep, \
-            flights_v_dep = sort_all( F_v_dep_uns
-                                    , F_mat_dep_uns
-                                    , s_v_dep_u_uns
-                                    , d_v_dep_u_uns
-                                    , flights_v_dep_uns)
-
-        F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
+        F_v_dep, F_mat_dep, s_v_dep, d_v_dep, flights_v_dep = sort_all(*obtained_flights)
+        F_v_dep   = np.array(F_v_dep)  # these are np.arrays, correct back
         F_mat_dep = np.array(F_mat_dep)
 
     else:  # return flights handling
@@ -631,58 +599,38 @@ def get_flight_data( flights_include     = None
         else:  # all flights taken for computation
             flights_include_dep, flights_include_ret = None, None
 
-        F_v_dep_uns      , F_mat_dep_uns      , \
-        s_v_dep_raw_uns  , d_v_dep_raw_uns    , \
-        flights_v_dep_uns, reorg_flights_v_dep, \
-        valid_check_out = obtain_flights_f( origin_place
-                                          , dest_place
-                                          , carrier
-                                          , outbound_date_range
-                                          , flights_include_dep
-                                          , io_ind        = 'out'
-                                          , correct_drift = correct_drift
-                                          , publisher_ao  = publisher_ao)
+        obtained_flights_ret2 = obtain_flights_f( origin_place
+                                                , dest_place
+                                                , carrier
+                                                , outbound_date_range
+                                                , flights_include_dep
+                                                , io_ind        = 'out'
+                                                , correct_drift = correct_drift )
 
-        if valid_check_out != 'Valid':  # not valid, return immediately
-            return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
+        if not obtained_flights_ret2:  # not valid, return immediately
+            return None
 
-        F_v_dep    , F_mat_dep  , \
-        s_v_dep_raw, d_v_dep_raw, \
-        flights_v_dep = sort_all( F_v_dep_uns
-                                , F_mat_dep_uns
-                                , s_v_dep_raw_uns
-                                , d_v_dep_raw_uns
-                                , flights_v_dep_uns)
-        F_v_dep = np.array(F_v_dep)  # these are np.arrays, correct back
+        F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, flights_v_dep = sort_all(*obtained_flights_ret2)
+        F_v_dep   = np.array(F_v_dep)  # these are np.arrays, correct back
         F_mat_dep = np.array(F_mat_dep)
 
-        F_v_ret_uns, F_mat_ret_uns, \
-        s_v_ret_raw_uns, d_v_ret_raw_uns, \
-        flights_v_ret_uns, reorg_flights_v_ret, \
-        valid_check_in = obtain_flights_f(origin_place
-                                          , dest_place
-                                          , carrier
-                                          , inbound_date_range
-                                          , flights_include_ret
-                                          , io_ind        = 'in'
-                                          , correct_drift = correct_drift
-                                          , publisher_ao  = publisher_ao)
+        obtained_flights_ret = obtain_flights_f( origin_place
+                                               , dest_place
+                                               , carrier
+                                               , inbound_date_range
+                                               , flights_include_ret
+                                               , io_ind        = 'in'
+                                               , correct_drift = correct_drift )
 
-        if valid_check_in != 'Valid':  # not valid, return immediately
-            return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
+        if not obtained_flights_ret:  # not valid, return immediately
+            return None
 
-        F_v_ret, F_mat_ret, \
-        s_v_ret_raw, d_v_ret_raw, \
-        flights_v_ret = sort_all(F_v_ret_uns
-                                 , F_mat_ret_uns
-                                 , s_v_ret_raw_uns
-                                 , d_v_ret_raw_uns
-                                 , flights_v_ret_uns)
+        F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, flights_v_ret = sort_all(*obtained_flights_ret)
 
-        F_v_ret = np.array(F_v_ret)  # these are np.arrays, correct back
+        F_v_ret   = np.array(F_v_ret)  # these are np.arrays, correct back
         F_mat_ret = np.array(F_mat_ret)
 
-        valid_check = (valid_check_out == 'Valid') and (valid_check_in == 'Valid')
+        valid_check = obtained_flights is not None and obtained_flights_ret is not None
 
         if valid_check:
             s_v_dep = s_v_dep_raw
@@ -690,6 +638,7 @@ def get_flight_data( flights_include     = None
             s_v_ret = s_v_ret_raw
             d_v_ret = d_v_ret_raw
 
+    # TODO: reorg_flights_v_dep is in obtained_flights
     if valid_check:
         if not return_flight:
             return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, True
@@ -699,12 +648,7 @@ def get_flight_data( flights_include     = None
                 (reorg_flights_v_dep, reorg_flights_v_ret), \
                 (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), True
 
-    else:  # not valid
-
-        if not return_flight:
-            return [], [], [], [], [], [], False
-        else:
-            return ([], []), ([], []), ([], []), ([], []), ([], []), ([], []), False
+    return None  # not valid
 
 
 def compute_date_by_fraction( dt_today : datetime.date

@@ -5,7 +5,7 @@ import logging
 import json
 
 # ao modules
-from air_option          import compute_option_val, data_yield
+from air_option          import compute_option_val
 from ao_scripts.get_data import get_data
 
 # logger declaration
@@ -15,7 +15,6 @@ logger.addHandler(logging.StreamHandler())
 
 
 def compute_option( form
-                  , publisher_ao  = None
                   , recompute_ind = False
                   , compute_id    = None ) -> dict :
     """
@@ -39,12 +38,10 @@ def compute_option( form
     if recompute_ind:  # recompute part
         sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
 
-    logger.info(';'.join(['AO', 'Initiating flight fetch.']))
 
-    if publisher_ao:
-        publisher_ao.publish(data_yield({ 'finished'  : False
-                                        , 'result'    : 'Initiating flight fetch.'
-                                        , 'compute_id': compute_id } ) )
+    yield { 'finished'  : False
+          , 'result'    : 'Initiating flight fetch.'
+          , 'compute_id': compute_id }
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))
@@ -52,11 +49,10 @@ def compute_option( form
                            , 'result': { 'finished': True
                                        , 'progress_notice': 'finished'  # also irrelevant
                                        , 'valid_inp'      : False } }
-        if publisher_ao:
-            publisher_ao.publish(data_yield( result_not_valid ) )
+        yield result_not_valid
 
         if recompute_ind:  # recompute returns
-            return result_not_valid
+            return result_not_valid  # TODO: CHECK HERE!!
 
     else:
         way_args = { 'origin_place':        origin_place
@@ -77,8 +73,7 @@ def compute_option( form
                              , 'inbound_date_end'     : inbound_end
                              , 'return_flight'        : True } )
 
-        if publisher_ao:
-            way_args.update( { 'publisher_ao': publisher_ao } )
+        yield way_args
 
         if recompute_ind:
             way_args.update({ 'flights_include': sel_flights_dict
@@ -113,7 +108,6 @@ def compute_option( form
                                         , 'minmax'         : minmax_v
                                         , 'price_range'    : price_range} }
 
-            logger.info(';'.join(['AO', data_yield(final_result)]))
 
             if publisher_ao:
                 publisher_ao.publish(data_yield(final_result))

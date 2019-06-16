@@ -75,7 +75,8 @@ def get_itins( origin_place    = 'SIN'
         params_all['market'] = COUNTRY  # add this field
         
     try:
-        result = query_fct(**params_all).parsed
+        return query_fct(**params_all).parsed
+
     except (ConnectionError, AttributeError):
         time.sleep(5)  # wait 5 secs
         if nb_tries <= 5:
@@ -88,8 +89,6 @@ def get_itins( origin_place    = 'SIN'
                             , nb_tries        = nb_tries + 1 )
         else:
             return None  # this is handled appropriately in the get_ticket_prices
-
-    return result
 
 
 def find_carrier(carrier_l, carrier_id):

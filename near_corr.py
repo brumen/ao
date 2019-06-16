@@ -3,10 +3,10 @@
 # Nicholas Higham  "Computing the Nearest Correlation matrix - A Problem in Finance"
 #
 
-import numpy as np
-from numpy import diag, eye, dot, sqrt, zeros
 import scipy
 import scipy.linalg
+
+from numpy import diag, eye, dot, sqrt, zeros, abs, array
 
 
 def u_proj(A, W):
@@ -30,7 +30,7 @@ def mat_positive(A):
     """
 
     A_eig_v, A_eig_m = scipy.linalg.eig(A)
-    return dot(A_eig_m, dot(diag(0.5 * (A_eig_v + np.abs(A_eig_v))), A_eig_m.transpose()))
+    return dot(A_eig_m, dot(diag(0.5 * (A_eig_v + abs(A_eig_v))), A_eig_m.transpose()))
 
 
 def mat_inv_sqrt(A):
@@ -50,30 +50,35 @@ def s_proj(A, W):
     """
     computes S proj of A
     """
+
     W_one_half, W_inv_one_half = mat_inv_sqrt(W)
+
     return dot(W_inv_one_half, dot(mat_positive(dot(W_one_half, dot(A, W_one_half))), W_inv_one_half))
 
 
 def near_corr(A, W, nb_iter):
     """
-    iterative algorithm
+    iterative algorithm for finding the nearest correlation matrix.
+
     """
+
     S = zeros(A.shape)
     Y = A
+
     for ind in range(nb_iter):
         R = Y - S
         X = s_proj(R, W)
         S = X - R
         Y = u_proj(X, W)
+
     return Y.real  # round away the zeros
 
 
-def near_corr_simple(A, nb_iter=10):
+def near_corr_simple(A : array, nb_iter=10):
     """
     computes the nearest correlation matrix to A
 
-    :param A:  matrix to which the correlation is computed
-    :type A:   numpy square matrix
+    :param A:  matrix to which the correlation is computed, a square matrix.
     """
 
     return near_corr(A, eye(A.shape[0]), nb_iter)

@@ -18,11 +18,11 @@ else:
     rn_gen_global = None
 
 
-def integrate_fct( sd_fct
-                 , T_start
-                 , T_end
-                 , ttm
-                 , drift_vol_ind = 'vol'):
+def integrate_vol_drift( sd_fct
+                       , T_start
+                       , T_end
+                       , ttm
+                       , drift_vol_ind = 'vol'):
     '''
     Integrates the drift/volatility of the diffusion process - used in option value calculation
     integrates the drift between the T_start and T_end, where T_start is ttm away from maturity
@@ -116,11 +116,11 @@ def normal_step( F_sim_prev
     return F_sim_next
 
 
-def create_vol_drift_vectors( T_curr : float
-                            , T_diff : float
-                            , s_v    : np.array
-                            , d_v    : np.array
-                            , ttm    : np.array ) -> np.array:
+def vol_drift_vec(T_curr : float
+                  , T_diff : float
+                  , s_v    : np.array
+                  , d_v    : np.array
+                  , ttm    : np.array) -> np.array:
     """
     Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
     from s_v, d_v.
@@ -198,7 +198,7 @@ def mc_one_way( F_sim
     for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
         ttm_used = np.array(T_v_exp) - T_curr
 
-        s_v_used, d_v_used = create_vol_drift_vectors(T_curr, T_diff, s_v, d_v, ttm_used)
+        s_v_used, d_v_used = vol_drift_vec(T_curr, T_diff, s_v, d_v, ttm_used)
 
         if not cuda_ind:
             s_v_used = s_v_used.reshape((len(s_v_used), 1))
@@ -221,9 +221,8 @@ def mc_one_way( F_sim
                                         , cuda_ind = cuda_ind )
 
         if F_ret is None:  # no return flight given
-            # logger.info('FSHAPE:' + str(F_sim_next.shape) + str(F_sim.shape))
             F_sim = np.maximum(F_sim_next, F_sim)  # more proper, although the same as w/ amax
-        else:
+        else:  # return flights
             if not cuda_ind:
                 F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
             else:
