@@ -1,5 +1,7 @@
-# air option computation file
-import config
+#
+# Functions for air flights manipulation.
+#
+
 import datetime
 import numpy as np
 import logging
@@ -9,7 +11,7 @@ import ao_codes
 import air_search
 import ao_params
 
-from ao_codes import MAX_TICKET, MIN_PRICE
+from ao_codes import MAX_TICKET
 
 
 logger = logging.getLogger(__name__)
@@ -21,9 +23,10 @@ def find_minmax_ow(rof):
         hours, etc. ). This function only does that for one-way flights;
         adds fields 'min_max' to reorg_flights_v
 
-    :param rof: TODO HERE
+    :param rof: reorganized flights
     :type rof:  TODO HERE
     """
+
     min_max_dict = dict()  # new dict to return
     change_dates = rof.keys()
     total_min, total_max = MAX_TICKET, 0.
@@ -64,16 +67,14 @@ def find_minmax_ow(rof):
 
 
 def find_minmax_flight_subset( reorg_flights_v
-                             , ret_ind = False):
+                             , ret_ind = False ) -> dict:
     """
     Finds the minimum and maximum of flights in each subset of flights
 
-    :param reorg_flights_v: dictionary structure of flights
-    :type reorg_flights_v:  dict
-    :param ret_ind:         indicator of return flight
-    :type ret_ind:          bool
+    :param reorg_flights_v: dictionary structure of flights TODO: DESCRIBE THE STRUCTURE.
+    :type reorg_flights_v: dict or tuple(dict, dict)
+    :param ret_ind:         indicator of return flight, either True/False
     :returns:               min_max subset over flights
-    :rtype:                 dict
     """
 
     if not ret_ind:  # outbound flight only
@@ -196,9 +197,6 @@ def obtain_flights( origin_place : str
 
             reorg_flights_v[out_date_str] = reorg_flights[out_date_str]
 
-    F_v = np.array(F_v)
-    F_mat = np.array(F_mat)
-
     if len(F_v) > 0:  # there are actual flights
         yield F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
 
@@ -267,8 +265,7 @@ def obtain_flights_recompute( origin_place
                             , adults             = 1
                             , insert_into_livedb = True
                             , io_ind        = 'out'
-                            , correct_drift = True
-                            , publisher_ao  = None):
+                            , correct_drift = True ):
     """
     Get the flights for recompute method.
     IMPORTANT: cabinclass, adults, insert_into_livedb HAVE TO BE THERE, to correspond to obtain_flights fct.
@@ -280,24 +277,21 @@ def obtain_flights_recompute( origin_place
     :type flights_include:  TODO
     :param io_ind:          inbound/outbound indicator ('in', or 'out')
     :type io_ind:           str
-    :param publisher_ao:    publisher object, _NOT_ used by this function, _ONLY_ HERE to be
-                                compatible w/ obtain_flights
-    :type publisher_ao:     sse.Publisher
     """
 
-    F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
-    reorg_flights_v = dict()
     if io_ind == 'out':  # outbound
         origin_used, dest_used = origin_place, dest_place
     else:
         origin_used, dest_used = dest_place, origin_place
 
-    for od in io_dr_minus:  # od ... outbound date, io_dr_minus ... date range in datetime.date format
+    F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
+    reorg_flights_v = dict()
+    for outbound_date in io_dr_minus:  # io_dr_minus ... date range in datetime.date format
         # fliter prices from flights_include
         ticket_val = []
         flights = []  # (id, dep, arr, price, flight_id)
         reorg_flight = {}
-        od_iso = od.isoformat()
+        od_iso = outbound_date.isoformat()
         for tod in flights_include[od_iso]:  # iterating over time of day
             reorg_flight[tod] = {}
             for dep_time in flights_include[od_iso][tod]:
@@ -332,7 +326,7 @@ def obtain_flights_recompute( origin_place
                                        , datetime.date.today() ))  # maturity of forwards
         reorg_flights_v[od_iso] = reorg_flight
 
-    return np.array(F_v), np.array(F_mat), s_v_obtain, d_v_obtain, flights_v, reorg_flights_v, 'Valid'
+    return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
 
 
 def get_flight_data( flights_include     = None
@@ -384,8 +378,7 @@ def get_flight_data( flights_include     = None
 
     obtain_flights_f = obtain_flights_recompute if recompute_ind else obtain_flights
 
-    # departure flights, always establish
-    if not return_flight:
+    if not return_flight:  # departure flights, always establish
 
         obtained_flights = obtain_flights_f( origin_place
                                            , dest_place
@@ -403,8 +396,6 @@ def get_flight_data( flights_include     = None
             return None
 
         F_v_dep, F_mat_dep, s_v_dep, d_v_dep, flights_v_dep = sort_all(*obtained_flights)
-        F_v_dep   = np.array(F_v_dep)  # these are np.arrays, correct back
-        F_mat_dep = np.array(F_mat_dep)
 
     else:  # return flights handling
 
@@ -425,8 +416,6 @@ def get_flight_data( flights_include     = None
             return None
 
         F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, flights_v_dep = sort_all(*obtained_flights_ret2)
-        F_v_dep   = np.array(F_v_dep)  # these are np.arrays, correct back
-        F_mat_dep = np.array(F_mat_dep)
 
         obtained_flights_ret = obtain_flights_f( origin_place
                                                , dest_place
@@ -441,9 +430,6 @@ def get_flight_data( flights_include     = None
 
         F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, flights_v_ret = sort_all(*obtained_flights_ret)
 
-        F_v_ret   = np.array(F_v_ret)  # these are np.arrays, correct back
-        F_mat_ret = np.array(F_mat_ret)
-
         valid_check = obtained_flights is not None and obtained_flights_ret is not None
 
         if valid_check:
@@ -455,11 +441,13 @@ def get_flight_data( flights_include     = None
     # TODO: reorg_flights_v_dep is in obtained_flights
     if valid_check:
         if not return_flight:
-            return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep, True
+            return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep
         else:
-            return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), \
-                (flights_v_dep, flights_v_ret), \
-                (reorg_flights_v_dep, reorg_flights_v_ret), \
-                (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), True
+            return (F_v_dep, F_v_ret),\
+                   (F_mat_dep, F_mat_ret),\
+                   (flights_v_dep, flights_v_ret),\
+                   (reorg_flights_v_dep, reorg_flights_v_ret),\
+                   (s_v_dep, s_v_ret),\
+                   (d_v_dep, d_v_ret)
 
     return None  # not valid
