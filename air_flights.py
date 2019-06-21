@@ -279,10 +279,7 @@ def obtain_flights_recompute( origin_place
     :type io_ind:           str
     """
 
-    if io_ind == 'out':  # outbound
-        origin_used, dest_used = origin_place, dest_place
-    else:
-        origin_used, dest_used = dest_place, origin_place
+    origin_used, dest_used = (origin_place, dest_place) if io_ind == 'out' else (dest_place, origin_place)
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
     reorg_flights_v = dict()
@@ -399,10 +396,8 @@ def get_flight_data( flights_include     = None
 
     else:  # return flights handling
 
-        if flights_include:  # we have a restriction on which flights to include
-            flights_include_dep, flights_include_ret = flights_include
-        else:  # all flights taken for computation
-            flights_include_dep, flights_include_ret = None, None
+        # we have a restriction on which flights to include
+        flights_include_dep, flights_include_ret = flights_include if flights_include else (None, None)
 
         obtained_flights_ret2 = obtain_flights_f( origin_place
                                                 , dest_place
