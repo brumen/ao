@@ -1,7 +1,5 @@
 # Module for checking that the origin is valid
 
-# from typing import List
-
 # old get_carrier function
 from ao_scripts.get_data import validate_airport
 from ao_codes            import iata_codes_airlines
@@ -51,6 +49,7 @@ def is_valid_airline(airline : str) -> bool :
 
     ret_cand_1 = list( filter( lambda x: x.upper().startswith(airline.upper())
                              , IATA_AIRLINES_CODES_l + IATA_CODES_AIRLINES_l ) )
+
     return not (len(ret_cand_1) == 0)
 
 
@@ -62,17 +61,16 @@ def show_airport_l(airport_partial_name: str) -> tuple:
     :returns: the list of potential candidates for the airport
     """
 
-    ret_cand_1 = list(filter( lambda x: airport_partial_name.upper() in x
-                            , IATA_CITIES_CODES_l + IATA_CODES_CITIES_l ) )
+    ret_cand = [x for x in IATA_CITIES_CODES_l + IATA_CODES_CITIES_l
+                if airport_partial_name.upper() in x ]
 
-    if not ret_cand_1:  # nothing found, report problem
-        return []             , False
+    if not ret_cand:  # nothing found, report problem
+        return None
 
-    elif len(ret_cand_1) < 10:
-        return ret_cand_1     , True
+    if len(ret_cand) < 10:
+        return ret_cand
 
-    else:
-        return ret_cand_1[:10], True
+    return ret_cand[:10]
 
 
 def show_airline_l(airline_partial_name : str) -> tuple:
@@ -87,12 +85,12 @@ def show_airline_l(airline_partial_name : str) -> tuple:
                             , IATA_AIRLINES_CODES_l + IATA_CODES_AIRLINES_l ) )
 
     if not ret_cand_1:  # nothing found
-        return []             , False
+        return None
 
     if len(ret_cand_1) < 10:
-        return ret_cand_1     , True
-    else:
-        return ret_cand_1[:10], True
+        return ret_cand_1
+
+    return ret_cand_1[:10]
 
 
 def get_carrier_l(origin, dest):
@@ -100,9 +98,10 @@ def get_carrier_l(origin, dest):
     Populates it w/ all carriers 
 
     """
+
     # get the three letter codes from origin, dest
 
-    return True, IATA_AIRLINES_CODES_l + IATA_CODES_AIRLINES_l
+    return IATA_AIRLINES_CODES_l + IATA_CODES_AIRLINES_l
 
     
 def get_carrier_l_old(origin, dest):
@@ -127,10 +126,12 @@ def get_carrier_l_old(origin, dest):
 
         ret_cand_1 = list(df1['carrier'])
         if len(ret_cand_1) == 0:  # no result
-            return False, []
-        else:  # we have to return all the candidates
-            # extend with flight names
-            ret_cand_1.extend([iata_codes_airlines[x] for x in ret_cand_1])
-            return True, ret_cand_1
-    else:  # wrong inputs
-        return False, []
+            return None
+
+        # we have to return all the candidates
+        # extend with flight names
+        ret_cand_1.extend([iata_codes_airlines[x] for x in ret_cand_1])
+        return ret_cand_1
+
+    # wrong inputs
+    return None

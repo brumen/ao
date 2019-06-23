@@ -1,13 +1,15 @@
 # testing framework for air options
 
 import numpy    as np
-import datetime as dt
+import datetime
 import unittest
 
 
 import ds
 import air_option  as ao
 import ao_estimate as aoe
+
+from air_option import AirOption
 
 
 class TestAirOption(unittest.TestCase):
@@ -18,15 +20,15 @@ class TestAirOption(unittest.TestCase):
 
         """
 
-        self.outDate            = ao.date_today() + dt.timedelta( days = 30 )
-        self.outDatePlusOne     = self.outDate + dt.timedelta( days = 1 )
-        self.optionOutDateStart = ao.date_today() + dt.timedelta ( days = 1 )
-        self.optionOutDateEnd   = self.outDate - dt.timedelta ( days = 1 )
+        self.outDate            = datetime.date.today() + datetime.timedelta( days = 30 )
+        self.outDatePlusOne     = self.outDate + datetime.timedelta( days = 1 )
+        self.optionOutDateStart = datetime.date.today() + datetime.timedelta ( days = 1 )
+        self.optionOutDateEnd   = self.outDate - datetime.timedelta ( days = 1 )
 
-        self.retDate            = self.outDate + dt.timedelta ( days = 7 )
-        self.retDatePlusOne     = self.retDate + dt.timedelta ( days = 1 )
-        self.optionRetDateStart = ao.date_today() + dt.timedelta ( days = 1 )
-        self.optionRetDateEnd   = self.outDate - dt.timedelta ( days = 1 )
+        self.retDate            = self.outDate + datetime.timedelta ( days = 7 )
+        self.retDatePlusOne     = self.retDate + datetime.timedelta ( days = 1 )
+        self.optionRetDateStart = datetime.date.today() + datetime.timedelta ( days = 1 )
+        self.optionRetDateEnd   = self.outDate - datetime.timedelta ( days = 1 )
 
         self.io_dr = ds.construct_date_range( self.outDate
                                             , self.outDatePlusOne)
@@ -41,7 +43,7 @@ class TestAirOption(unittest.TestCase):
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 62./365., 62)
-        res = ao.air_option( tickets
+        res = AirOption.air_option( tickets
                            , s_v
                            , s_v
                            , T_l
@@ -83,13 +85,13 @@ class TestAirOption(unittest.TestCase):
         T_l = np.linspace(1./365., 180./365., 180)
         T_mat = T_l + 0.01  # some increase over T_l
 
-        res = ao.air_option( tickets
-                           , s_v
-                           , s_v
-                           , T_l
-                           , T_mat
-                           , 100.
-                           , nb_sim = nb_sim)
+        res = AirOption.air_option( tickets
+                                  , s_v
+                                  , s_v
+                                  , T_l
+                                  , T_mat
+                                  , 100.
+                                  , nb_sim = nb_sim)
 
         self.assertTrue(True)
 
@@ -191,14 +193,14 @@ class TestAirOption(unittest.TestCase):
 
         v1 = ao.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
-                                  , option_start_date     = dt.date(2018, 2, 25)
-                                  , option_end_date       = dt.date(2018, 5, 15)
-                                  , option_ret_start_date = dt.date(2018, 2, 25)
-                                  , option_ret_end_date   = dt.date(2018, 7, 10)
-                                  , outbound_date_start   = dt.date(2018, 5, 16)
-                                  , outbound_date_end     = dt.date(2018, 5, 17)
-                                  , inbound_date_start    = dt.date(2018, 7, 12)
-                                  , inbound_date_end      = dt.date(2018, 7, 13)
+                                  , option_start_date     = datetime.date(2018, 2, 25)
+                                  , option_end_date       = datetime.date(2018, 5, 15)
+                                  , option_ret_start_date = datetime.date(2018, 2, 25)
+                                  , option_ret_end_date   = datetime.date(2018, 7, 10)
+                                  , outbound_date_start   = datetime.date(2018, 5, 16)
+                                  , outbound_date_end     = datetime.date(2018, 5, 17)
+                                  , inbound_date_start    = datetime.date(2018, 7, 12)
+                                  , inbound_date_end      = datetime.date(2018, 7, 13)
                                   , K                     = 1240.0
                                   , carrier               = 'UA'
                                   , nb_sim                = 10000

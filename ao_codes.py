@@ -82,24 +82,21 @@ def get_tod(time_str):
     """
     gets the time of day if given time string
 
-    :param time_str:   TODO: ????
+    :param time_str:   TODO: time_str should be some time, not a string
     """
+
     hour_dt = ds.convert_hour_time(time_str)
 
-    morning_ind = morning_dt[0] < hour_dt < morning_dt[1]
-    afternoon_ind = afternoon_dt[0] < hour_dt < afternoon_dt[1]
-    evening_ind = evening_dt[0] < hour_dt < evening_dt[1]
+    if morning_dt[0] < hour_dt < morning_dt[1]:
+        return 'morning'
 
-    if morning_ind:
-        time_of_day_res = 'morning'
-    elif afternoon_ind:
-        time_of_day_res = 'afternoon'
-    elif evening_ind:
-        time_of_day_res = 'evening'
-    else:
-        time_of_day_res = 'night'
-        
-    return time_of_day_res 
+    if afternoon_dt[0] < hour_dt < afternoon_dt[1]:
+        return 'afternoon'
+
+    if evening_dt[0] < hour_dt < evening_dt[1]:
+        return 'evening'
+
+    return 'night'
 
 
 def get_weekday_ind(week_day_int : int) -> str:
@@ -129,10 +126,11 @@ fees = {"Airtran"  : {"ticket_change": 150.,
         "Frontier":  {"ticket_change": 50.},
         "JetBlue":   {"ticket_change": 75.,
                       "same day": 50.},
-        "Hawaiian":  {"ticket_change": 30.}  # WIDE RANGE HERE CHANGE
+        "Hawaiian":  {"ticket_change": 30.}
         }
 
 
+# TODO: THESE SHOULDNT BE ALL GENERATED !!!
 def import_iata_codes():
     """
     Import iata codes from the file iata_file

@@ -48,52 +48,34 @@ def construct_sim_times( date_start    : datetime.date
     return [(T_l[-1] - date_today_dt).days/dcf]
 
 
-class AirOption:
+class AirOptionFlights:
     """
     Class for handling the air options
 
     """
 
-    @classmethod
-    def option_from_flights(cls
-                           , origin_place='SFO'
-                           , dest_place='EWR'
-                           , flights_include=None
-                           # when can you change the option
-                           , option_start_date=None
-                           , option_end_date=None
-                           , option_ret_start_date=None
-                           , option_ret_end_date=None
-                           # next 4 - when do the (changed) flights occur
-                           , outbound_date_start=None
-                           , outbound_date_end=None
-                           , inbound_date_start=None
-                           , inbound_date_end=None
-                           , K=1600.
-                           , carrier='UA'
-                           , nb_sim=10000
-                           , rho=0.95
-                           , adults=1
-                           , cabinclass='Economy'
-                           , cuda_ind=False
-                           , simplify_compute='take_last_only'
-                           , underlyer='n'
-                           , price_by_range=True
-                           , return_flight=False
-                           , recompute_ind=False
-                           , correct_drift=True
-                           , publisher_ao=False
-                           , compute_all=True
-                           , complete_set_options=3):
+    def __init__( self
+                , flights
+                , nb_adults     = 1
+                # when can you change the option
+                , option_start_date     = None
+                , option_end_date       = None
+                , option_ret_start_date = None
+                , option_ret_end_date   = None
+                , K        = 1600.
+                , nb_sim   = 10000
+                , rho      = 0.95
+                , cuda_ind = False
+                , simplify_compute='take_last_only'
+                , underlyer='n'
+                , price_by_range = True
+                , return_flight  = False
+                , correct_drift  = True
+                , compute_all    = True
+                , complete_set_options = 3 ):
         """
-        Computes the air option from the data provided.
+        Computes the air option for the flights
 
-        :param origin_place:            IATA code of the origin airport ('SFO')
-        :type origin_place:             str
-        :param dest_place:              IATA code of the destination airport ('EWR')
-        :type dest_place:               str
-        :param flights_include:         list of flights to include in pricing this option
-        :type flights_include:          list of tuples # TODO: BE MORE PRECISE HERE
         :param option_start_date:       the date when you can start changing the outbound flight
         :type option_start_date:        datetime.date
         :param option_end_date:         the date when you stop changing the outbound flight
@@ -102,18 +84,8 @@ class AirOption:
         :type option_ret_start_date:    datetime.date
         :param option_ret_end_date:     the date when you stop changing the outbound flight
         :type option_ret_end_date:      datetime.date
-        :param outbound_date_start:     start date for outbound flights to change to
-        :type outbound_date_start:      datetime.date
-        :param outbound_date_end:       end date for outbound flights to change to
-        :type outbound_date_end:        datetime.date
-        :param inbound_date_start:      start date for inbound flights to change to
-        :type inbound_date_start:       datetime.date
-        :param inbound_date_end:        end date for inbound flights to change to
-        :type inbound_date_end:         datetime.date
         :param K:                       option strike
         :type K:                        double
-        :param carrier:                 IATA code of the carrier
-        :type carrier:                  str
         :param nb_sim:                  number of simulations
         :type nb_sim:                   int
         :param rho:                     correlation between flights parameter
@@ -128,66 +100,37 @@ class AirOption:
         :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
         """
 
-        flights = get_flight_data(flights_include=flights_include
-                                  , origin_place=origin_place
-                                  , dest_place=dest_place
-                                  , outbound_date_start=outbound_date_start
-                                  , outbound_date_end=outbound_date_end
-                                  , inbound_date_start=inbound_date_start
-                                  , inbound_date_end=inbound_date_end
-                                  , carrier=carrier
-                                  , cabinclass=cabinclass
-                                  , adults=adults
-                                  , return_flight=return_flight
-                                  , recompute_ind=recompute_ind
-                                  , correct_drift=correct_drift
-                                  , publisher_ao=publisher_ao)
-
-        return cls(flights
-                  , nb_adults     = adults
-                  , return_flight = return_flight)
-
-    def __init__( self
-                , flights
-                , nb_adults     = 1
-                , return_flight = False
-                # when can you change the option
-                , option_start_date=None
-                , option_end_date=None
-                , option_ret_start_date=None
-                , option_ret_end_date=None
-                # next 4 - when do the (changed) flights occur
-                , outbound_date_start=None
-                , outbound_date_end=None
-                , inbound_date_start=None
-                , inbound_date_end=None
-                , K=1600.
-                , carrier='UA'
-                , nb_sim=10000
-                , rho=0.95
-                , adults=1
-                , cabinclass='Economy'
-                , cuda_ind=False
-                , simplify_compute='take_last_only'
-                , underlyer='n'
-                , price_by_range=True
-                , return_flight=False
-                , recompute_ind=False
-                , correct_drift=True
-                , publisher_ao=False
-                , compute_all=True
-                , complete_set_options=3 ):
-
         self.__flights = flights
         self.__return_flight = return_flight
         self.__nb_adults = nb_adults
 
+        # option related dates
         self.__option_start_date = option_start_date
         self.__option_end_date   = option_end_date
+        self.__option_ret_start_date = option_ret_start_date
+        self.__option_ret_end_date   = option_ret_end_date
+
+        self.__K = K
+        self.__nb_sim = nb_sim
+        self.__rho = rho
+        self.__cuda_ind = cuda_ind
+        self.__underlyer = underlyer
+        self.__price_by_range = price_by_range
+        self.__correct_drift = correct_drift
+        self.__compute_all = compute_all
 
         self.__simplify_compute     = simplify_compute
         self.__complete_set_options = complete_set_options
 
+    @property
+    def option_start_date(self) -> datetime.date :
+
+        # TODO: HERE MORE LOGIC, IF IT'S None, then obtain the default value
+        return self.__option_start_date
+
+    @option_start_date.setter
+    def option_start_date(self, new_start_date : datetime.date ):
+        self.__option_start_date = new_start_date
 
     def __getOutboundTL(self, outbound_date_start):
         """
@@ -195,10 +138,10 @@ class AirOption:
         TODO: COMMENT HERE
         """
 
-        return AirOption.compute_date_by_fraction(datetime.date.today()
-                                        , outbound_date_start
-                                        , self.__complete_set_options - ri
-                                        , self.__complete_set_options) \
+        return AirOption.compute_date_by_fraction( datetime.date.today()
+                                                 , outbound_date_start
+                                                 , self.__complete_set_options - ri
+                                                 , self.__complete_set_options) \
             , construct_sim_times(datetime.date.today()
                                   , outbound_date_consid
                                   , datetime.date.today()
@@ -422,3 +365,103 @@ class AirOption:
         # fraction needs to be an integer
         # - 3 ... no change in the last 3 days
         return dt_today + datetime.timedelta(days= (dt_final - dt_today).days * fract/total_fraction - 3)
+
+
+class AirOption:
+    """
+    Class for handling the air options
+
+    """
+
+    def __init__( self
+                , origin_place='SFO'
+                , dest_place='EWR'
+                , flights_include=None
+                # when can you change the option
+                , option_start_date=None
+                , option_end_date=None
+                , option_ret_start_date=None
+                , option_ret_end_date=None
+                # next 4 - when do the (changed) flights occur
+                , outbound_date_start=None
+                , outbound_date_end=None
+                , inbound_date_start=None
+                , inbound_date_end=None
+                , K=1600.
+                , carrier='UA'
+                , nb_sim=10000
+                , rho=0.95
+                , adults=1
+                , cabinclass='Economy'
+                , cuda_ind=False
+                , simplify_compute='take_last_only'
+                , underlyer='n'
+                , price_by_range=True
+                , return_flight=False
+                , recompute_ind=False
+                , correct_drift=True
+                , compute_all=True
+                , complete_set_options=3):
+        """
+        Computes the air option from the data provided.
+
+        :param origin_place:            IATA code of the origin airport ('SFO')
+        :type origin_place:             str
+        :param dest_place:              IATA code of the destination airport ('EWR')
+        :type dest_place:               str
+        :param flights_include:         list of flights to include in pricing this option
+        :type flights_include:          list of tuples # TODO: BE MORE PRECISE HERE
+        :param option_start_date:       the date when you can start changing the outbound flight
+        :type option_start_date:        datetime.date
+        :param option_end_date:         the date when you stop changing the outbound flight
+        :type option_end_date:          datetime.date
+        :param option_ret_start_date:   the date when you can start changing the inbound flight
+        :type option_ret_start_date:    datetime.date
+        :param option_ret_end_date:     the date when you stop changing the outbound flight
+        :type option_ret_end_date:      datetime.date
+        :param outbound_date_start:     start date for outbound flights to change to
+        :type outbound_date_start:      datetime.date
+        :param outbound_date_end:       end date for outbound flights to change to
+        :type outbound_date_end:        datetime.date
+        :param inbound_date_start:      start date for inbound flights to change to
+        :type inbound_date_start:       datetime.date
+        :param inbound_date_end:        end date for inbound flights to change to
+        :type inbound_date_end:         datetime.date
+        :param K:                       option strike
+        :type K:                        double
+        :param carrier:                 IATA code of the carrier
+        :type carrier:                  str
+        :param nb_sim:                  number of simulations
+        :type nb_sim:                   int
+        :param rho:                     correlation between flights parameter
+        :type rho:                      double
+        :param adults:                  nb. of people on this ticket
+        :type adults:                   int
+        :param cabinclass:              class of flight ticket
+        :type cabinclass:               str
+        :param cuda_ind:                whether to use cuda for computation
+        :type cuda_ind:                 bool
+        :param simplify_compute:        simplifies the computation in that it only simulates the last simulation date
+        :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
+        """
+
+        flights = get_flight_data( flights_include     = flights_include
+                                  , origin_place        = origin_place
+                                  , dest_place          = dest_place
+                                  , outbound_date_start = outbound_date_start
+                                  , outbound_date_end   = outbound_date_end
+                                  , inbound_date_start  = inbound_date_start
+                                  , inbound_date_end    = inbound_date_end
+                                  , carrier             = carrier
+                                  , cabinclass=cabinclass
+                                  , adults=adults
+                                  , return_flight=return_flight
+                                  , recompute_ind=recompute_ind
+                                  , correct_drift=correct_drift )
+                  , nb_adults     = adults
+                  , return_flight = return_flight
+                  , cuda_ind      = cuda_ind
+                  , option_start_date = option_start_date
+                  , option_end_date   = option_end_date
+                  , option_ret_start_date = option_ret_start_date
+                  , option_ret_end_date   = option_ret_end_date )

@@ -548,8 +548,7 @@ function reorganize_results_for_recompute(response) {
 function reorganize_results_inquiry(response) {
     // reorganizes results from the Python response 
     var obj = JSON.parse(response);
-    var price = obj.price;
-    return price; 
+    return obj.price;
 }
 
 

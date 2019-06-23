@@ -2,9 +2,10 @@
 import config
 import numpy as np
 import unittest
+
 import mc
 from vols.vols import corr_hyp_sec_mat
-import air_option as ao
+
 
 if config.CUDA_PRESENT:
     import pycuda.gpuarray as gpa
@@ -17,6 +18,7 @@ class TestMC(unittest.TestCase):
     """
 
     def setUp(self):
+        # TODO: THESE SHOULD BE STATIC MEMBERS OF TestMC
 
         self.nb_tickets = 5
         # mostly used for one-way flights
@@ -41,7 +43,7 @@ class TestMC(unittest.TestCase):
                              , self.rho_m
                              , nb_sim
                              , np.ones(self.nb_tickets) )  # this last par. is maturity of forwards
-        print ("V1:", v1)
+
         self.assertTrue(True)
 
     def test_2(self):
@@ -78,21 +80,13 @@ class TestMC(unittest.TestCase):
         rho_m = ( corr_hyp_sec_mat(0.95, range(3))
                 , corr_hyp_sec_mat(0.95, range(2)) )
         nb_sim = 1000
-        ao_p = {'model': 'max',
-                'F_max_prev': np.zeros((2, nb_sim)),
-                'K': 200.,
-                'penalty': 100.,
-                'P_arg_max': 0.}
 
         res = mc.mc_mult_steps_ret( F_v
                                   , s_v
-                                  , s_v  # d_v = s_v TODO: FIX
+                                  , s_v  # TODO: fix s_v, should be d_v
                                   , T_l
                                   , rho_m
                                   , nb_sim
-                                  , ao_f     = ao.ao_f_arb
-                                  , ao_p     = ao_p
-                                  , cva_vals = None
                                   , model    = 'n')
 
         self.assertTrue(True)
@@ -125,3 +119,23 @@ class TestMC(unittest.TestCase):
                                    , cuda_ind = cuda_ind)
 
         self.assertTrue(True)
+
+    def test_one_way_1(self):
+        """ Tests the one-way test.
+
+        """
+
+        nb_sim = 500
+        # F_sim is of shape (nb_sim x nb_fwd contracts)
+        F_sim = self.F_v + np.random.multivariate_normal(np.zeros(len(self.F_v)), self.rho_m, size=nb_sim)
+        T_l_diff = np.linspace(0.1, 0.5, F_sim.shape[1])
+
+        price_one_way = mc.mc_one_way( F_sim
+                                     , T_l_diff
+                                     , self.F_exp
+                                     , self.s_v
+                                     , self.d_v
+                                     , self.rho_m )
+
+        # TODO: THIS BELOW DOESNT MAKE SENSE.
+        self.assertGreater( price_one_way.all(), 0)

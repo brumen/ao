@@ -38,21 +38,16 @@ def compute_option( form
     if recompute_ind:  # recompute part
         sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
 
-
     yield { 'finished'  : False
           , 'result'    : 'Initiating flight fetch.'
           , 'compute_id': compute_id }
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))
-        result_not_valid = { 'finished': True
-                           , 'result': { 'finished': True
-                                       , 'progress_notice': 'finished'  # also irrelevant
-                                       , 'valid_inp'      : False } }
-        yield result_not_valid
-
-        if recompute_ind:  # recompute returns
-            return result_not_valid  # TODO: CHECK HERE!!
+        yield { 'finished': True
+              , 'result': { 'finished': True
+                          , 'progress_notice': 'finished'  # also irrelevant
+                          , 'valid_inp'      : False } }
 
     else:
         way_args = { 'origin_place':        origin_place
@@ -88,17 +83,13 @@ def compute_option( form
 
         if result == 'Invalid':
             logger.info(';'.join(['AO', json.dumps((False, {}))]))
-            if publisher_ao:
-                publisher_ao.publish(data_yield({ 'finished': True
-                                                , 'results' : {} }))
 
-            if recompute_ind:  # recompute switch returns
-                return { 'finished': True
-                       , 'results' : {} }
+            yield { 'finished': True
+                  , 'results' : {} }
 
         else:  # actual display
-            final_result = {'finished': True
-                           , 'result' : { 'finished': True
+            yield {'finished': True
+                  , 'result' : { 'finished': True
                                         , 'progress_notice': 'finished'  # also irrelevant
                                         , 'valid_inp'      : True
                                         , 'return_ind'     : return_ow
@@ -107,10 +98,3 @@ def compute_option( form
                                         , 'reorg_flights'  : reorg_flights_v
                                         , 'minmax'         : minmax_v
                                         , 'price_range'    : price_range} }
-
-
-            if publisher_ao:
-                publisher_ao.publish(data_yield(final_result))
-
-            if recompute_ind:  # recompute switch returns
-                return final_result
