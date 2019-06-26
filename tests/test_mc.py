@@ -44,7 +44,7 @@ class TestMC(unittest.TestCase):
                              , nb_sim
                              , np.ones(self.nb_tickets) )  # this last par. is maturity of forwards
 
-        self.assertTrue(True)
+        self.assertEqual(v1.shape, (nb_sim, self.nb_tickets))  # v1 should be of this shape
 
     def test_2(self):
         """
@@ -56,13 +56,13 @@ class TestMC(unittest.TestCase):
         nb_sim  = 50000
         F_sim_l = mc.mc_mult_steps( self.F_v
                                   , self.s_v
-                                  , np.zeros(self.nb_tickets)
+                                  , np.zeros(self.nb_tickets)  # drift == 0
                                   , T_l
                                   , self.rho_m
                                   , nb_sim
                                   , self.F_exp )
 
-        self.assertTrue(np.abs(np.average(F_sim_l[-1, :]) - self.F_v[-1]) < 5)
+        self.assertTrue(np.abs(np.average(F_sim_l[:, -1]) - self.F_v[-1]) < 5)
 
     def test_3(self):
         """
@@ -77,8 +77,13 @@ class TestMC(unittest.TestCase):
 
         T_l = ( [0.1, 0.2, 0.3, 0.4, 0.5]
               , [0.15, 0.25, 0.35, 0.45, 0.55] )
+
+        T_v_exp = ( np.linspace(0.9, 1., 3)
+                  , np.linspace(1.1, 1.2, 2) )
+
         rho_m = ( corr_hyp_sec_mat(0.95, range(3))
                 , corr_hyp_sec_mat(0.95, range(2)) )
+
         nb_sim = 1000
 
         res = mc.mc_mult_steps_ret( F_v
@@ -86,39 +91,10 @@ class TestMC(unittest.TestCase):
                                   , s_v  # TODO: fix s_v, should be d_v
                                   , T_l
                                   , rho_m
-                                  , nb_sim
-                                  , model    = 'n')
+                                  , T_v_exp
+                                  , nb_sim )
 
-        self.assertTrue(True)
-
-    def test_4( self
-              , cuda_ind = False):
-        """
-        Testing the compute_option_raw function.
-
-        """
-
-        nb_dep, nb_ret = 50, 100
-        F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
-        s_v = ( np.linspace(0.2, 0.4, nb_dep)
-              , np.linspace(0.2, 0.4, nb_ret) )
-        d_v = ( np.linspace(0.2, 0.4, nb_dep)
-              , np.linspace(0.2, 0.4, nb_ret) )
-        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
-                  , np.linspace(1.1, 1.2, nb_ret) )
-        T_l = ( np.array([0.55, 0.62, 0.73])
-              , np.array([0.55, 0.62, 0.73]) )
-
-        res = ao.compute_option_raw( F_v
-                                   , s_v
-                                   , d_v
-                                   , T_l
-                                   , T_v_exp
-                                   , 150.  # K
-                                   , rho
-                                   , cuda_ind = cuda_ind)
-
-        self.assertTrue(True)
+        self.assertEqual(res.shape, (nb_sim, len(F_v[0])))  # result is for departure flights
 
     def test_one_way_1(self):
         """ Tests the one-way test.
@@ -139,3 +115,5 @@ class TestMC(unittest.TestCase):
 
         # TODO: THIS BELOW DOESNT MAKE SENSE.
         self.assertGreater( price_one_way.all(), 0)
+
+

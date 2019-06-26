@@ -165,7 +165,7 @@ def mc_one_way( F_sim    : np.array
               , F_ret    = None
               , cuda_ind = False ):
     """
-    One way simulation of departure flights
+    One way simulation of departure flights for already initialized simulations.
 
     :param F_sim: initial flight values
     :type F_sim: 2-dimensional np.array(nb_simulations, nb_fwds)
@@ -259,9 +259,8 @@ def mc_mult_steps( F_v
 
     T_l_extend = add_zero_to_Tl(T_l)  # add 0 to simulation times if not already there
     nb_fwds = len(F_v)
-    T_l_diff = np.diff(T_l_extend)
 
-    F_sim = np.empty((nb_fwds, nb_sim)) if not cuda_ind else gpa.empty( (nb_fwds, nb_sim), np.double)
+    F_sim = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty( (nb_sim, nb_fwds), np.double)
 
     # write F_v_used in F_sim_prev by columns
     if not cuda_ind:
@@ -270,7 +269,7 @@ def mc_mult_steps( F_v
         F_sim = co.set_mat_by_vec(F_v, nb_sim)
 
     return mc_one_way( F_sim
-                     , T_l_diff
+                     , np.diff(T_l_extend)
                      , T_v_exp
                      , s_v
                      , d_v
@@ -304,8 +303,9 @@ def mc_mult_steps_ret( F_v
                      , T_l
                      , rho_m
                      , T_v_exp
-                     , model     = 'n'
-                     , cuda_ind  = False):
+                     , nb_sim   = 1000
+                     , model    = 'n'
+                     , cuda_ind = False):
     """
     Simulates ticket prices for a return flight.
 
@@ -335,24 +335,26 @@ def mc_mult_steps_ret( F_v
     T_v_exp_dep, T_v_exp_ret = T_v_exp  # expiry values 
     rho_m_dep,   rho_m_ret   = rho_m
 
-    return mc_one_way( F_v
-                     , np.diff(T_l_dep)
-                     , T_v_exp
-                     , s_v_dep
-                     , d_v_dep
-                     , rho_m_dep
-                     , cuda_ind = cuda_ind
-                     , model    = model
-                     , F_ret    = np.amax( mc_mult_steps( F_v_ret
-                                                        , s_v_ret
-                                                        , d_v_ret
-                                                        , T_l_ret
-                                                        , rho_m_ret
-                                                        , T_v_exp_ret
-                                                        , model    = model
-                                                        , cuda_ind = cuda_ind )
-                                         , axis = 0 )
-                     )
+    return mc_mult_steps( F_v_dep
+                        , s_v_dep
+                        , d_v_dep
+                        , T_l_dep
+                        , rho_m_dep
+                        , nb_sim
+                        , T_v_exp_dep
+                        , cuda_ind = cuda_ind
+                        , model    = model
+                        , F_ret    = np.amax( mc_mult_steps( F_v_ret
+                                                           , s_v_ret
+                                                           , d_v_ret
+                                                           , T_l_ret
+                                                           , rho_m_ret
+                                                           , nb_sim
+                                                           , T_v_exp_ret
+                                                           , model    = model
+                                                           , cuda_ind = cuda_ind )
+                                            , axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
+                        )
 
 
 def mn_gpu(unimp, rho_m, size=100):
