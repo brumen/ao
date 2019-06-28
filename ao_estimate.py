@@ -33,17 +33,15 @@ def date_in_season(date : datetime.date, season : str):
 
     if season == 'summer':
         if cnd_outer:
-            month_cnd = 5 <= date.month < 10
+            return 5 <= date.month < 10
         else:  # it's a list type object
-            month_cnd = [ 5 <= d.month < 10 for d in date]
+            return [ 5 <= d.month < 10 for d in date]
 
     else:  # season == winter
         if cnd_outer: 
-            month_cnd = date.month <= 4 or date.month >= 10
+            return date.month <= 4 or date.month >= 10
         else:
-            month_cnd = [d.month <= 4 or d.month >= 10 for d in date]
-
-    return month_cnd
+            return [d.month <= 4 or d.month >= 10 for d in date]
 
 
 def hour_in_section_atomic(hour_used, sect):
@@ -54,12 +52,14 @@ def hour_in_section_atomic(hour_used, sect):
 
     if sect == 'morning':
         return 6 <= hour_used < 11
-    elif sect == 'afternoon':
+
+    if sect == 'afternoon':
         return 11 <= hour_used < 18
-    elif sect == 'evening':
+
+    if sect == 'evening':
         return 18 <= hour_used < 23
-    else:
-        return 23 <= hour_used <= 24 and hour_used < 6
+
+    return 23 <= hour_used <= 24 and hour_used < 6
 
 
 def hour_in_section(hour, section):
@@ -74,8 +74,9 @@ def hour_in_section(hour, section):
 
     if type(hour) is datetime.time:
         return hour_in_section_atomic(hour.hour, section)
-    else:  # a list, go over
-        return [hour_in_section_atomic(h.hour, section) for h in hour]
+
+    # a list, go over
+    return [hour_in_section_atomic(h.hour, section) for h in hour]
 
 
 def compute_partial_drift_vol( date_l

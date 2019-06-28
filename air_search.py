@@ -263,8 +263,8 @@ def get_ticket_prices( origin_place  : str
                       , use_cache       = use_cache)
 
     # returns all one ways on that date
-    if result is None:  # nothing out
-        return [], [], []
+    if not result:  # nothing out
+        return None
     else:  # results are not empty
         F_v, flights_v = extract_Fv_flights_from_results(result)
 

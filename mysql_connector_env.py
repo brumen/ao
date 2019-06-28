@@ -1,7 +1,7 @@
 import mysql.connector
 import ao_codes
 # DB_HOST is where the params for pricing are held, DB_HOST_CALIBRATE is where the total db is held
-from   ao_codes            import DB_HOST, DB_HOST_CALIBRATE, DATABASE, DB_USER
+from ao_codes import DB_HOST, DB_HOST_CALIBRATE, DATABASE, DB_USER
 
 
 class MysqlConnectorEnv(object):
