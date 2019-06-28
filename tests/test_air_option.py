@@ -9,8 +9,35 @@ import ds
 import air_option  as ao
 import ao_estimate as aoe
 
-from air_option import AirOption
+from air_option import AirOption, AirOptionFlights
 
+
+class TestAirOptionFlights(unittest.TestCase):
+
+    def setUp(self):
+        print (1)
+
+    def test_basic(self):
+        """ Tests basic functionality of AirOptionFlights
+
+        """
+
+        flights = [(100., datetime.date(2019, 6, 30), 'UA70'), (200., datetime.date(2019, 7, 5), 'UA71')]
+
+        aof = AirOptionFlights( datetime.date(2019, 6, 28)
+                              , flights
+                              , K=1600. )
+
+        res1 = aof.compute_option()  # air option value
+        self.assertGreater(res1, 0.)
+
+        flights_ret = [(150., datetime.date(2019, 7, 15), 'UA72'), (250., datetime.date(2019, 7, 20), 'UA73')]
+
+        aof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
+
+        res2 = aof2.compute_option()
+
+        self.assertGreater(res2, 0.)
 
 class TestAirOption(unittest.TestCase):
 
@@ -265,5 +292,34 @@ class TestAirOption(unittest.TestCase):
                                 , outbound_date_end   = self.outDatePlusOne
                                 , inbound_date_start  = self.retDate
                                 , inbound_date_end    = self.retDatePlusOne )
+
+        self.assertTrue(True)
+
+    def test_4( self
+              , cuda_ind = False):
+        """
+        Testing the compute_option_raw function.
+
+        """
+
+        nb_dep, nb_ret = 50, 100
+        F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
+        s_v = ( np.linspace(0.2, 0.4, nb_dep)
+              , np.linspace(0.2, 0.4, nb_ret) )
+        d_v = ( np.linspace(0.2, 0.4, nb_dep)
+              , np.linspace(0.2, 0.4, nb_ret) )
+        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
+                  , np.linspace(1.1, 1.2, nb_ret) )
+        T_l = ( np.array([0.55, 0.62, 0.73])
+              , np.array([0.55, 0.62, 0.73]) )
+
+        res = ao.compute_option_raw( F_v
+                                   , s_v
+                                   , d_v
+                                   , T_l
+                                   , T_v_exp
+                                   , 150.  # K
+                                   , rho
+                                   , cuda_ind = cuda_ind)
 
         self.assertTrue(True)

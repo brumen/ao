@@ -230,8 +230,8 @@ def mc_mult_steps( F_v
                  , d_v     : np.array
                  , T_l     : np.array
                  , rho_m   : np.array
-                 , nb_sim  : int
-                 , T_v_exp : np.array
+                 , T_v_exp: np.array
+                 , nb_sim  = 1000
                  , model    = 'n'
                  , F_ret    = None
                  , cuda_ind = False):
@@ -303,7 +303,7 @@ def mc_mult_steps_ret( F_v
                      , T_l
                      , rho_m
                      , T_v_exp
-                     , nb_sim   = 1000
+                     , nb_sim=1000
                      , model    = 'n'
                      , cuda_ind = False):
     """
@@ -340,8 +340,8 @@ def mc_mult_steps_ret( F_v
                         , d_v_dep
                         , T_l_dep
                         , rho_m_dep
-                        , nb_sim
                         , T_v_exp_dep
+                        , nb_sim   = nb_sim
                         , cuda_ind = cuda_ind
                         , model    = model
                         , F_ret    = np.amax( mc_mult_steps( F_v_ret
@@ -349,8 +349,8 @@ def mc_mult_steps_ret( F_v
                                                            , d_v_ret
                                                            , T_l_ret
                                                            , rho_m_ret
-                                                           , nb_sim
                                                            , T_v_exp_ret
+                                                           , nb_sim   = nb_sim
                                                            , model    = model
                                                            , cuda_ind = cuda_ind )
                                             , axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
