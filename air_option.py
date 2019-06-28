@@ -119,6 +119,10 @@ class AirOptionFlights:
         self.__option_ret_start_date = option_ret_start_date
         self.__option_ret_end_date   = option_ret_end_date
 
+        # caching variables
+        self.__recompute_option_value = True  # indicator whether the option should be recomputed
+        self.__option_value = None
+
     @property
     def cuda_ind(self):
         return self.__cuda_ind
@@ -147,7 +151,9 @@ class AirOptionFlights:
 
         """
 
-        self.__option_start_date = new_start_date
+        if new_start_date != self.__option_start_date:
+            self.__option_start_date = new_start_date
+            self.__recompute_option_value = True
 
     @property
     def option_end_date(self):
@@ -164,7 +170,10 @@ class AirOptionFlights:
 
     @option_end_date.setter
     def option_end_date(self, new_end_date):
-        self.__option_end_date = new_end_date
+
+        if new_end_date != self.__option_end_date:
+            self.__option_end_date = new_end_date
+            self.__recompute_option_value = True
 
     @property
     def option_ret_start_date(self) -> datetime.date :
@@ -185,7 +194,9 @@ class AirOptionFlights:
         :param new_start_date: new option start date
         """
 
-        self.__option_ret_start_date = new_start_date
+        if new_start_date != self.__option_ret_start_date:
+            self.__option_ret_start_date = new_start_date
+            self.__recompute_option_value = True
 
     @property
     def option_ret_end_date(self):
@@ -201,8 +212,10 @@ class AirOptionFlights:
 
     @option_ret_end_date.setter
     def option_ret_end_date(self, new_end_date):
-        self.__option_ret_end_date = new_end_date
 
+        if new_end_date != self.__option_ret_end_date:
+            self.__option_ret_end_date = new_end_date
+            self.__recompute_option_value = True
 
     def __getOutboundTL(self, outbound_date_start):
         """
@@ -282,15 +295,28 @@ class AirOptionFlights:
         F_v, F_mat, s_v, d_v = self.extract_prices_maturities(self._flights)
         return F_v, F_mat, s_v, d_v, T_l_dep_num
 
-    # TODO: We can cache this for different start/end dates
-    def compute_option(self):
+    def __call__( self
+                , option_start_date     = None
+                , option_end_date       = None
+                , option_ret_start_date = None
+                , option_ret_end_date   = None ):
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
+
         """
 
+        self.option_start_date = option_start_date
+        self.option_end_date   = option_end_date
+        self.option_ret_start_date = option_ret_start_date
+        self.option_ret_end_date   = option_ret_end_date
+
+        if not self.__recompute_option_value:
+            return self.__option_value
+
+        # recompute option value
         F_v, F_mat, s_v, d_v, T_l = self.extract_prices_maturities_all()
 
-        return self.__class__.compute_option_raw( F_v
+        self.__option_value = self.__class__.compute_option_raw( F_v
                                                 , s_v
                                                 , d_v
                                                 , T_l
@@ -300,6 +326,10 @@ class AirOptionFlights:
                                                 , nb_sim    = self.__nb_sim
                                                 , cuda_ind  = self.cuda_ind
                                                 , underlyer = self.__underlyer)
+
+        self.__recompute_option_value = False
+
+        return self.__option_value
 
     # TODO: IMPROVE THIS METHOD LOOKS WEIRD
     def option_range(self, option_maturities : List[datetime.date]):
