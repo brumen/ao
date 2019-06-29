@@ -10,7 +10,7 @@ class MysqlConnectorEnv(object):
                 , host     = DB_HOST
                 , database = DATABASE
                 , user     = DB_USER
-                , password = ao_codes.brumen_mysql_pass ):
+                , password = None ):
         """
         :param host: host mysql connection
         :param database: database where to connect
