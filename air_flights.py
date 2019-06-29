@@ -425,7 +425,7 @@ def get_flight_data( flights_include     = None
 
         F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, flights_v_ret = sort_all(*obtained_flights_ret)
 
-        valid_check = obtained_flights is not None and obtained_flights_ret is not None
+        valid_check = obtained_flights and obtained_flights_ret
 
         if valid_check:
             s_v_dep = s_v_dep_raw

@@ -2,6 +2,7 @@
 import numpy as np
 
 # air options modules
+import datetime
 import ds
 import ao_codes
 import ao_db
@@ -10,41 +11,36 @@ import mysql.connector
 from ao_codes import DATABASE, DB_HOST, DB_USER
 
 
-def get_drift_vol_from_db( dep_date
-                         , orig
-                         , dest
-                         , carrier
+def get_drift_vol_from_db( dep_date : datetime.date
+                         , orig     : str
+                         , dest     : str
+                         , carrier  : str
                          , default_drift_vol = (500., 501.)
-                         , correct_drift     = False
                          , fwd_value         = None):
-    """
-    pulls the drift and vol from database for the selected flight
+    """ Pulls the drift and vol from database for the selected flight
 
-    :param dep_date:      date in form '2017-02-15'
-    :type dep_date:       string
-    :param orig:          origin airport
-    :type orig:           string
+    :param dep_date: departure date of the flight (datetime.date(2019, 7, 1) )
+    :param orig: IATA code of the origin airport ('EWR')
+    :param dest: IATA code of the destination airport ('SFO')
+    :param carrier: airline carrier, e.g. 'UA'
     :param correct_drift: correct the drift, if negative make it positive 500, or so.
-    :param fwd_value: forward value used in case correct_drift == True
+    :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
     """
-    selected_drift_vol = """
-    SELECT drift, vol, avg_price 
-    FROM params 
-    WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}' 
-    """.format(orig, dest, carrier)
-    res = ao_db.run_db_mysql(selected_drift_vol)
+
+    res = ao_db.run_db_mysql("SELECT drift, vol, avg_price FROM params WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}'".format(orig, dest, carrier))
+
     if len(res) == 0:  # nothing in the list
         return default_drift_vol
-    else:  # at least one entry, check if there are many, select most important
-        # entry in form ('date time', drift, vol, avg_price)
-        res_date, drift_prelim, vol_prelim, avg_price = select_closest_date(dep_date, res)  # return in the same format 
-        # final correction in case desired
-        return correct_drift_vol( drift_prelim
-                                , vol_prelim
-                                , default_drift_vol
-                                , correct_drift
-                                , fwd_value
-                                , avg_price)
+
+    # at least one entry, check if there are many, select most important
+    # entry in form ('date time', drift, vol, avg_price)
+    res_date, drift_prelim, vol_prelim, avg_price = select_closest_date(dep_date, res)  # return in the same format
+    # final correction in case desired
+    return correct_drift_vol( drift_prelim
+                            , vol_prelim
+                            , default_drift_vol
+                            , fwd_value
+                            , avg_price)
 
 
 def select_closest_date(date_desired, date_l):
@@ -74,27 +70,28 @@ def select_closest_date(date_desired, date_l):
 def correct_drift_vol( drift_prelim
                      , vol_prelim
                      , default_drift_vol
-                     , correct_drift
-                     , fwd_price
-                     , avg_price):
-    """
-    Applies trivial corrections to the drift and vol in case of nonsensical results.
+                     , avg_price
+                     , fwd_price = None ):
+    """ Applies trivial corrections to the drift and vol in case of nonsensical results.
+    The scaling factor is fwd_price/avg_price
+
+   :param drift_prelim: preliminary drift
 
     """
 
     if (drift_prelim, vol_prelim) == (0., 0.):  # this means there is no price change in the database
         return default_drift_vol
 
-    else:  # first drift, then vol
-        if drift_prelim < 0.:
-            drift_prelim = default_drift_vol[0]  # take a large default value, always change drift
+    # first drift, then vol
+    if drift_prelim < 0.:
+        drift_prelim = default_drift_vol[0]  # take a large default value, always change drift
 
-        if not correct_drift:
-            return drift_prelim, vol_prelim
+    if not fwd_price:  # fwd_price == None
+        return drift_prelim, vol_prelim
 
-        else:  # correct the drift/vol by rescaling it
-            scale_f = np.double(fwd_price)/avg_price
-            return scale_f * drift_prelim, scale_f * vol_prelim
+    # correct the drift/vol by rescaling it
+    scale_f = np.double(fwd_price)/avg_price
+    return scale_f * drift_prelim, scale_f * vol_prelim
 
 
 def get_drift_vol_from_db_precise( flight_dep_l
@@ -134,87 +131,90 @@ def get_drift_vol_from_db_precise( flight_dep_l
     # month == integer
     # tod == text 'night'
     # weekday_ind == 'weekday', 'weekend'
-    new_mysql = mysql.connector.connect( host     = DB_HOST
-                                       , database = DATABASE
-                                       , user     = DB_USER
-                                       , password = ao_codes.brumen_mysql_pass)
-    mysql_conn_c = new_mysql.cursor()
+    from mysql_connector_env import MysqlConnectorEnv
 
-    first_attempt_reg_id = """
-    SELECT reg_id 
-    FROM reg_ids
-    WHERE month = {0} AND tod = '{1}' AND weekday_ind = '{2}'"""
+    with MysqlConnectorEnv() as connection:
+        mysql_conn_c = connection.cursor()
 
-    selected_drift_vol = """
-    SELECT drift, vol, avg_price 
-    FROM params 
-    WHERE carrier = '{0}' AND orig = '{1}' AND dest = '{2}' AND reg_id = {3}"""
+        selected_drift_vol = """
+        SELECT drift, vol, avg_price 
+        FROM params 
+        WHERE carrier = '{0}' AND orig = '{1}' AND dest = '{2}' AND reg_id = {3}"""
 
-    find_reg_ids_str = """
-    DELETE FROM reg_ids_temp; 
 
-    INSERT INTO reg_ids_temp
-        SELECT reg_id 
-        FROM reg_ids 
-        WHERE month IN ({0}) AND weekday_ind = '{1}'
-        ORDER BY ABS(month - {2}) ASC, FIELD(tod, {3}) ASC, FIELD(weekday_ind, {4}) ASC;
+        drift_vol_close_str = """
+        SELECT drift, vol, avg_price 
+        FROM params 
+        WHERE orig = '{0}' AND dest = '{1}' AND carrier = '{2}' AND 
+              reg_id IN (SELECT reg_id FROM reg_ids_temp)
+        ORDER BY FIELD(reg_id, @reg_id_ord)"""
 
-    SET @reg_id_ord = (SELECT GROUP_CONCAT(reg_id) FROM reg_ids_temp);"""
+        drift_vol_l = []
+        for dep_date_month, dep_date_tod, dep_date_weekday in zip(flight_dep_month_l,
+                                                                  flight_dep_tod_l,
+                                                                  flight_dep_weekday_l):
 
-    drift_vol_close_str = """
-    SELECT drift, vol, avg_price 
-    FROM params 
-    WHERE orig = '{0}' AND dest = '{1}' AND carrier = '{2}' AND 
-          reg_id IN (SELECT reg_id FROM reg_ids_temp)
-    ORDER BY FIELD(reg_id, @reg_id_ord)"""
+            mysql_conn_c.execute("SELECT reg_id FROM reg_ids WHERE month = {0} AND tod = '{1}' AND weekday_ind = '{2}'".format( dep_date_month
+                                                                                                                              , dep_date_tod
+                                                                                                                              , dep_date_weekday) )
 
-    drift_vol_l = []
-    for dep_date_month, dep_date_tod, dep_date_weekday in zip(flight_dep_month_l,
-                                                              flight_dep_tod_l,
-                                                              flight_dep_weekday_l):
+            reg_ids = mysql_conn_c.fetchone()
+            assert len(reg_ids) == 0, 'More reg_ids obtained than there should be'  # TODO: FIX THIS
+            reg_id = int(reg_ids[0])
+            # first the general query, then the specific one
+            mysql_conn_c.execute(selected_drift_vol.format( carrier
+                                                          , orig
+                                                          , dest
+                                                          , reg_id))
+            drift_vol_avgp_raw = mysql_conn_c.fetchone()  # there is at most 1
 
-        mysql_conn_c.execute(first_attempt_reg_id.format( dep_date_month
-                                                        , dep_date_tod
-                                                        , dep_date_weekday) )
+            if drift_vol_avgp_raw is None:  # nothing in the list
+                # check if there is anything close to this,
+                # reg_ids_similar is a list of reg_ids which are possible
+                month_ranks, tod_ranks, weekday_ranks = find_close_regid( dep_date_month
+                                                                        , dep_date_tod
+                                                                        , dep_date_weekday)
+                month_ranks_str   = ','.join([ str(x)
+                                               for x in month_ranks ])  # making strings out of these lists
+                tod_ranks_str     = ','.join([ "'" + x + "'"
+                                               for x in tod_ranks ])
+                weekday_ranks_str = ','.join([ "'" + x + "'"
+                                               for x in weekday_ranks ])
 
-        reg_id = int(mysql_conn_c.fetchone()[0])  # there should be only one, yeah
-        # first the general query, then the specific one 
-        mysql_conn_c.execute(selected_drift_vol.format( carrier
-                                                      , orig
-                                                      , dest
-                                                      , reg_id))
-        drift_vol_avgp_raw = mysql_conn_c.fetchone()  # there is at most 1
+                mysql_conn_c.execute("""DELETE FROM reg_ids_temp; 
+                                        INSERT INTO reg_ids_temp
+                                        SELECT reg_id 
+                                        FROM reg_ids 
+                                        WHERE month IN ({0}) AND weekday_ind = '{1}'
+                                        ORDER BY ABS(month - {2}) ASC, FIELD(tod, {3}) ASC, FIELD(weekday_ind, {4}) ASC;
+    
+                                        SET @reg_id_ord = (SELECT GROUP_CONCAT(reg_id) FROM reg_ids_temp);""".format( month_ranks_str
+                                                                                                                    , dep_date_weekday
+                                                                                                                    , dep_date_month
+                                                                                                                    , tod_ranks_str
+                                                                                                                    , weekday_ranks_str)
+                                    , multi = True)
 
-        if drift_vol_avgp_raw is None:  # nothing in the list
-            # check if there is anything close to this,
-            # reg_ids_similar is a list of reg_ids which are possible 
-            month_ranks, tod_ranks, weekday_ranks = find_close_regid( dep_date_month
-                                                                    , dep_date_tod
-                                                                    , dep_date_weekday)
-            month_ranks_str   = ','.join([ str(x)
-                                           for x in month_ranks ])  # making strings out of these lists
-            tod_ranks_str     = ','.join([ "'" + x + "'"
-                                           for x in tod_ranks ])
-            weekday_ranks_str = ','.join([ "'" + x + "'"
-                                           for x in weekday_ranks ])
+                mysql_conn_c.execute(drift_vol_close_str.format( orig
+                                                               , dest
+                                                               , carrier))
+                closest_drift_vol_res = mysql_conn_c.fetchall()
 
-            mysql_conn_c.execute( find_reg_ids_str.format( month_ranks_str
-                                                         , dep_date_weekday
-                                                         , dep_date_month
-                                                         , tod_ranks_str
-                                                         , weekday_ranks_str)
-                                , multi = True)
+                if not closest_drift_vol_res:  # empty
+                    drift_vol_l.append(default_drift_vol)
 
-            mysql_conn_c.execute(drift_vol_close_str.format( orig
-                                                           , dest
-                                                           , carrier))
-            closest_drift_vol_res = mysql_conn_c.fetchall()
+                else:  # correct the drift
+                    drift_prelim, vol_prelim, avg_price = closest_drift_vol_res[0]  # take the first
+                    drift_vol_corr = correct_drift_vol( drift_prelim
+                                                      , vol_prelim
+                                                      , default_drift_vol
+                                                      , correct_drift
+                                                      , fwd_value
+                                                      , avg_price)
+                    drift_vol_l.append(drift_vol_corr)
 
-            if not closest_drift_vol_res:  # empty
-                drift_vol_l.append(default_drift_vol)
-
-            else:  # correct the drift
-                drift_prelim, vol_prelim, avg_price = closest_drift_vol_res[0]  # take the first
+            else:  # drift... has 1 entry
+                drift_prelim, vol_prelim, avg_price = drift_vol_avgp_raw
                 drift_vol_corr = correct_drift_vol( drift_prelim
                                                   , vol_prelim
                                                   , default_drift_vol
@@ -222,32 +222,20 @@ def get_drift_vol_from_db_precise( flight_dep_l
                                                   , fwd_value
                                                   , avg_price)
                 drift_vol_l.append(drift_vol_corr)
-
-        else:  # drift... has 1 entry
-            drift_prelim, vol_prelim, avg_price = drift_vol_avgp_raw
-            drift_vol_corr = correct_drift_vol( drift_prelim
-                                              , vol_prelim
-                                              , default_drift_vol
-                                              , correct_drift
-                                              , fwd_value
-                                              , avg_price)
-            drift_vol_l.append(drift_vol_corr)
             
     return drift_vol_l
 
 
-def find_close_regid( month
+def find_close_regid( month   : int
                     , tod
-                    , weekday):
+                    , weekday : str ):
     """
     logic how to select regid which is close to desired one
 
-    :param month:
-    :type month:
-    :param tod:
+    :param month: month
+    :param tod: time of day
     :type tod:
-    :param weekday:
-    :type weekday:
+    :param weekday: weekday, can be either 'weekday' or 'weekend'
     :returns:
     :rtype:
     """
@@ -265,16 +253,13 @@ def find_close_regid( month
                   , rot_month(month, -2)]
 
     # tod ranking
-    all_ranks = ['morning', 'afternoon', 'evening', 'night']
+    from ao_codes import day_str as all_ranks
     tod_idx = all_ranks.index(tod)
     tod_ranks = [ all_ranks[tod_idx]
                 , all_ranks[(tod_idx+1) % 4]
                 , all_ranks[(tod_idx+2) % 4]
                 , all_ranks[(tod_idx+3) % 4]]
 
-    if weekday == 'weekday':  # ranking of weekdays
-        weekday_ranks = ['weekday', 'weekend']
-    else:
-        weekday_ranks = ['weekend', 'weekday']
+    weekday_ranks = ['weekday', 'weekend'] if weekday == 'weekday' else ['weekend', 'weekday']
 
     return month_ranks, tod_ranks, weekday_ranks

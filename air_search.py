@@ -87,8 +87,8 @@ def get_itins( origin_place    = 'SIN'
                             , cabinclass      = cabinclass
                             , adults          = adults
                             , nb_tries        = nb_tries + 1 )
-        else:
-            return None  # this is handled appropriately in the get_ticket_prices
+
+        return None  # this is handled appropriately in the get_ticket_prices
 
 
 def find_carrier(carrier_l, carrier_id):

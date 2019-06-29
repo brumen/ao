@@ -18,7 +18,7 @@ class TestAirOptionFlights(unittest.TestCase):
         print (1)
 
     def test_basic(self):
-        """ Tests basic functionality of AirOptionFlights
+        """ Tests if AirOptionFlights even runs.
 
         """
 
@@ -38,6 +38,7 @@ class TestAirOptionFlights(unittest.TestCase):
         res2 = aof2()
 
         self.assertGreater(res2, 0.)
+
 
 class TestAirOption(unittest.TestCase):
 

@@ -1,6 +1,8 @@
 # estimate the volatility and drift of air option stochastic processes
 #
 
+from typing import List
+
 import datetime
 import time
 import sqlite3
@@ -79,18 +81,14 @@ def hour_in_section(hour, section):
     return [hour_in_section_atomic(h.hour, section) for h in hour]
 
 
-def compute_partial_drift_vol( date_l
-                             , price_l
+def compute_partial_drift_vol( date_l  : List[datetime.date]
+                             , price_l : List[float]
                              , model = 'n' ):
     """
     Compute the drift and volatility of the normal/lognormal model.
 
     :param date_l:  list of dates
-    :type date_l:   list of datetime.date
     :param price_l: list of prices at those dates
-    :type price_l:  list of double
-    :param dcf:     day-count factor
-    :type dcf:      double
     :param model:   model selected: 'n' for normal, 'ln' for log-normal
     :type model:    str
     :returns:       tuple of number of prices, drift computed,
@@ -101,10 +99,8 @@ def compute_partial_drift_vol( date_l
     date_diff = np.array([x.total_seconds()
                           for x in date_l.diff()[1:]]) / (DCF*86400)
 
-    if model == 'ln':
-        price_diff = np.array(price_l.diff()[1:])/np.array(price_l[:-1])
-    else:
-        price_diff = np.array(price_l.diff()[1:])
+    price_l_diff = np.array(price_l.diff()[1:])
+    price_diff = price_l_diff/np.array(price_l[:-1]) if model == 'ln' else price_l_diff
 
     drift_over_date   = price_diff/date_diff
     drift_over_sqdate = price_diff/np.sqrt(date_diff)
@@ -291,11 +287,11 @@ def flight_vol_intern( orig : str
             sum_price += sum_price_tmp
 
     if drift_len == 0:
-        return None, None, None, None
-    else:
-        drift    /= drift_len
-        vol       = np.sqrt((vol_1/drift_len - (vol_2/drift_len)**2))
-        avg_price = np.double(sum_price) / drift_len
+        return None
+
+    drift    /= drift_len
+    vol       = np.sqrt((vol_1/drift_len - (vol_2/drift_len)**2))
+    avg_price = np.double(sum_price) / drift_len
 
     # final checks
     all_valid = (drift_len != 0)
@@ -313,11 +309,10 @@ def flight_vol_intern( orig : str
 
 
 def get_carriers_cache():
+    """ Gets different carriers from the cache database.
+
     """
-    gets different carriers from the cache database
-    """
-    orig_dest_l = ao_db.run_db("""SELECT DISTINCT carrier FROM flights_cache""")
-    return orig_dest_l
+    return ao_db.run_db("""SELECT DISTINCT carrier FROM flights_cache""")
 
 
 def all_vols_by_airline(carrier            = 'UA'
@@ -330,13 +325,11 @@ def all_vols_by_airline(carrier            = 'UA'
     estimates all drift/vol pairs for a particular airline
 
     """
-    # list of origins and destinations
-    if use_cache:
-        db_used = 'flights_cache'
-    else:
-        db_used = 'flights'
-    orig_dest_l = ao_db.run_db("""SELECT DISTINCT orig, dest FROM %s 
-    WHERE carrier = '%s'""" % (db_used, carrier))
+
+    db_used = 'flights_cache' if use_cache else 'flights'
+
+    orig_dest_l = ao_db.run_db("SELECT DISTINCT orig, dest FROM {0} WHERE carrier = '{1}'".format(db_used, carrier))
+
     for orig, dest in orig_dest_l:
         # select a subset of only those
         try: 
@@ -349,6 +342,7 @@ def all_vols_by_airline(carrier            = 'UA'
                       , model             = model
                       , correct_drift_vol = correct_drift_vol)
 
+        # TODO: THIS HERE IS USELESS !!!
         except EmptyFlights:
             vol, drift, nb_samples, avg_price = None, None, None, None
 
@@ -479,47 +473,37 @@ def flight_corr( orig_l
             vol = np.std(price_diff/date_diff)
 
 
-def find_flight_ids( orig
-                   , dest
-                   , carrier
-                   , min_nb_obs = 0):
+def find_flight_ids( orig     : str
+                   , dest     : str
+                   , carrier  : str
+                   , min_nb_obs = 0
+                   , host       = 'odroid.local' ) -> pd.DataFrame :
     """
     returns the flight ids for a flight from orig to dest on carrier
 
     :param orig:       IATA code of the origin airport (like 'SFO')
-    :type orig:        str
     :param dest:       IATA code of the destination airport (like 'EWR')
-    :type dest:        str
     :param carrier:    IATA code of the airline (like 'UA')
-    :type carrier:     str
     :param min_nb_obs: minimum number of observations, include only those
-    :type min_nb_obs:  int > 0
     :returns:          flight_ids for the conditions specified
-    :rtype:            DataFrame
     """
 
-    flight_ids_str = """
-    SELECT flight_id 
-    FROM flight_ids 
-    WHERE orig = '{0}' AND dest='{1}' AND carrier = '{2}'
-    """.format(orig, dest, carrier)
+    flight_ids_str = "SELECT flight_id FROM flight_ids WHERE orig = '{0}' AND dest='{1}' AND carrier = '{2}'".format(orig, dest, carrier)
 
     # THIS BELOW IS NOT WORKING 
     if min_nb_obs > 0:
         flight_ids_str += " AND COUNT(flight_id) > {0}".format(min_nb_obs)
 
-    with MysqlConnectorEnv() as mysql_conn:
-        return pd.read_sql_query( flight_ids_str
-                                , mysql_conn)
+    with MysqlConnectorEnv(host=host) as mysql_conn:
+        return pd.read_sql_query( flight_ids_str, mysql_conn)
 
 
-def flight_price_get(flight_id):
+def flight_price_get(flight_id : int):
     """
     Returns prices from flight number id and computes drift and vol for
     those prices
 
     :param flight_id: Flight id to display prices in the database for
-    :type flight_id:  int
     :returns:         tuple of data_frame, (drift, vol) computed for the flight_id
     :rtype:           tuple of DataFrame, (double, double)
     """
@@ -537,12 +521,6 @@ def flight_price_get(flight_id):
     WHERE flight_id = {0}
     """.format(flight_id)
 
-    params_str = """
-    SELECT drift, vol 
-    FROM params 
-    WHERE orig = '{0}' AND dest = '{1}' AND carrier = '{2}' AND reg_id = '{3}'
-    """
-
     with MysqlConnectorEnv() as m_conn:
 
         df1 = pd.read_sql_query( flights_prices_str
@@ -555,8 +533,9 @@ def flight_price_get(flight_id):
 
         orig, dest, carrier = df2['orig'][0], df2['dest'][0], df2['carrier'][0]
 
-        df3 = pd.read_sql_query( params_str.format(orig, dest, carrier, reg_id)
+        df3 = pd.read_sql_query( "SELECT drift, vol FROM params WHERE orig = '{0}' AND dest = '{1}' AND carrier = '{2}' AND reg_id = '{3}'".format(orig, dest, carrier, reg_id)
                                , m_conn)  # this is unique
+
         drift, vol = df3['drift'][0], df3['vol'][0]
 
     return df1, (drift, vol)

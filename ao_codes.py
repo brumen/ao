@@ -130,7 +130,7 @@ fees = {"Airtran"  : {"ticket_change": 150.,
         }
 
 
-# TODO: THESE SHOULDNT BE ALL GENERATED !!!
+# TODO: MOVE THIS INTO THE DATABASE AND DELETE - partially already in iata/codes.py
 def import_iata_codes():
     """
     Import iata codes from the file iata_file
@@ -146,13 +146,14 @@ def import_iata_codes():
                                                               , delimiter=',')}
 
     # read iata airlines
+    # airline, code, three_digit, icao, country = iata airlines stuff
     iata_codes_airlines = { code: airline
                             for airline, code, three_digit, icao, country in
                                 csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
                                           , delimiter=',') }
 
     iata_airlines_codes = { airline: code
-                            for airline, code, three_digit, icao, country in
+                            for airline, code, _, _, _ in
                                 csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
                                           , delimiter=',') }
 

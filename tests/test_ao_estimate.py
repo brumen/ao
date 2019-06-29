@@ -12,8 +12,8 @@ from ao_estimate import find_flight_ids, ArrayButtons
 class TestAoEstimate(unittest.TestCase):
 
     def test_only_1(self):
-        """
-        Tests TODO: HERE
+        """ Tests TODO: HERE
+
         """
 
         direct_flights = """
@@ -56,7 +56,7 @@ class TestAoEstimate(unittest.TestCase):
     def test_flight_price_get(self):
 
         res = aoe.flight_price_get(218312)
-        print "RES: ", res
+        print ("RES: ", res)
 
         self.assertTrue(True)
 
@@ -67,7 +67,7 @@ class TestAoEstimate(unittest.TestCase):
 
         """
 
-        print find_flight_ids('SFO', 'EWR', 'UA')
+        print (find_flight_ids('SFO', 'EWR', 'UA'), host='localhost')
         self.assertTrue(True)
 
     def test_flight_corr(self):
@@ -76,7 +76,7 @@ class TestAoEstimate(unittest.TestCase):
         carrier_l  = ['B6']
         dep_date_l = ['2016-10-01T15:10:00']
 
-        print aoe.flight_corr(orig_l, dest_l, carrier_l, dep_date_l)
+        print (aoe.flight_corr(orig_l, dest_l, carrier_l, dep_date_l))
 
     def test_flight_vol_mysql(self):
         """
@@ -86,6 +86,6 @@ class TestAoEstimate(unittest.TestCase):
         dest = 'EWR'
         carrier = 'UA'
 
-        print aoe.flight_vol_mysql(orig, dest, carrier)
+        print (aoe.flight_vol_mysql(orig, dest, carrier))
 
         self.assertTrue(True)

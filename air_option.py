@@ -489,30 +489,30 @@ class AirOptionFlights:
         return dt_today + datetime.timedelta(days= (dt_final - dt_today).days * fract/total_fraction - 3)
 
 
-class AirOption:
+class AirOptionSkyScanner(AirOptionFlights):
     """
-    Class for handling the air options
+    Class for handling the air options for SkyScanner inputs.
 
     """
 
     def __init__( self
-                , origin_place='SFO'
-                , dest_place='EWR'
-                , flights_include=None
+                , mkt_date
+                , origin    = 'SFO'
+                , dest      = 'EWR'
                 # when can you change the option
                 , option_start_date=None
                 , option_end_date=None
                 , option_ret_start_date=None
                 , option_ret_end_date=None
                 # next 4 - when do the (changed) flights occur
-                , outbound_date_start=None
-                , outbound_date_end=None
-                , inbound_date_start=None
-                , inbound_date_end=None
-                , K=1600.
-                , carrier='UA'
-                , nb_sim=10000
-                , rho=0.95
+                , outbound_date_start = None
+                , outbound_date_end   = None
+                , inbound_date_start  = None
+                , inbound_date_end    = None
+                , K = 1600.
+                , carrier = 'UA'
+                , nb_sim  = 10000
+                , rho = 0.95
                 , adults = 1
                 , cabinclass='Economy'
                 , cuda_ind=False
@@ -527,12 +527,10 @@ class AirOption:
         """
         Computes the air option from the data provided.
 
-        :param origin_place:            IATA code of the origin airport ('SFO')
-        :type origin_place:             str
-        :param dest_place:              IATA code of the destination airport ('EWR')
-        :type dest_place:               str
-        :param flights_include:         list of flights to include in pricing this option
-        :type flights_include:          list of tuples # TODO: BE MORE PRECISE HERE
+        :param origin: IATA code of the origin airport ('SFO')
+        :type origin: str
+        :param dest: IATA code of the destination airport ('EWR')
+        :type dest: str
         :param option_start_date:       the date when you can start changing the outbound flight
         :type option_start_date:        datetime.date
         :param option_end_date:         the date when you stop changing the outbound flight
@@ -567,23 +565,35 @@ class AirOption:
         :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
         """
 
-        flights = get_flight_data( flights_include     = flights_include
-                                  , origin_place        = origin_place
-                                  , dest_place          = dest_place
-                                  , outbound_date_start = outbound_date_start
-                                  , outbound_date_end   = outbound_date_end
-                                  , inbound_date_start  = inbound_date_start
-                                  , inbound_date_end    = inbound_date_end
-                                  , carrier             = carrier
-                                  , cabinclass=cabinclass
-                                  , adults=adults
-                                  , return_flight=return_flight
-                                  , recompute_ind=recompute_ind
-                                  , correct_drift=correct_drift )
-                  # , nb_adults     = adults
-                  # , return_flight = return_flight
-                  # , cuda_ind      = cuda_ind
-                  # , option_start_date = option_start_date
-                  # , option_end_date   = option_end_date
-                  # , option_ret_start_date = option_ret_start_date
-                  # , option_ret_end_date   = option_ret_end_date )
+        self.__all_flights = get_flight_data( origin_place        = origin
+                                            , dest_place          = dest
+                                            , outbound_date_start = outbound_date_start
+                                            , outbound_date_end   = outbound_date_end
+                                            , inbound_date_start  = inbound_date_start
+                                            , inbound_date_end    = inbound_date_end
+                                            , carrier             = carrier
+                                            , cabinclass          = cabinclass
+                                            , adults              = adults
+                                            , return_flight       = return_flight
+                                            , recompute_ind       = recompute_ind
+                                            , correct_drift       = correct_drift )
+
+        super(AirOptionSkyScanner, self).__init__( mkt_date              = mkt_date
+                                                 , flights               = self.__all_flights
+                                                 , option_start_date     = option_start_date
+                                                 , option_end_date       = option_end_date
+                                                 , option_ret_start_date = option_ret_start_date
+                                                 , option_ret_end_date   = option_ret_end_date
+                                                 , cuda_ind              = cuda_ind
+                                                 , rho                   = rho
+                                                 , nb_sim                = nb_sim
+                                                 , K                     = K )
+
+
+class AirOptionMock(AirOptionFlights):
+    """ Air options computation for some mock flight data.
+
+    """
+
+    def __init__(self):
+        pass

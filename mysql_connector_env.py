@@ -7,31 +7,28 @@ from ao_codes import DB_HOST, DB_HOST_CALIBRATE, DATABASE, DB_USER
 class MysqlConnectorEnv(object):
 
     def __init__( self
-                , calibrate_db = False):
+                , host     = DB_HOST
+                , database = DATABASE
+                , user     = DB_USER
+                , password = ao_codes.brumen_mysql_pass ):
         """
-        :param calibrate_db: indicator whether to use the database for calibration or not
-                             (default = not, use database for service on odroid.local)
+        :param host: host mysql connection
+        :param database: database where to connect
+        :param user: user used for connection
+        :param password: potential password used.
         """
 
-        self._calibrate_db = calibrate_db
+        self.host = host
+        self.database = database
+        self.user     = user
+        self.password = password
 
     def __enter__(self):
-        self.connection = mysql.connector.connect( host     = DB_HOST if not self._calibrate_db else DB_HOST_CALIBRATE
-                                                 , database = DATABASE
-                                                 , user     = DB_USER
-                                                 , password = ao_codes.brumen_mysql_pass )
+        self.connection = mysql.connector.connect( host     = self.host
+                                                 , database = self.database
+                                                 , user     = self.user
+                                                 , password = self.password )
         return self.connection
 
-    def __exit__(self, *args):  # TODO: CHECK IF THIS IS CORRECT
+    def __exit__(self, *args):
         self.connection.close()
-
-
-def make_pymysql_conn(calibrate_db = False):
-    """
-    Making a PyMysql connection
-    """
-
-    return mysql.connector.connect( host     = DB_HOST if not calibrate_db else DB_HOST_CALIBRATE
-                                  , database = DATABASE
-                                  , user     = DB_USER
-                                  , password = ao_codes.brumen_mysql_pass )
