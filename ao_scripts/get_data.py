@@ -1,17 +1,19 @@
 #
 # getting data from the webpage
 #
+
 import datetime
 
 from dateutil.parser import parse
 
 # iata airport/arilines
-from ao_codes import iata_cities_codes,\
-                     iata_codes_cities,\
-                     iata_airlines_codes,\
-                     iata_codes_airlines
+# from ao_codes import iata_cities_codes,\
+#                      iata_codes_cities,\
+#                      iata_airlines_codes,\
+#                      iata_codes_airlines
 
 
+# TODO: REWRITE THIS FUNCTION
 def validate_airport(airport : str) -> str:
     """
     Extract the code from the airport if code not given
@@ -27,15 +29,15 @@ def validate_airport(airport : str) -> str:
     if airport_upper in iata_codes_cities.keys():  # airport is in IATA code give
         return airport_upper
 
-    else:  # airport has a name
-        airport_keys_upper = [x.upper() for x in iata_cities_codes.keys()]
+    # airport has a name
+    airport_keys_upper = [x.upper() for x in iata_cities_codes.keys()]
 
-        if airport_upper in airport_keys_upper:
-            airport_idx  = airport_keys_upper.index(airport_upper)
-            airport_name = list(iata_cities_codes.keys())[airport_idx]
-            return iata_cities_codes[airport_name]  # return the code
+    if airport_upper in airport_keys_upper:
+        airport_idx  = airport_keys_upper.index(airport_upper)
+        airport_name = list(iata_cities_codes.keys())[airport_idx]
+        return iata_cities_codes[airport_name]  # return the code
 
-        return None
+    return None
 
 
 def validate_airline(airline):
@@ -55,22 +57,22 @@ def validate_airline(airline):
     if airline_upper in iata_codes_airlines.keys():
         return airline_upper
 
-    else:
-        iata_airlines_upper = [x.upper() for x in iata_airlines_codes.keys()]
+    iata_airlines_upper = [x.upper() for x in iata_airlines_codes.keys()]
 
-        if airline_upper in iata_airlines_upper:
-            airline_idx = iata_airlines_upper.index(airline_upper)
-            airline_name = list(iata_airlines_codes.keys())[airline_idx]
-            return iata_airlines_codes[airline_name]
-        else:
-            return None
+    if airline_upper in iata_airlines_upper:
+        airline_idx = iata_airlines_upper.index(airline_upper)
+        airline_name = list(iata_airlines_codes.keys())[airline_idx]
+        return iata_airlines_codes[airline_name]
+
+    return None  # all else fails, retrieve None
 
 
 def validate_dates(date_ : str) -> datetime.date:
     """
-    Validates whether date_ is in the 1/2/2017 format, and converts it into - format
+    Validates whether date_ can be converted from format ('1/2/2017')
+    to a datetime.date format and converts it. Otherwise return None.
 
-    :param date_: date in / format ('1/2/2017')
+    :param date_: date in a format that can be converted to / format ('1/2/2017')
     :returns: date in datetime.date format, or None if not given in any form.
     """
 
@@ -95,6 +97,7 @@ def validate_strike(strike_i) -> float:
         return None
 
 
+# TODO: REWRITE THIS PART HERE!!!
 def get_data(form):
     """
     obtains data from the form and returns them 

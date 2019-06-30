@@ -1,14 +1,11 @@
 # getting the params from the database
 import numpy as np
+import datetime
 
 # air options modules
-import datetime
 import ds
 import ao_codes
 import ao_db
-import mysql.connector 
-
-from ao_codes import DATABASE, DB_HOST, DB_USER
 
 
 def get_drift_vol_from_db( dep_date : datetime.date
@@ -95,12 +92,13 @@ def correct_drift_vol( drift_prelim
 
 
 def get_drift_vol_from_db_precise( flight_dep_l
-                                 , orig
-                                 , dest
+                                 , orig : str
+                                 , dest : str
                                  , carrier
                                  , default_drift_vol = (500., 501.)
                                  , correct_drift     = True
-                                 , fwd_value         = None):
+                                 , fwd_value         = None
+                                 , host_db           = 'localhost' ):
     """
     pulls the drift and vol from database for the selected flight,
     with more information than before
@@ -109,9 +107,7 @@ def get_drift_vol_from_db_precise( flight_dep_l
                              they all share the same date, namely dep_date; so this is not important
     :type flight_dep_l:
     :param orig:          IATA code of the origin airport
-    :type orig:           string
     :param dest:          IATA code of the dest airport (i.e. 'EWR')
-    :type dest:           string
     :param correct_drift: correct the drift, if negative make it positive 500, or so.
     :type correct_drift:  bool
     :param fwd_value:     forward value used in case correct_drift == True
@@ -133,7 +129,7 @@ def get_drift_vol_from_db_precise( flight_dep_l
     # weekday_ind == 'weekday', 'weekend'
     from mysql_connector_env import MysqlConnectorEnv
 
-    with MysqlConnectorEnv() as connection:
+    with MysqlConnectorEnv(host=host_db) as connection:
         mysql_conn_c = connection.cursor()
 
         selected_drift_vol = """

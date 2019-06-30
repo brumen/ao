@@ -4,17 +4,16 @@ import sqlite3
 import time
 import logging
 import datetime
+from typing import List  # for python3 typing
 
-# typing imports
-from typing import List
-
+# ao modules
 import ao_codes
-from   ao_codes            import iata_cities_codes, \
-                                    iata_airlines_codes,\
-                                    SQLITE_FILE
 import air_search
 import ds
-from   mysql_connector_env import MysqlConnectorEnv
+
+from ao_codes            import SQLITE_FILE
+from mysql_connector_env import MysqlConnectorEnv
+
 
 logger = logging.getLogger(__name__)
 
@@ -414,30 +413,29 @@ def find_city_code(name_part):
             if name_part in city]
 
 
-def find_airline_code(name_part):
+def find_airline_code(name_part : str) -> List[str]:
     """
     Finds code of an airline where name_part is part of that name
 
     :param name_part: part of the airline name that one is searching
-    :type name_part:  string
-    :returns:         list of airlines with that name
-    :rtype:           list of strings
+    :returns: list of airlines with that name
     """
 
-    return [iata_airlines_codes[airline]
-            for airline in iata_airlines_codes
-            if name_part in airline]
+    with MysqlConnectorEnv() as connection:
+        return connection.cursor()\
+                         .execute("SELECT iata_code FROM iata_codes WHERE airline_name LIKE {0}".format(name_part))\
+                         .fetchall()
 
 
-def call_mysql_proc( procedure_name : str
-                   , mysql_conn ):
-    """
-    Executes the procedure name on the mysql connection.
-
-    :param procedure_name: procedure
-    :param mysql_conn: mysql connection to use
-    """
-    mysql_conn.cursor().callproc(procedure_name)
+# def call_mysql_proc( procedure_name : str
+#                    , mysql_conn ):
+#     """
+#     Executes the procedure name on the mysql connection.
+#
+#     :param procedure_name: procedure
+#     :param mysql_conn: mysql connection to use
+#     """
+#     mysql_conn.cursor().callproc(procedure_name)
 
 
 def perform_db_maintenance(action_list : List[str]) -> None :
