@@ -49,61 +49,52 @@ def run_db_mysql(s):
         return my_cursor.fetchall()
 
 
-def find_dep_hour_day( dep_hour
-                     , dep_day ):
-    """
-    returns beg., end hours for dep_hours and dep_day
+def find_dep_hour_day( dep_hour : str
+                     , dep_day  : str ) -> tuple :
+    """ Returns beg., end hours for dep_hours and dep_day
 
     :param dep_hour: one of 'morning', 'afternoon', 'evening', 'night'
-    :type dep_hour:  string
     :param dep_day:  one of 'weekday', 'weekend'
-    :type dep_day:   string
+    :returns: a tuple with first elt being the time of day TODO
     """
+
+    dof_l = [0, 1, 2, 3, 4] if dep_day == 'weekday' else [5, 6]  # weekend
 
     # hr: stands for hour_range, s for start, e for end
     if dep_hour == 'morning':
-        hr_s, hr_e = ao_codes.morning_dt
-    elif dep_hour == 'afternoon':
-        hr_s, hr_e = ao_codes.afternoon_dt
-    elif dep_hour == 'evening':
-        hr_s, hr_e = ao_codes.evening_dt
-    elif dep_hour == 'night':
-        hr_s, hr_e = ao_codes.night_dt
-        
-    if dep_day == 'weekday':
-        dof_l = [0, 1, 2, 3, 4]
-    else:
-        dof_l = [5, 6]  # weekend
-        
-    return (hr_s, hr_e), dof_l
-    
+        return ao_codes.morning_dt, dof_l
+
+    if dep_hour == 'afternoon':
+        return ao_codes.afternoon_dt, dof_l
+
+    if dep_hour == 'evening':
+        return ao_codes.evening_dt, dof_l
+
+    if dep_hour == 'night':
+        return ao_codes.night_dt, dof_l
+
 
 def find_dep_hour_day_inv( dep_date : datetime.date
                          , dep_time : datetime.time ) -> tuple :
-    """
-    Inverse of the function above
-    computes hour_start, hour_end and day_of_week list from dep_date, dep_time.
+    """ Inverse of the function above: computes hour_start, hour_end and day_of_week list from dep_date, dep_time.
 
     :param dep_date: departure date
     :param dep_time: departure time
-
     :returns:   month, dayofweek of the date/time
     """
+
+    dof = 'weekday' if dep_date in ao_codes.weekday_days else 'weekend'
+
     if ao_codes.morning_dt[0] <= dep_time < ao_codes.morning_dt[1]:
-        dod = 'morning'
-    elif ao_codes.afternoon_dt[0] <= dep_time < ao_codes.afternoon_dt[1]:
-        dod = 'afternoon'
-    elif ao_codes.evening_dt[0] <= dep_time < ao_codes.evening_dt[1]:
-        dod = 'evening'
-    else:
-        dod = 'night' 
-            
-    if dep_date in ao_codes.weekday_days:
-        dof = 'weekday'
-    else:
-        dof = 'weekend'
-            
-    return dod, dof
+        return 'morning', dof
+
+    if ao_codes.afternoon_dt[0] <= dep_time < ao_codes.afternoon_dt[1]:
+        return 'afternoon', dof
+
+    if ao_codes.evening_dt[0] <= dep_time < ao_codes.evening_dt[1]:
+        return 'evening', dof
+
+    return 'night', dof
 
     
 def update_flights_w_regs():
