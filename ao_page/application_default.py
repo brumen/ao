@@ -5,12 +5,12 @@ import os.path
 import datetime
 
 import config
-import ao_codes
 
 from time import localtime
 
-# from logging.handlers import MemoryHandler
 from flask import Flask, request, jsonify, Response
+
+from ao_codes import inquiry_dir
 
 # from ao_scripts.find_relevant_carriers import get_carrier_l
 from ao_scripts.verify_origin import is_valid_origin \
@@ -108,8 +108,7 @@ def write_inquiry():
 
     """
 
-    with open(ao_codes.inquiry_dir + '/inquiry_solo/' +
-              'inquiry_' + time_now() + '.inq', 'w') as fo:
+    with open(inquiry_dir + '/inquiry_solo/' + 'inquiry_' + time_now() + '.inq', 'w') as fo:
         fo.write(json.dumps(request.get_json()))
 
     # succeeds, returns true
