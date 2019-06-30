@@ -268,17 +268,18 @@ def commit_flights_to_live(flights_l : List):
         conn.commit()
 
 
-def commit_flights_to_db(flights_l : List):
+def commit_flights_to_db( flights_l : List
+                        , host_db   = 'localhost' ):
     """
     Inserts into db the flights in the flights_l.
 
     :param flights_l: list of (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id)
                       types of these are:
-
-    :returns: None
+    :param host_db: database host
+    :returns: TODO: WHAT DOES IT DO HERE??/
     """
 
-    with MysqlConnectorEnv(calibrate_db=True) as conn:
+    with MysqlConnectorEnv(host=host_db) as conn:
         cur = conn.cursor()
         # first add all ids to the flights to insert
         # this will ignore duplicates on outbound_leg_id, which is a unique index
@@ -398,47 +399,8 @@ def ao_db_fill( dep_date_l : List[datetime.date]
                     logger.info('Error: {0}'.format(str(e)))
 
 
-def find_city_code(name_part):
-    """
-    Finds code of a city where name_part is part of the name
-
-    :param name_part: part of the airline name that one is searching
-    :type name_part:  string
-    :returns:         list of airlines with that name
-    :rtype:           list of strings
-    """
-
-    return [iata_cities_codes[city]
-            for city in iata_cities_codes
-            if name_part in city]
-
-
-def find_airline_code(name_part : str) -> List[str]:
-    """
-    Finds code of an airline where name_part is part of that name
-
-    :param name_part: part of the airline name that one is searching
-    :returns: list of airlines with that name
-    """
-
-    with MysqlConnectorEnv() as connection:
-        return connection.cursor()\
-                         .execute("SELECT iata_code FROM iata_codes WHERE airline_name LIKE {0}".format(name_part))\
-                         .fetchall()
-
-
-# def call_mysql_proc( procedure_name : str
-#                    , mysql_conn ):
-#     """
-#     Executes the procedure name on the mysql connection.
-#
-#     :param procedure_name: procedure
-#     :param mysql_conn: mysql connection to use
-#     """
-#     mysql_conn.cursor().callproc(procedure_name)
-
-
-def perform_db_maintenance(action_list : List[str]) -> None :
+def perform_db_maintenance(action_list : List[str]
+                          , host_db = 'localhost' ) -> None:
     """
     Performs the database maintanance: actions that should be undertaken
 
@@ -447,25 +409,25 @@ def perform_db_maintenance(action_list : List[str]) -> None :
                            calibrate_and_push_prasic
                            copy_params_to_odroid
                            copy_flights_live_odroid_to_prasic
-
+    :param host_db: host database
     """
 
     if "insert_flights_live_into_flights_ord_prasic" in action_list:
         # inserts flights_live into (flights_ord & flight_ids) _ON THE SAME DATABASE_
         # TODO: NOT SURE IF THIS WORKS
-        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn:
+        with MysqlConnectorEnv(host=host_db) as mysql_conn:
             mysql_conn.cursor().callproc('insert_flights_live')
 
     elif 'calibrate_and_push_prasic' in action_list:
         # calibrates the parameters and pushes them to params on the same database
-        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn:
+        with MysqlConnectorEnv(host=host_db) as mysql_conn:
             mysql_conn.cursor().callproc('insert_calibrate_all_to_params_new')
             mysql_conn.cursor().callproc('copy_params_into_old'   )
             mysql_conn.cursor().callproc('push_new_params_to_prod')
 
     elif 'copy_params_to_odroid' in action_list:
         # copies parameters from prasic to odroid
-        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn_calibrate, MysqlConnectorEnv() as mysql_conn_odroid:
+        with MysqlConnectorEnv(host=host_db) as mysql_conn_calibrate, MysqlConnectorEnv() as mysql_conn_odroid:
             calibrate_cur = mysql_conn_calibrate.cursor()
             odroid_cur    = mysql_conn_odroid.cursor()
             odroid_cur.execute('DELETE FROM params')
@@ -477,7 +439,7 @@ def perform_db_maintenance(action_list : List[str]) -> None :
 
     elif 'copy_flights_live_odroid_to_prasic' in action_list:
         # copies live flights from odroid to prasic
-        with MysqlConnectorEnv(calibrate_db=True) as mysql_conn_calibrate, MysqlConnectorEnv() as mysql_conn_odroid:
+        with MysqlConnectorEnv(host=host_db) as mysql_conn_calibrate, MysqlConnectorEnv(host='odroid') as mysql_conn_odroid:
             calibrate_cur = mysql_conn_calibrate.cursor()
             odroid_cur    = mysql_conn_odroid.cursor()
 
