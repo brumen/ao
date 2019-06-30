@@ -2,28 +2,13 @@
 
 import pandas as pd
 
+from typing import List
+
 from mysql_connector_env import MysqlConnectorEnv
-# old get_carrier function
-from ao_scripts.get_data import validate_airport
-# from ao_codes            import iata_codes_airlines
-
-from iata.codes import get_city_code, get_city_name
+from iata.codes          import get_city_code, get_city_name
 
 
-# iata_cities/airlines codes
-#from ao_codes import iata_cities_codes   as IATA_CITIES_CODES,\
-#                     iata_codes_cities   as IATA_CODES_CITIES,\
-#                     iata_airlines_codes as IATA_AIRLINES_CODES,\
-#                     iata_codes_airlines as IATA_CODES_AIRLINES
-
-
-#IATA_CODES_CITIES_l   = list(IATA_CODES_CITIES.keys())
-#IATA_CITIES_CODES_l   = list(IATA_CITIES_CODES.keys())
-#IATA_AIRLINES_CODES_l = list(IATA_AIRLINES_CODES.keys())
-#IATA_CODES_AIRLINES_l = list(IATA_CODES_AIRLINES.keys())
-
-
-def show_airport_l(airport_partial_name: str) -> tuple:
+def get_airports(airport_partial_name: str) -> tuple:
     """
     Returns the list of airports from term.
 
@@ -57,41 +42,16 @@ def show_airport_l(airport_partial_name: str) -> tuple:
 
     return ret_cand[:10]
 
-
-def get_carrier_l(origin, dest):
-    """
-    Populates it w/ all carriers 
-
-    """
-
-    # get the three letter codes from origin, dest
-
-    return IATA_AIRLINES_CODES_l + IATA_CODES_AIRLINES_l
-
     
-def get_carrier_list_from_params(origin : str, dest :str):
+def get_carriers_on_route(origin : str, dest :str, host_db = 'localhost') -> List[str]:
     """ Gets the list from the params database.
 
-    :param origin: origin IATA code destination
-    :param dest: destination IATA code.
+    :param origin: origin IATA code destination ('EWR')
+    :param dest: destination IATA code. ('SFO')
+    :param host_db: name of host db connection, like 'localhost'
+    :returns: list of IATA codes of airlines that fly that route
     """
 
-    # get the three letter codes from origin, dest
-    origin_upper, origin_valid = validate_airport(origin)
-    dest_upper  , dest_valid   = validate_airport(dest  )
-
-    if not origin_valid or not dest_valid:
-        return None
-
-    with MysqlConnectorEnv() as mconn:
-        df1 = pd.read_sql_query( "SELECT DISTINCT(carrier) FROM params WHERE orig = '{0}' AND dest = '{1}'".format(origin_upper, dest_upper)
-                               , mconn)
-
-    ret_cand_1 = list(df1['carrier'])
-    if len(ret_cand_1) == 0:  # no result
-        return None
-
-    # we have to return all the candidates
-    # extend with flight names
-    ret_cand_1.extend([iata_codes_airlines[x] for x in ret_cand_1])
-    return ret_cand_1
+    with MysqlConnectorEnv(host=host_db) as mconn:
+        return list(pd.read_sql_query( "SELECT DISTINCT(carrier) FROM params WHERE orig = '{0}' AND dest = '{1}'".format(origin.upper(), dest.upper())
+                                     , mconn )['carrier'])
