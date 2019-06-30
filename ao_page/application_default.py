@@ -85,16 +85,13 @@ def recompute_option_flask():
 
     """
 
-    # compute_id identifies the computation request
     return jsonify(compute_option( request.get_json()
-                                 , recompute_ind = True
-                                 , compute_id    = str(datetime.datetime.now()) ) )
+                                 , recompute_ind = True ) )
 
 
 @ao_rester.route('/write_inquiry', methods=['POST'])
 def write_inquiry():
-    """
-    Writes a file about the inquiry to the inquiry folder.
+    """ Writes a file about the inquiry to the inquiry folder.
 
     """
 
@@ -108,14 +105,22 @@ def write_inquiry():
 # TODO: CHECK IF THIS IS GET???/
 @ao_rester.route('/compute_option', methods = ['GET'])
 def compute_option_flask():
-    """
-    Computes the option w/ server sent events (SSE)
+    """ Computes the option w/ server sent events (SSE)
 
     """
 
     # compute_option has to be a generator
 
     return Response(compute_option(request.args), mimetype="text/event-stream")
+
+
+@ao_rester.route('/compute_option_now', methods = ['GET'])
+def compute_option_now_flask():
+    """ Immediate response compute option.
+
+    """
+
+    return jsonify(compute_option(request.get_json()))
 
 
 @ao_rester.route('/ao_auto_fill_origin')

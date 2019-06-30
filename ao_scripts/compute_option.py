@@ -13,32 +13,26 @@ from air_option import AirOptionMock
 
 
 def compute_option( form
-                  , recompute_ind = False
-                  , compute_id    = None ) -> dict :
+                  , recompute_ind = False ) -> dict:
     """
     Interface to the compute_option_val function from air_option, to
     be called from the flask interface
 
     :param form: "Dict" of parameters passed from the browser
     :type form: ImmutableMultiDict
-    :param publisher_ao: publisher object used for publishing the messages
-    :type publisher_ao: sse.Publisher
     :param recompute_ind: indicator whether to do a recomputation or not
-    :param compute_id: id of the computation/flight fetching request - used if there are multiple requests
     :returns:
     """
 
-    is_one_way, ( all_valid, origin_place, dest_place, option_start, option_end,
-                  outbound_start, outbound_end, strike, carrier_used,
-                  option_start_ret, option_end_ret, inbound_start, inbound_end,
-                  return_ow, cabin_class, nb_people ) = get_data(form)
+    is_one_way, all_valid, origin_place, dest_place, option_start, option_end,\
+    outbound_start, outbound_end, strike, carrier_used,\
+    option_start_ret, option_end_ret, inbound_start, inbound_end, cabin_class, nb_people = get_data(form)
 
     if recompute_ind:  # recompute part
         sel_flights_dict = json.loads(form['flights_selected'])  # in dict form
 
     yield { 'finished'  : False
-          , 'result'    : 'Initiating flight fetch.'
-          , 'compute_id': compute_id }
+          , 'result'    : 'Initiating flight fetch.' }
 
     if not all_valid:  # dont compute, inputs are wrong
         logger.info(';'.join(['AO', 'Invalid input data.']))

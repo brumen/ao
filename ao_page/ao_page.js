@@ -709,40 +709,40 @@ function handle_computation(get_string) {
 
     var eventSource = new EventSource("ao/compute_option" + get_string );
     eventSource.onmessage = function (server_message) { // handling response from server
-	// function handles the return messages from server
-	// involving the option computation
-	var data = JSON.parse(server_message.data);
+	    // function handles the return messages from server
+	    // involving the option computation
+	    var data = JSON.parse(server_message.data);
 
-	if (data.finished)  // display elements
-	{   // success logic - data object with fields as defined
-	    // close the notification messages
-	    document.getElementById("notification_messages").style = "display:none;";
- 	    document.getElementById("option_price_frame").value = display_results_init(data.result);
- 	    change_button_back(document.getElementById('find_flights_button')
-			       , 'Find flights', 'left');
- 	    // change the type of checkbox accorions
- 	    $('.accordion input[type="checkbox"]').click(function(e) {
- 		e.stopPropagation();
- 	    });
+	    if (data.finished)  { // display elements
+	        // success logic - data object with fields as defined
+	        // close the notification messages
+	        document.getElementById("notification_messages").style = "display:none;";
+ 	        document.getElementById("option_price_frame").value = display_results_init(data.result);
+ 	        change_button_back(document.getElementById('find_flights_button')
+			                   , 'Find flights', 'left');
+ 	        // change the type of checkbox accorions
+ 	        $('.accordion input[type="checkbox"]').click(function(e) {
+ 		        e.stopPropagation();
+ 	        });
 
-	    eventSource.close(); // close the SSE stream
+	        eventSource.close(); // close the SSE stream
 
-	} else {  // not finished, display the message in the result
- 	    // showing the style
- 	    document.getElementById("flights-section").style = "";  // display this section
- 	    document.getElementById("notification_messages")
-	        .appendChild(document.createElement("p")
-			     .appendChild(document.createTextNode(data.result)))
- 	    document.getElementById("notification_messages").appendChild(document.createElement("br"));
-	}
+	    } else {  // not finished, display the message in the result
+ 	        // showing the style
+ 	        document.getElementById("flights-section").style = "";  // display this section
+ 	        document.getElementById("notification_messages")
+	            .appendChild(document.createElement("p")
+			                 .appendChild(document.createTextNode(data.result)))
+ 	        document.getElementById("notification_messages").appendChild(document.createElement("br"));
+	    }
     }
 
     eventSource.onerror = function (server_message) {
-	var data = JSON.parse(server_message.data);
-	console.log(data);  // display error in console
-	document.getElementById("notification_messages").style = "";
-	document.getElementById("notification_messages").appendChild(document.createTextNode('Something went wrong. Please try again.'));
-	eventSource.close();
+	    var data = JSON.parse(server_message.data);
+	    console.log(data);  // display error in console
+	    document.getElementById("notification_messages").style = "";
+	    document.getElementById("notification_messages").appendChild(document.createTextNode('Something went wrong. Please try again.'));
+	    eventSource.close();
     }
 }
 

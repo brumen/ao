@@ -1,5 +1,5 @@
 #
-# getting data from the webpage
+# processing of data obtained from webpage
 #
 
 import datetime
@@ -42,7 +42,6 @@ def validate_strike(strike_i) -> float:
         return None
 
 
-# TODO: REWRITE THIS PART HERE!!!
 def get_data(form):
     """ Obtains data from the form and returns them.
 
@@ -52,15 +51,14 @@ def get_data(form):
     :rtype:
     """
 
-    origin_place   = get_city_code(form.get('origin_place'))
-    dest_place     = get_city_code(form.get('dest_place'  ))
+    origin_place   = get_city_code(form.get('origin'))
+    dest_place     = get_city_code(form.get('dest'  ))
     outbound_start = validate_dates(form.get('outbound_start'))
     outbound_end   = validate_dates(form.get('outbound_end'))
 
     # check that outbound_start < outbound_end
-    all_valid = True
-    if outbound_start and outbound_end:
-       all_valid = outbound_start <= outbound_end
+    if not outbound_start or not outbound_end or not (outbound_start <= outbound_end):
+        return None
 
     carrier = get_airline_code(form.get('airline_name'))
 
@@ -68,7 +66,9 @@ def get_data(form):
     return_ow   = form.get('return_ow')  # this is either 'return' or 'one-way'
     cabin_class = form.get('cabin_class')  # cabin class
     nb_people   = form.get('nb_people')
-    all_valid   = all_valid and origin_place and dest_place and outbound_start and outbound_end and carrier and strike
+
+    if not origin_place or not dest_place or not outbound_start or not outbound_end or not carrier or not strike:
+        return None
 
     if return_ow == 'one-way':  # one-way flight
         option_start_ret, option_end_ret, inbound_start, inbound_end = None, None, None, None
@@ -80,26 +80,25 @@ def get_data(form):
         inbound_end      = validate_dates(form.get('outbound_end_ret'  ))
 
         # check that inbound_start < inbound_end
-        if inbound_start and inbound_end:
-            all_valid = all_valid and (inbound_start <= inbound_end) and (outbound_end < inbound_start)
+        if not (inbound_start <= inbound_end) or not (outbound_end < inbound_start):
+            return None
 
-
-    return return_ow, ( all_valid
-                      , origin_place
-                      , dest_place
-                      , outbound_start # TODO: CHECK THIS
-                      , outbound_end   # TODO: CHECK THIS
-                      , outbound_start
-                      , outbound_end
-                      , validate_strike(form.get('ticket_price'))
-                      , None if carrier == '' else carrier
-                      , option_start_ret
-                      , option_end_ret
-                      , inbound_start
-                      , inbound_end
-                      , return_ow
-                      , cabin_class
-                      , nb_people )
+    # # TODO: CHECK FIRST OUTBOUND/INBOUND start
+    return return_ow\
+         , origin_place\
+         , dest_place\
+         , outbound_start\
+         , outbound_end\
+         , outbound_start\
+         , outbound_end\
+         , validate_strike(form.get('ticket_price'))\
+         , None if carrier == '' else carrier\
+         , option_start_ret\
+         , option_end_ret\
+         , inbound_start\
+         , inbound_end\
+         , cabin_class\
+         , nb_people
 
 
 def get_data_final(form):
