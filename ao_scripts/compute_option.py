@@ -4,8 +4,6 @@ import numpy as np
 import logging
 import json
 
-# ao modules
-from air_option          import compute_option_val
 from ao_scripts.get_data import get_data
 
 # logger declaration
@@ -76,16 +74,12 @@ def compute_option( form
 
         logger.info(';'.join(['AO', 'Starting option computation.']))
 
-        result, price_range, flights_v, reorg_flights_v, minmax_v = \
-            compute_option_val(**way_args)
+        result = compute_option_val(**way_args)
 
         logger.info(';'.join(['AO', 'Finished option computation']))
 
-        if result == 'Invalid':
-            logger.info(';'.join(['AO', json.dumps((False, {}))]))
-
-            yield { 'finished': True
-                  , 'results' : {} }
+        if result:
+            yield { 'finished': True, 'results' : {} }
 
         else:  # actual display
             yield {'finished': True

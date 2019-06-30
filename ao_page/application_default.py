@@ -6,42 +6,24 @@ import datetime
 
 import config
 
-from time import localtime
-
+from time  import localtime
 from flask import Flask, request, jsonify, Response
 
-from ao_codes import inquiry_dir
-
-# from ao_scripts.find_relevant_carriers import get_carrier_l
-from ao_scripts.verify_origin import is_valid_origin \
-                                   , is_valid_airline \
-                                   , show_airline_l \
-                                   , show_airport_l \
-                                   , get_carrier_l
-
+from ao_codes                  import inquiry_dir
+from iata.codes                import get_airline_code, get_city_code
+from ao_scripts.verify_origin  import get_carriers_on_route
 from ao_scripts.compute_option import compute_option
 
 
 logging.basicConfig( filename = os.path.join(config.log_dir, 'ao.log')
                    , level    = logging.CRITICAL)
 
-logger = logging.getLogger()  # root logger
-logger.setLevel(logging.INFO)
-# logger_handler = logging.FileHandler())
-# logger_format = '%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-# logger_handler.setFormatter(logging.Formatter(logger_format))
-# logger.addHandler(logger_handler)
-# computeStream = ComputeStream()  # object keeping the messages
-# stream_handler = logging.handlers.MemoryHandler( 0  # capcity = 0, immediately flush
-#                                              , flushLevel = logging.INFO
-#                                               , target     = computeStream )
-# logger.addHandler(stream_handler)
-
+logger = logging.getLogger()
 
 # Flask app
-app = Flask(__name__)
-app.debug = True
-app.use_debugger = False
+ao_rester = Flask(__name__)
+ao_rester.debug = True
+ao_rester.use_debugger = False
 
 
 def time_now():
@@ -51,42 +33,49 @@ def time_now():
     :returns: local time separated by underscores.
     :rtype: str
     """
+
     lt = localtime()
     return '_'.join([ str(lt.tm_year), str(lt.tm_mon), str(lt.tm_mday)
                     , str(lt.tm_hour), str(lt.tm_min), str(lt.tm_sec)])
 
 
-@app.route('/verify_airline', methods = ['GET'])
+
+@ao_rester.route('/verify_airline', methods = ['GET'])
 def verify_airline():
     """
     Checks that the airline is correct
     """
 
-    return jsonify({'found': is_valid_airline(request.args.get('airline', ''))})
+    # TODO:  THIS CAN RETURN MULTIPLE AIRLINES - CHECK IF THIS WORK
+    airline_code = get_airline_code(request.args.get('airline', ''))
+
+    return jsonify({'found': airline_code})
 
 
-@app.route('/verify_origin', methods = ['GET'])
+@ao_rester.route('/verify_origin', methods = ['GET'])
 def verify_origin():
     """
     Checks whether the airport is a valid IATA name
 
     """
 
-    return jsonify ({'found': is_valid_origin(request.args.get('origin', ''))})
+    # TODO: THIS CAN RETURN MULTIPLE CITIES
+    city_code = get_city_code(request.args.get('origin', ''))
+    return jsonify ({'found': city_code})
 
 
-@app.route('/find_relevant_carriers', methods = ['GET'])
+@ao_rester.route('/find_relevant_carriers', methods = ['GET'])
 def find_relevant_carriers():
 
     origin = request.args.get('origin', '')
     dest   = request.args.get('dest'  , '')
-    is_valid, return_l = get_carrier_l(origin, dest)
+    is_valid, return_l = get_carriers_on_route(origin, dest)
 
     return jsonify({ 'is_valid'     : is_valid
                    , 'list_carriers': return_l})
 
 
-@app.route('/recompute_option', methods = ['POST'])
+@ao_rester.route('/recompute_option', methods = ['POST'])
 def recompute_option_flask():
     """
     Recomputes the option value,
@@ -101,7 +90,7 @@ def recompute_option_flask():
                                  , compute_id    = str(datetime.datetime.now()) ) )
 
 
-@app.route('/write_inquiry', methods=['POST'])
+@ao_rester.route('/write_inquiry', methods=['POST'])
 def write_inquiry():
     """
     Writes a file about the inquiry to the inquiry folder.
@@ -116,7 +105,7 @@ def write_inquiry():
 
 
 # TODO: CHECK IF THIS IS GET???/
-@app.route('/compute_option', methods = ['GET'])
+@ao_rester.route('/compute_option', methods = ['GET'])
 def compute_option_flask():
     """
     Computes the option w/ server sent events (SSE)
@@ -128,31 +117,31 @@ def compute_option_flask():
     return Response(compute_option(request.args), mimetype="text/event-stream")
 
 
-@app.route('/ao_auto_fill_origin')
+@ao_rester.route('/ao_auto_fill_origin')
 def ao_auto_fill_origin():
     """
     Returns the auto fill of the IATA origin airports
 
     """
 
-    airport_l, found_ind = show_airport_l(request.args.get("term"))
-    return Response( json.dumps(airport_l)  # jsonify doesnt work
+    airports = get_city_code(request.args.get("term"))
+    return Response( json.dumps(airports)  # jsonify doesnt work
                    , mimetype = 'application/json')
 
 
-@app.route('/ao_auto_fill_airline')
+@ao_rester.route('/ao_auto_fill_airline')
 def ao_auto_fill_airline():
     """
     Returns the auto fill of the IATA airline codes
 
     """
 
-    airline_l, found_ind = show_airline_l(request.args.get("term"))
+    airline_l = get_airline_code(request.args.get("term"))
     return Response( json.dumps(airline_l)
                    , mimetype = 'application/json' )
 
 
-# @app.route('/ao_payment', methods = ['GET'])
+# @ao_rester.route('/ao_payment', methods = ['GET'])
 # def ao_payment():
 #    # The following variables need to be assigned:
 #    #   card_nonce
@@ -175,3 +164,6 @@ def ao_auto_fill_airline():
 #                                                 , 'idempotency_key': str(uuid.uuid1()) }) )
 #
 #    return response.body
+
+def __main__():
+    res = ao_rester.run()
