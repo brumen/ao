@@ -15,37 +15,9 @@ import mc
 import ds
 import ao_codes
 from air_flights import get_flight_data, find_minmax_flight_subset
-
-
-from ao_codes import MIN_PRICE
-
+from ao_codes    import MIN_PRICE
 
 logger = logging.getLogger(__name__)
-
-
-def construct_sim_times( date_start    : datetime.date
-                       , date_end      : datetime.date
-                       , date_today_dt : datetime.date
-                       , simplify_compute
-                       , dcf = 365. ) -> List[datetime.date] :
-    """
-    Constructs the simulation times used for air options.
-
-    :param date_start:    date start
-    :param date_end:      date end
-    :param date_today_dt: date today
-    :param dcf:           day count factor
-    :type dcf:            double
-    :returns:             list of simulated dates
-    """
-
-    T_l = ds.construct_date_range(date_start, date_end)  # in date format
-
-    if simplify_compute == 'all_sim_dates':
-        return [(date_sim - date_today_dt).days/dcf for date_sim in T_l]
-
-    # elif simplify_compute == 'take_last_only':
-    return [(T_l[-1] - date_today_dt).days/dcf]
 
 
 class AirOptionFlights:
@@ -217,6 +189,30 @@ class AirOptionFlights:
             self.__option_ret_end_date = new_end_date
             self.__recompute_option_value = True
 
+    @staticmethod
+    def construct_sim_times( date_start: datetime.date
+                           , date_end: datetime.date
+                           , date_today_dt: datetime.date
+                           , simplify_compute='take_last_only'
+                           , dcf=365.) -> List[datetime.date]:
+        """ Constructs the simulation times used for air options.
+
+        :param date_start: date start
+        :param date_end: date end
+        :param date_today_dt: date today
+        :param dcf: day count factor
+        :type dcf: double
+        :returns: list of simulated dates
+        """
+
+        T_l = ds.construct_date_range(date_start, date_end)  # in date format
+
+        if simplify_compute == 'all_sim_dates':
+            return [(date_sim - date_today_dt).days / dcf for date_sim in T_l]
+
+        # elif simplify_compute == 'take_last_only':
+        return [(T_l[-1] - date_today_dt).days / dcf]
+
     def __getOutboundTL(self, outbound_date_start):
         """
         Ancilliary function for getting the outbound dates and simulation times.
@@ -227,10 +223,10 @@ class AirOptionFlights:
                                                  , outbound_date_start
                                                  , self.__complete_set_options - ri
                                                  , self.__complete_set_options) \
-            , construct_sim_times(self.mkt_date
-                                  , outbound_date_consid
-                                  , datetime.date.today()
-                                  , simplify_compute=self.__simplify_compute)
+            , AirOptionFlights.construct_sim_times( self.mkt_date
+                                                  , outbound_date_consid
+                                                  , datetime.date.today()
+                                                  , simplify_compute = self.__simplify_compute)
 
     def _drift_for_flight(self, flight_nb : str) -> float:
         """ Drift for flight, this method can be reimplemented.
@@ -273,16 +269,16 @@ class AirOptionFlights:
         """
 
         # all simulation times
-        T_l_dep_num = construct_sim_times(self.option_start_date
-                                         , self.option_end_date
-                                         , self.mkt_date
-                                         , simplify_compute = self.__simplify_compute)
+        T_l_dep_num = AirOptionFlights.construct_sim_times( self.option_start_date
+                                                          , self.option_end_date
+                                                          , self.mkt_date
+                                                          , simplify_compute = self.__simplify_compute)
 
         if self.return_flight:
-            T_l_ret_num = construct_sim_times( self.option_ret_start_date
-                                             , self.option_ret_end_date
-                                             , self.mkt_date
-                                             , simplify_compute = self.__simplify_compute )
+            T_l_ret_num = AirOptionFlights.construct_sim_times( self.option_ret_start_date
+                                                              , self.option_ret_end_date
+                                                              , self.mkt_date
+                                                              , simplify_compute = self.__simplify_compute )
 
         if self.return_flight:  # return flights
             departing_flights, returning_flights = self._flights
@@ -305,8 +301,8 @@ class AirOptionFlights:
 
         """
 
-        self.option_start_date = option_start_date
-        self.option_end_date   = option_end_date
+        self.option_start_date     = option_start_date
+        self.option_end_date       = option_end_date
         self.option_ret_start_date = option_ret_start_date
         self.option_ret_end_date   = option_ret_end_date
 

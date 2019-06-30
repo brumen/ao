@@ -8,8 +8,8 @@ from ao_scripts.get_data import get_data
 
 # logger declaration
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
+
+from air_option import AirOptionMock
 
 
 def compute_option( form
@@ -72,11 +72,7 @@ def compute_option( form
             way_args.update({ 'flights_include': sel_flights_dict
                             , 'recompute_ind'  : True })
 
-        logger.info(';'.join(['AO', 'Starting option computation.']))
-
-        result = compute_option_val(**way_args)
-
-        logger.info(';'.join(['AO', 'Finished option computation']))
+        result = AirOptionMock(**way_args)()
 
         if result:
             yield { 'finished': True, 'results' : {} }

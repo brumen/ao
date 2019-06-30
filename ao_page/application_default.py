@@ -39,7 +39,6 @@ def time_now():
                     , str(lt.tm_hour), str(lt.tm_min), str(lt.tm_sec)])
 
 
-
 @ao_rester.route('/verify_airline', methods = ['GET'])
 def verify_airline():
     """
@@ -66,13 +65,15 @@ def verify_origin():
 
 @ao_rester.route('/find_relevant_carriers', methods = ['GET'])
 def find_relevant_carriers():
+    """ Endpoint for finding the relevant carriers from origin to dest.
 
-    origin = request.args.get('origin', '')
-    dest   = request.args.get('dest'  , '')
-    is_valid, return_l = get_carriers_on_route(origin, dest)
+    """
 
-    return jsonify({ 'is_valid'     : is_valid
-                   , 'list_carriers': return_l})
+    carriers = get_carriers_on_route( request.args.get('origin', '')
+                                    , request.args.get('dest'  , '') )
+
+    return jsonify({ 'is_valid'     : carriers is not None
+                   , 'list_carriers': carriers})
 
 
 @ao_rester.route('/recompute_option', methods = ['POST'])
@@ -165,5 +166,5 @@ def ao_auto_fill_airline():
 #
 #    return response.body
 
-def __main__():
-    res = ao_rester.run()
+# def __main__():
+ao_rester.run()
