@@ -1,9 +1,10 @@
 # codes used for the modules 
-import config
-import datetime as dt
-import ds 
-# import csv
+
 import os
+import datetime
+
+import config
+import ds 
 
 # mysql database setup
 DB_HOST           = 'odroid.local'  # db for service
@@ -61,15 +62,13 @@ weekday_days = [0, 1, 2, 3, 4]
 weekend_days = [5, 6]
 
 # livedb prices should only be used if within the livedb_delay of being logged
-livedb_delay = dt.timedelta(hours=1)
+livedb_delay = datetime.timedelta(hours=1)
 
 # working directory
 compute_dir = os.path.join(config.tmp_dir , 'inquiry/compute'    )
 inquiry_dir = os.path.join(config.tmp_dir , 'inquiry'            )
 error_log   = os.path.join(config.log_dir , 'logger/ao.log'      )
 debug_dir   = os.path.join(config.log_dir , 'debug'              )
-#iata_dir    = os.path.join(config.prod_dir, 'iata'               )
-#iata_file   = os.path.join(iata_dir       , 'iata_codes_work.csv')
 
 # reserves, taxes
 reserves             = 0.12  # 10% reserves, 15, but
@@ -128,36 +127,3 @@ fees = {"Airtran"  : {"ticket_change": 150.,
                       "same day": 50.},
         "Hawaiian":  {"ticket_change": 30.}
         }
-
-
-# TODO: DELETE THIS PART - partially already in iata/codes.py
-# def import_iata_codes():
-#     """
-#     Import iata codes from the file iata_file
-#
-#     """
-#
-#     iata_cities_codes = {city: code
-#                          for code, country, city in csv.reader( open(iata_file, 'r', encoding='utf-8')
-#                                                               , delimiter=',')}
-#
-#     iata_codes_cities = {code: city
-#                          for code, country, city in csv.reader( open(iata_file, 'r', encoding='utf-8')
-#                                                               , delimiter=',')}
-#
-#     # read iata airlines
-#     # airline, code, three_digit, icao, country = iata airlines stuff
-#     iata_codes_airlines = { code: airline
-#                             for airline, code, three_digit, icao, country in
-#                                 csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
-#                                           , delimiter=',') }
-#
-#     iata_airlines_codes = { airline: code
-#                             for airline, code, _, _, _ in
-#                                 csv.reader( open(os.path.join(iata_dir, 'iata_airlines.csv'), 'r', encoding='utf-8')
-#                                           , delimiter=',') }
-#
-#     return iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines
-#
-#
-# iata_cities_codes, iata_codes_cities, iata_airlines_codes, iata_codes_airlines = import_iata_codes()
