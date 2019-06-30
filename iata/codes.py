@@ -48,3 +48,17 @@ def get_city_code(city_name : str
             return None
 
         return [city_code[0] for city_code in all_city_codes]
+
+
+def get_city_name( city_code : str
+                 , host      = 'localhost' ):
+
+    with MysqlConnectorEnv(host=host) as connection:
+        iata_c = connection.cursor()
+        iata_c.execute("SELECT city_name FROM iata_cities WHERE city_code LIKE '%{0}%'".format(city_code))
+
+        all_city_names = iata_c.fetchall()
+        if not all_city_names:
+            return None
+
+        return [city_name[0] for city_name in all_city_names]
