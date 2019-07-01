@@ -2,10 +2,14 @@
 import numpy as np
 import datetime
 
+from typing import List
+
 # air options modules
 import ds
 import ao_codes
 import ao_db
+
+from mysql_connector_env import MysqlConnectorEnv
 
 
 def get_drift_vol_from_db( dep_date : datetime.date
@@ -13,7 +17,8 @@ def get_drift_vol_from_db( dep_date : datetime.date
                          , dest     : str
                          , carrier  : str
                          , default_drift_vol = (500., 501.)
-                         , fwd_value         = None):
+                         , fwd_value         = None
+                         , db_host           = 'localhost' ):
     """ Pulls the drift and vol from database for the selected flight
 
     :param dep_date: departure date of the flight (datetime.date(2019, 7, 1) )
@@ -22,46 +27,27 @@ def get_drift_vol_from_db( dep_date : datetime.date
     :param carrier: airline carrier, e.g. 'UA'
     :param correct_drift: correct the drift, if negative make it positive 500, or so.
     :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
+    :param db_host: database host, e.g. 'localhost'
     """
 
-    res = ao_db.run_db_mysql("SELECT drift, vol, avg_price FROM params WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}'".format(orig, dest, carrier))
+    with MysqlConnectorEnv(host=db_host) as drift_connection:
+        drift_vol_c = drift_connection.cursor()
+        drift_vol_c.execute("SELECT as_of, drift, vol, avg_price FROM params WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}'".format(orig, dest, carrier))
+        drift_vol_params = drift_vol_c.fetchall()
 
-    if len(res) == 0:  # nothing in the list
+    if len(drift_vol_params) == 0:  # nothing in the list
         return default_drift_vol
 
     # at least one entry, check if there are many, select most important
-    # entry in form ('date time', drift, vol, avg_price)
-    res_date, drift_prelim, vol_prelim, avg_price = select_closest_date(dep_date, res)  # return in the same format
-    # final correction in case desired
+    # entry in form (datetime.datetime, drift, vol, avg_price)
+    closest_date = min([ abs((dep_date - date_param.date()).days) for date_param , _, _, _ in drift_vol_params])
+    _, drift_prelim, vol_prelim, avg_price = drift_vol_params.index(closest_date)
+
     return correct_drift_vol( drift_prelim
                             , vol_prelim
                             , default_drift_vol
                             , fwd_value
                             , avg_price)
-
-
-def select_closest_date(date_desired, date_l):
-    """
-    Selects the closest date to date_desired in the list date_l.
-
-    :param date_desired: date that you want closest to
-    :type date_desired:
-    :param date_l:       list of dates that you want to select closest to
-    :type date_l:        list of dates
-    """
-
-    closest_elt = date_l[0]  # this always exists
-    closest_elt_dt = ds.convert_datedash_date(closest_elt[0].split(' ')[0])
-    date_desired_dt = ds.convert_datedash_date(date_desired)
-    for entry in date_l:
-        date_curr_dt = ds.convert_datedash_date(entry[0].split(' ')[0])
-        prev_close_distance = abs((date_curr_dt - closest_elt_dt).days)
-        new_close_distance = abs((date_curr_dt - date_desired_dt).days)
-        if new_close_distance  < prev_close_distance:
-            closest_elt = entry
-            closest_elt_dt = ds.convert_datedash_date(closest_elt[0].split(' ')[0])
-
-    return closest_elt
 
 
 def correct_drift_vol( drift_prelim
@@ -91,10 +77,10 @@ def correct_drift_vol( drift_prelim
     return scale_f * drift_prelim, scale_f * vol_prelim
 
 
-def get_drift_vol_from_db_precise( flight_dep_l
+def get_drift_vol_from_db_precise( flight_dep_l : List
                                  , orig : str
                                  , dest : str
-                                 , carrier
+                                 , carrier : str
                                  , default_drift_vol = (500., 501.)
                                  , correct_drift     = True
                                  , fwd_value         = None

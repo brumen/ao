@@ -3,8 +3,9 @@ import config
 import datetime
 import numpy as np
 import logging
+import functools
 
-from typing import List
+from typing import List, Tuple
 
 if config.CUDA_PRESENT:
     import cuda_ops
@@ -16,6 +17,8 @@ import ds
 import ao_codes
 from air_flights import get_flight_data, find_minmax_flight_subset
 from ao_codes    import MIN_PRICE
+
+from ao_params import get_drift_vol_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -124,12 +127,12 @@ class AirOptionFlights:
         """
 
         if new_start_date != self.__option_start_date:
-            self.__option_start_date = new_start_date
+            self.__option_start_date      = new_start_date
             self.__recompute_option_value = True
 
     @property
     def option_end_date(self):
-        """ Option end date, either set explicitly, or defaults to the first of the flight
+        """ Option end date, either set explicitly, or defaults to the first of the flight.
 
         """
 
@@ -190,16 +193,16 @@ class AirOptionFlights:
             self.__recompute_option_value = True
 
     @staticmethod
-    def construct_sim_times( date_start: datetime.date
-                           , date_end: datetime.date
-                           , date_today_dt: datetime.date
-                           , simplify_compute='take_last_only'
-                           , dcf=365.) -> List[datetime.date]:
+    def construct_sim_times( date_start    : datetime.date
+                           , date_end      : datetime.date
+                           , date_today_dt : datetime.date
+                           , simplify_compute = 'take_last_only'
+                           , dcf              = 365.) -> List[datetime.date]:
         """ Constructs the simulation times used for air options.
 
-        :param date_start: date start
-        :param date_end: date end
-        :param date_today_dt: date today
+        :param date_start: date start of simulated times
+        :param date_end: date end of simulated times
+        :param date_today_dt: reference date, mostly today's date
         :param dcf: day count factor
         :type dcf: double
         :returns: list of simulated dates
@@ -213,42 +216,46 @@ class AirOptionFlights:
         # elif simplify_compute == 'take_last_only':
         return [(T_l[-1] - date_today_dt).days / dcf]
 
-    def __getOutboundTL(self, outbound_date_start):
-        """
-        Ancilliary function for getting the outbound dates and simulation times.
-        TODO: COMMENT HERE
+    @functools.lru_cache
+    def _drift_vol_for_flights(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
+        """ Gets drift and vol for flights. It caches it, so that drift and vol are not regetting it.
+
         """
 
-        return AirOption.compute_date_by_fraction( self.mkt_date
-                                                 , outbound_date_start
-                                                 , self.__complete_set_options - ri
-                                                 , self.__complete_set_options) \
-            , AirOptionFlights.construct_sim_times( self.mkt_date
-                                                  , outbound_date_consid
-                                                  , datetime.date.today()
-                                                  , simplify_compute = self.__simplify_compute)
+        return (0.3, 0.3)
 
-    def _drift_for_flight(self, flight_nb : str) -> float:
+    def _drift_for_flight(self, flight_nb : Tuple[datetime.date, str]) -> float:
+        """ Drift for flight, read from the database.
+
+        :param flight_nb: flight number
+        :returns: drift for the particular flight
+        """
+
+        return self._drift_for_flight(flight_nb)[0]  # Important: this is cached in the function above
+
+    def _vol_for_flight(self, flight_nb : Tuple[datetime.date, str]) -> float:
         """ Drift for flight, this method can be reimplemented.
 
         :param flight_nb: flight number
+        :returns: drift for a particular flight
         """
 
-        return 0.3
+        return self._drift_vol_for_flights(flight_nb)[1]  # Important: this is cached, so no double getting.
 
-    def _vol_for_flight(self, flight_nb : str) -> float:
-        """ Drift for flight, this method can be reimplemented.
+    def _get_origin_dest_carrier_from_flight(self, flight_id) -> Tuple[str, str, str]:
+        """ Gets origin, destination, carrier from flight_id, e.g. 'UA70' is 'SFO', 'EWR', 'UA'
 
-        :param flight_nb: flight number
+        :param flight_id: flight id
+        :returns: origin airport, destination airport, carrier
         """
 
-        return 0.3
+        # TODO: IMPLEMENT HERE IF YOU CAN!!!
+        return 'SFO', 'EWR', 'UA'
 
-    def extract_prices_maturities(self, flights, dcf=365.25):
+    def __extract_prices_maturities(self, flights : List[Tuple[float, datetime.date, str]], dcf = 365.25):
         """ Extracts flight prices, maturities, and obtains drifts and volatilities from flights.
 
         :param flights: flights list of (flight_price, flight_date, flight_nb)
-        :type flights: list[(float, datetime.date, str)]
         :param dcf: day-count convention
         """
 
@@ -258,12 +265,12 @@ class AirOptionFlights:
         for (F_dep_value, F_dep_maturity, flight_nb) in flights:
             F_v.append(F_dep_value)
             F_mat.append((F_dep_maturity - self.mkt_date).days/dcf)  # maturity has to be in numeric terms
-            s_v.append(self._vol_for_flight(flight_nb))
-            d_v.append(self._drift_for_flight(flight_nb))
+            s_v.append(self._vol_for_flight  ((F_dep_maturity, flight_nb)))
+            d_v.append(self._drift_for_flight((F_dep_maturity, flight_nb)))
 
         return F_v, F_mat, s_v, d_v
 
-    def extract_prices_maturities_all(self):
+    def __extract_prices_maturities_all(self):
         """ Same as extract_prices_maturities, just that it considers both departing, returning flights
 
         """
@@ -282,13 +289,14 @@ class AirOptionFlights:
 
         if self.return_flight:  # return flights
             departing_flights, returning_flights = self._flights
-            F_v_dep, F_mat_dep, s_v_dep, d_v_dep = self.extract_prices_maturities(departing_flights)
-            F_v_ret, F_mat_ret, s_v_ret, d_v_ret = self.extract_prices_maturities(returning_flights)
+            F_v_dep, F_mat_dep, s_v_dep, d_v_dep = self.__extract_prices_maturities(departing_flights)
+            F_v_ret, F_mat_ret, s_v_ret, d_v_ret = self.__extract_prices_maturities(returning_flights)
 
             return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), (T_l_dep_num, T_l_ret_num)
 
         # one-way flights
-        F_v, F_mat, s_v, d_v = self.extract_prices_maturities(self._flights)
+        F_v, F_mat, s_v, d_v = self.__extract_prices_maturities(self._flights)
+
         return F_v, F_mat, s_v, d_v, T_l_dep_num
 
     def __call__( self
@@ -310,7 +318,7 @@ class AirOptionFlights:
             return self.__option_value
 
         # recompute option value
-        F_v, F_mat, s_v, d_v, T_l = self.extract_prices_maturities_all()
+        F_v, F_mat, s_v, d_v, T_l = self.__extract_prices_maturities_all()
 
         self.__option_value = self.__class__.compute_option_raw( F_v
                                                 , s_v
@@ -334,7 +342,7 @@ class AirOptionFlights:
         :param option_maturities: maturities for which options should be computed
         """
 
-        F_v, F_mat, s_v, d_v, _ = self.extract_prices_maturities_all()
+        F_v, F_mat, s_v, d_v, _ = self.__extract_prices_maturities_all()
 
         return self.__class__.compute_option_raw( F_v
                                                 , s_v
@@ -496,37 +504,35 @@ class AirOptionSkyScanner(AirOptionFlights):
                 , origin    = 'SFO'
                 , dest      = 'EWR'
                 # when can you change the option
-                , option_start_date=None
-                , option_end_date=None
-                , option_ret_start_date=None
-                , option_ret_end_date=None
+                , option_start_date     = None
+                , option_end_date       = None
+                , option_ret_start_date = None
+                , option_ret_end_date   = None
                 # next 4 - when do the (changed) flights occur
                 , outbound_date_start = None
                 , outbound_date_end   = None
                 , inbound_date_start  = None
                 , inbound_date_end    = None
-                , K = 1600.
-                , carrier = 'UA'
-                , nb_sim  = 10000
-                , rho = 0.95
-                , adults = 1
-                , cabinclass='Economy'
-                , cuda_ind=False
-                , simplify_compute='take_last_only'
-                , underlyer='n'
-                , price_by_range=True
-                , return_flight=False
-                , recompute_ind=False
-                , correct_drift=True
-                , compute_all=True
-                , complete_set_options=3):
+                , K          = 1600.
+                , carrier    = 'UA'
+                , nb_sim     = 10000
+                , rho        = 0.95
+                , adults     = 1
+                , cabinclass = 'Economy'
+                , cuda_ind   = False
+                , simplify_compute = 'take_last_only'
+                , underlyer        = 'n'
+                , price_by_range   = True
+                , return_flight    = False
+                , recompute_ind    = False
+                , correct_drift    = True
+                , compute_all      = True
+                , complete_set_options = 3 ):
         """
         Computes the air option from the data provided.
 
         :param origin: IATA code of the origin airport ('SFO')
-        :type origin: str
         :param dest: IATA code of the destination airport ('EWR')
-        :type dest: str
         :param option_start_date:       the date when you can start changing the outbound flight
         :type option_start_date:        datetime.date
         :param option_end_date:         the date when you stop changing the outbound flight
@@ -561,21 +567,21 @@ class AirOptionSkyScanner(AirOptionFlights):
         :type simplify_compute:         str, options are: "take_last_only", "all_sim_dates"
         """
 
-        self.__all_flights = get_flight_data( origin_place        = origin
-                                            , dest_place          = dest
-                                            , outbound_date_start = outbound_date_start
-                                            , outbound_date_end   = outbound_date_end
-                                            , inbound_date_start  = inbound_date_start
-                                            , inbound_date_end    = inbound_date_end
-                                            , carrier             = carrier
-                                            , cabinclass          = cabinclass
-                                            , adults              = adults
-                                            , return_flight       = return_flight
-                                            , recompute_ind       = recompute_ind
-                                            , correct_drift       = correct_drift )
+        self.__origin = origin
+        self.__dest   = dest
+        self.__outbound_date_start = outbound_date_start
+        self.__outbound_date_end   = outbound_date_end
+        self.__inbound_date_start  = inbound_date_start
+        self.__inbound_date_end    = inbound_date_end
+        self.__carrier             = carrier
+        self.__cabinclass          = cabinclass
+        self.__adults              = adults
+        self.__return_flight       = return_flight
+        self.__correct_drift       = correct_drift
+        self.__recompute_ind       = recompute_ind
 
         super(AirOptionSkyScanner, self).__init__( mkt_date              = mkt_date
-                                                 , flights               = self.__all_flights
+                                                 , flights               = self._all_flights
                                                  , option_start_date     = option_start_date
                                                  , option_end_date       = option_end_date
                                                  , option_ret_start_date = option_ret_start_date
@@ -585,11 +591,58 @@ class AirOptionSkyScanner(AirOptionFlights):
                                                  , nb_sim                = nb_sim
                                                  , K                     = K )
 
+    @property
+    def _all_flights(self):
+        """ Returns the flights from SkyScanner.
 
-class AirOptionMock(AirOptionFlights):
-    """ Air options computation for some mock flight data.
+        """
+        if self._flights:
+            return self._flights
+
+        self.__all_flights = get_flight_data( origin_place        = self.__origin
+                                            , dest_place          = self.__dest
+                                            , outbound_date_start = self.__outbound_date_start
+                                            , outbound_date_end   = self.__outbound_date_end
+                                            , inbound_date_start  = self.__inbound_date_start
+                                            , inbound_date_end    = self.__inbound_date_end
+                                            , carrier             = self.__carrier
+                                            , cabinclass          = self.__cabinclass
+                                            , adults              = self.__adults
+                                            , return_flight       = self.__return_flight
+                                            , recompute_ind       = self.__recompute_ind
+                                            , correct_drift       = self.__correct_drift )
+
+    @functools.lru_cache
+    def _drift_vol_for_flights(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
+        """ Gets drift and vol for flights. It caches it, so that drift and vol are not regetting it.
+
+        """
+
+        dep_date, flight_id = flight_nb
+        orig, dest, carrier = self._get_origin_dest_carrier_from_flight(flight_id)
+
+        return get_drift_vol_from_db( dep_date
+                                    , orig
+                                    , dest
+                                    , carrier
+                                    , default_drift_vol = (500., 501.)
+                                    , fwd_value         = None
+                                    , db_host           = 'localhost' )
+
+
+class AirOptionMock(AirOptionSkyScanner):
+    """ Air options computation for some mock flight data. The data are generated at random.
 
     """
 
-    def __init__(self):
-        pass
+    @property
+    def _all_flights(self):
+        """ Generates mock data.
+
+        """
+
+        if self._flights:
+            return self._flights
+
+        # generating mock data
+
