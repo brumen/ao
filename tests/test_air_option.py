@@ -2,17 +2,17 @@
 
 import numpy    as np
 import datetime
-import unittest
+from unittest import TestCase
 
 
 import ds
 import air_option  as ao
 import ao_estimate as aoe
 
-from air_option import AirOption, AirOptionFlights
+from air_option import AirOptionFlights, AirOptionSkyScanner, AirOptionMock
 
 
-class TestAirOptionFlights(unittest.TestCase):
+class TestAirOptionFlights(TestCase):
 
     def setUp(self):
         print (1)
@@ -40,7 +40,7 @@ class TestAirOptionFlights(unittest.TestCase):
         self.assertGreater(res2, 0.)
 
 
-class TestAirOption(unittest.TestCase):
+class TestAirOption(TestCase):
 
     def setUp(self):
         """
@@ -322,5 +322,20 @@ class TestAirOption(unittest.TestCase):
                                    , 150.  # K
                                    , rho
                                    , cuda_ind = cuda_ind)
+
+        self.assertTrue(True)
+
+
+class TestAirOptionMock(TestCase):
+
+    def test_1(self):
+        aom = AirOptionMock( datetime.date(2019, 7, 2)
+                           , origin = 'SFO'
+                           , dest = 'EWR'
+                           # when can you change the option
+                           , K = 1600.
+                           , nb_sim = 10000 )
+
+        res1 = aom()
 
         self.assertTrue(True)

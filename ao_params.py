@@ -2,12 +2,11 @@
 import numpy as np
 import datetime
 
-from typing import List
+from typing import List, Tuple
 
 # air options modules
 import ds
 import ao_codes
-import ao_db
 
 from mysql_connector_env import MysqlConnectorEnv
 
@@ -18,8 +17,8 @@ def get_drift_vol_from_db( dep_date : datetime.date
                          , carrier  : str
                          , default_drift_vol = (500., 501.)
                          , fwd_value         = None
-                         , db_host           = 'localhost' ):
-    """ Pulls the drift and vol from database for the selected flight
+                         , db_host           = 'localhost' ) -> Tuple[float, float] :
+    """ Pulls the drift and vol from database for the selected flight.
 
     :param dep_date: departure date of the flight (datetime.date(2019, 7, 1) )
     :param orig: IATA code of the origin airport ('EWR')
@@ -40,26 +39,30 @@ def get_drift_vol_from_db( dep_date : datetime.date
 
     # at least one entry, check if there are many, select most important
     # entry in form (datetime.datetime, drift, vol, avg_price)
-    closest_date = min([ abs((dep_date - date_param.date()).days) for date_param , _, _, _ in drift_vol_params])
-    _, drift_prelim, vol_prelim, avg_price = drift_vol_params.index(closest_date)
+    closest_date_params = sorted(drift_vol_params, key=lambda drift_vol_param: abs((dep_date - drift_vol_param[0].date()).days))[0]
+    _, drift_prelim, vol_prelim, avg_price = closest_date_params
 
     return correct_drift_vol( drift_prelim
                             , vol_prelim
                             , default_drift_vol
-                            , fwd_value
-                            , avg_price)
+                            , avg_price
+                            , fwd_value )
 
 
-def correct_drift_vol( drift_prelim
-                     , vol_prelim
-                     , default_drift_vol
-                     , avg_price
-                     , fwd_price = None ):
+def correct_drift_vol( drift_prelim      : float
+                     , vol_prelim        : float
+                     , default_drift_vol : Tuple[float, float]
+                     , avg_price         : float
+                     , fwd_price = None ) -> Tuple[float, float]:
     """ Applies trivial corrections to the drift and vol in case of nonsensical results.
     The scaling factor is fwd_price/avg_price
 
    :param drift_prelim: preliminary drift
-
+   :param vol_prelim: preliminary volatility
+   :param default_drift_vol: tuple of default vol and drift
+   :param avg_price: average price for the flight considered
+   :param fwd_price: forward price of the flight
+   :returns: corrected drift and volatility as described above.
     """
 
     if (drift_prelim, vol_prelim) == (0., 0.):  # this means there is no price change in the database
@@ -73,14 +76,14 @@ def correct_drift_vol( drift_prelim
         return drift_prelim, vol_prelim
 
     # correct the drift/vol by rescaling it
-    scale_f = np.double(fwd_price)/avg_price
+    scale_f = fwd_price/avg_price
     return scale_f * drift_prelim, scale_f * vol_prelim
 
 
 def get_drift_vol_from_db_precise( flight_dep_l : List
-                                 , orig : str
-                                 , dest : str
-                                 , carrier : str
+                                 , orig         : str
+                                 , dest         : str
+                                 , carrier      : str
                                  , default_drift_vol = (500., 501.)
                                  , correct_drift     = True
                                  , fwd_value         = None
