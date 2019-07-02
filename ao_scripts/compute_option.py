@@ -78,8 +78,8 @@ def validate_and_get_data(form : ImmutableMultiDict ) -> [Tuple, None]:
 
     # output gathering
 
-    result = { 'origin_place': origin_place
-             , 'dest_place': dest_place
+    result = { 'origin': origin_place
+             , 'dest'  : dest_place
              , 'option_start_date': option_start
              , 'option_end_date': option_end
              , 'outbound_date_start': outbound_start
@@ -110,14 +110,13 @@ def validate_and_get_data(form : ImmutableMultiDict ) -> [Tuple, None]:
     return result
 
 
-def compute_option( form
+def compute_option( form : ImmutableMultiDict
                   , recompute_ind = False ) -> dict:
     """
     Interface to the compute_option_val function from air_option, to
     be called from the flask interface
 
     :param form: "Dict" of parameters passed from the browser
-    :type form: ImmutableMultiDict
     :param recompute_ind: indicator whether to do a recomputation or not
     :returns:
     """
