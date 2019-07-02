@@ -5,9 +5,6 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 from ao_scripts.compute_option import compute_option
 
-
-
-
 form = ImmutableMultiDict([ ('nb_people', u'1')
                           , ('cabin_class', u'Economy')
                           , ('option_ret_start', u'12/25/2016')
