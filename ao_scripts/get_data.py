@@ -5,6 +5,7 @@
 import datetime
 import logging
 
+from typing          import Tuple
 from dateutil.parser import parse
 
 from iata.codes import get_airline_code, get_city_code
@@ -42,17 +43,16 @@ def validate_strike(strike_i) -> float:
         return None
 
 
-def get_data(form):
-    """ Obtains data from the form and returns them.
+def validate_and_get_data(form) -> [Tuple, None]:
+    """ Validates the data and constructs the input for the Air Option pricer.
 
-    :param form:
+    :param form: Input form from the webpage.
     :type form: ImmutableMultiDict (from Flask)
-    :returns:
-    :rtype:
+    :returns: A tuple of inputs for the Air Option pricer.
     """
 
-    origin_place   = get_city_code(form.get('origin'))
-    dest_place     = get_city_code(form.get('dest'  ))
+    origin_place   = get_city_code(form.get('origin'))  # this also validates origin.
+    dest_place     = get_city_code(form.get('dest'  ))  # validates destination as well.
     outbound_start = validate_dates(form.get('outbound_start'))
     outbound_end   = validate_dates(form.get('outbound_end'))
 
@@ -99,14 +99,3 @@ def get_data(form):
          , inbound_end\
          , cabin_class\
          , nb_people
-
-
-def get_data_final(form):
-    """ Obtains data from the form (from form _final for booking) and returns them
-
-    """
-
-    # TODO: check if email is a real address
-    return_ow, results = get_data(form)
-
-    return return_ow, results, form.get('email-addr')

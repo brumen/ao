@@ -329,6 +329,8 @@ class TestAirOption(TestCase):
 class TestAirOptionMock(TestCase):
 
     def test_1(self):
+        """ Checking if the mock air option computation works.
+        """
         aom = AirOptionMock( datetime.date(2019, 7, 2)
                            , origin = 'SFO'
                            , dest = 'EWR'

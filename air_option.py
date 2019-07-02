@@ -30,7 +30,7 @@ class AirOptionFlights:
 
     def __init__( self
                 , mkt_date : datetime.date
-                , flights
+                , flights               = None
                 , option_start_date     = None
                 , option_end_date       = None
                 , option_ret_start_date = None
@@ -72,8 +72,8 @@ class AirOptionFlights:
         """
 
         self.mkt_date  = mkt_date
-        self._flights = flights
-        self.return_flight = True if isinstance(self._flights, tuple) else False  # return flight indicator
+        self.__flights = flights
+        self.return_flight = True if isinstance(self.__flights, tuple) else False  # return flight indicator
 
         self.__K = K
         self.__nb_sim = nb_sim
@@ -101,6 +101,15 @@ class AirOptionFlights:
     @cuda_ind.setter
     def cuda_ind(self, new_cuda_ind):
         self.__cuda_ind = new_cuda_ind
+
+    @property
+    def flights(self):
+        return self.__flights
+
+    @flights.setter
+    def flights(self, new_flights):
+        self.__recompute_option_value = True  # recompute everything
+        self.__flights = new_flights
 
     @property
     def option_start_date(self) -> datetime.date :
@@ -134,7 +143,7 @@ class AirOptionFlights:
 
         if not self.__option_end_date:
             # first elt of self._flights are departing flights
-            dep_flights = self._flights if not self.return_flight else self._flights[0]
+            dep_flights = self.flights if not self.return_flight else self.flights[0]
             self.__option_end_date = min([dep_time for _, dep_time, _ in dep_flights])
 
         return self.__option_end_date
@@ -177,7 +186,7 @@ class AirOptionFlights:
 
         if not self.__option_ret_end_date:
             # first elt of self._flights are departing flights
-            self.__option_ret_end_date = min([dep_time for _, dep_time, _ in self._flights[1]])
+            self.__option_ret_end_date = min([dep_time for _, dep_time, _ in self.flights[1]])
 
         return self.__option_ret_end_date
 
@@ -284,14 +293,14 @@ class AirOptionFlights:
                                                               , simplify_compute = self.__simplify_compute )
 
         if self.return_flight:  # return flights
-            departing_flights, returning_flights = self._flights
+            departing_flights, returning_flights = self.flights
             F_v_dep, F_mat_dep, s_v_dep, d_v_dep = self.__extract_prices_maturities(departing_flights)
             F_v_ret, F_mat_ret, s_v_ret, d_v_ret = self.__extract_prices_maturities(returning_flights)
 
             return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), (T_l_dep_num, T_l_ret_num)
 
         # one-way flights
-        F_v, F_mat, s_v, d_v = self.__extract_prices_maturities(self._flights)
+        F_v, F_mat, s_v, d_v = self.__extract_prices_maturities(self.flights)
 
         return F_v, F_mat, s_v, d_v, T_l_dep_num
 
@@ -575,7 +584,7 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__recompute_ind       = recompute_ind
 
         super(AirOptionSkyScanner, self).__init__( mkt_date              = self.mkt_date
-                                                 , flights               = self._get_flights()
+                                                 , flights               = list(self.get_flights())
                                                  , option_start_date     = option_start_date
                                                  , option_end_date       = option_end_date
                                                  , option_ret_start_date = option_ret_start_date
@@ -587,7 +596,7 @@ class AirOptionSkyScanner(AirOptionFlights):
                                                  , simplify_compute      = simplify_compute
                                                  , underlyer             = underlyer )
 
-    def _get_flights(self):
+    def get_flights(self):
         """ Returns the flights from SkyScanner.
 
         """
@@ -627,13 +636,14 @@ class AirOptionMock(AirOptionSkyScanner):
         IMPORTANT: JUST USED FOR TESTING.
     """
 
-    def _get_flights(self):
-        """ Generates mock flight data.
+    def get_flights(self):
+        """ Generates mock flight data. Is a generator.
 
         """
 
         nb_flights = 15
 
-        return list(zip( np.random.random_sample(size=nb_flights)*100. + 100
-                  , [self.mkt_date + datetime.timedelta(days=day) for day in range(5, 5+nb_flights)]
-                  , ['UA' + str(nb) for nb in range(5, 5 + nb_flights)] ))
+        for flight_nb in range(1, nb_flights):
+            yield ( np.random.random() * 100 + 100
+                  , self.mkt_date + datetime.timedelta(days=flight_nb)
+                  , 'UA' + str(flight_nb) )
