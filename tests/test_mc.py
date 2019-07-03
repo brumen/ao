@@ -41,8 +41,8 @@ class TestMC(unittest.TestCase):
                              , self.d_v
                              , sim_times
                              , self.rho_m
-                             , nb_sim
-                             , np.ones(self.nb_tickets) )  # this last par. is maturity of forwards
+                             , self.F_exp
+                             , nb_sim )  # this last par. is maturity of forwards
 
         self.assertEqual(v1.shape, (nb_sim, self.nb_tickets))  # v1 should be of this shape
 
@@ -59,8 +59,8 @@ class TestMC(unittest.TestCase):
                                   , np.zeros(self.nb_tickets)  # drift == 0
                                   , T_l
                                   , self.rho_m
-                                  , nb_sim
-                                  , self.F_exp )
+                                  , self.F_exp
+                                  , nb_sim )
 
         self.assertTrue(np.abs(np.average(F_sim_l[:, -1]) - self.F_v[-1]) < 5)
 
@@ -95,25 +95,3 @@ class TestMC(unittest.TestCase):
                                   , nb_sim )
 
         self.assertEqual(res.shape, (nb_sim, len(F_v[0])))  # result is for departure flights
-
-    def test_one_way_1(self):
-        """ Tests the one-way test.
-
-        """
-
-        nb_sim = 500
-        # F_sim is of shape (nb_sim x nb_fwd contracts)
-        F_sim = self.F_v + np.random.multivariate_normal(np.zeros(len(self.F_v)), self.rho_m, size=nb_sim)
-        T_l_diff = np.linspace(0.1, 0.5, F_sim.shape[1])
-
-        price_one_way = mc.mc_one_way( F_sim
-                                     , T_l_diff
-                                     , self.F_exp
-                                     , self.s_v
-                                     , self.d_v
-                                     , self.rho_m )
-
-        # TODO: THIS BELOW DOESNT MAKE SENSE.
-        self.assertGreater( price_one_way.all(), 0)
-
-

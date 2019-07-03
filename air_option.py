@@ -326,39 +326,51 @@ class AirOptionFlights:
         F_v, F_mat, s_v, d_v, T_l = self.__extract_prices_maturities_all()
 
         self.__option_value = self.__class__.compute_option_raw( F_v
-                                                , s_v
-                                                , d_v
-                                                , T_l
-                                                , F_mat
-                                                , self.__K
-                                                , self.__rho
-                                                , nb_sim    = self.__nb_sim
-                                                , cuda_ind  = self.cuda_ind
-                                                , underlyer = self.__underlyer)
+                                                               , s_v
+                                                               , d_v
+                                                               , T_l
+                                                               , F_mat
+                                                               , self.__K
+                                                               , self.__rho
+                                                               , nb_sim    = self.__nb_sim
+                                                               , cuda_ind  = self.cuda_ind
+                                                               , underlyer = self.__underlyer)
 
         self.__recompute_option_value = False
 
         return self.__option_value
 
-    # TODO: IMPROVE THIS METHOD LOOKS WEIRD
-    def option_range(self, option_maturities : List[datetime.date]):
-        """ Constructs a series of options for different maturities.
+    def option_range(self, option_maturities : List[datetime.date], dcf = 365.25):
+        """ Constructs a series of option prices for different maturities.
 
         :param option_maturities: maturities for which options should be computed
+        :param dcf: day count factor
         """
 
         F_v, F_mat, s_v, d_v, _ = self.__extract_prices_maturities_all()
 
-        return self.__class__.compute_option_raw( F_v
+        # mapping between numerical maturities and option_maturities
+        sim_times = {(maturity_date - self.mkt_date).days/dcf : maturity_date
+                     for maturity_date in option_maturities }
+
+        # TODO: THIS SHOULD BE BETTER DONE
+        sim_times_num = list(sim_times.keys())  # numerical times
+
+        options_for_num_times = self.__class__.compute_option_raw( F_v
                                                 , s_v
                                                 , d_v
-                                                , option_maturities if not self.return_flight else (option_maturities, option_maturities)  # TODO: CHECK CHECK CHECK
+                                                , sim_times_num if not self.return_flight else (sim_times_num, sim_times_num)
                                                 , F_mat
                                                 , self.__K
                                                 , self.__rho
-                                                , nb_sim    = self.__nb_sim
-                                                , cuda_ind  = self.cuda_ind
-                                                , underlyer = self.__underlyer)
+                                                , nb_sim        = self.__nb_sim
+                                                , cuda_ind      = self.cuda_ind
+                                                , underlyer     = self.__underlyer
+                                                , keep_all_sims = True )
+
+        return {sim_times[sim_time_num]: option_for_sim_time
+                for sim_time_num, option_for_sim_time in options_for_num_times.items()
+                if sim_time_num in sim_times }
 
     @staticmethod
     def compute_option_raw( F_v
@@ -370,7 +382,8 @@ class AirOptionFlights:
                           , rho
                           , nb_sim    = 10000
                           , cuda_ind  = False
-                          , underlyer = 'n' ):
+                          , underlyer = 'n'
+                          , keep_all_sims = False ):
         """
         Computes the value of the option sequentially, in order to minimize memory footprint
 
@@ -391,23 +404,24 @@ class AirOptionFlights:
         :param nb_sim:    number of simulations
         :type nb_sim:     integer
         :param cuda_ind:  whether to use cuda; True or False
-        :type cuda_ind:   bool
         :param underlyer: which model to use - lognormal or normal ('ln' or 'n') - SO FAR ONLY NORMAL IS SUPPORTED.
-        :type underlyer:  string; 'ln' or 'n'
+        :type underlyer:  string
+        :param keep_all_sims: keeps all the simulations for T_l
         :returns:
         :rtype:
         """
 
         opt_val_final = AirOptionFlights.air_option( F_v
-                                  , s_v
-                                  , d_v
-                                  , T_l_num
-                                  , T_mat_num
-                                  , K
-                                  , nb_sim    = nb_sim
-                                  , rho       = rho
-                                  , cuda_ind  = cuda_ind
-                                  , underlyer = underlyer )
+                                                   , s_v
+                                                   , d_v
+                                                   , T_l_num
+                                                   , T_mat_num
+                                                   , K
+                                                   , nb_sim    = nb_sim
+                                                   , rho       = rho
+                                                   , cuda_ind  = cuda_ind
+                                                   , underlyer = underlyer
+                                                   , keep_all_sims = keep_all_sims )
 
         # markups to the option value
         percentage_markup = ao_codes.reserves + ao_codes.tax_rate
@@ -416,7 +430,12 @@ class AirOptionFlights:
         # minimal payoff
         min_payoff = max(MIN_PRICE, F_v_max / ao_codes.ref_base_F * MIN_PRICE)
 
-        return max(min_payoff, (1. + percentage_markup) * opt_val_final)
+        if not keep_all_sims:
+            return max(min_payoff, (1. + percentage_markup) * opt_val_final)
+
+        # keep_all_sims = True case
+        return {sim_time: max(min_payoff, (1. + percentage_markup) * opt_val_final_at_time)
+                for sim_time, opt_val_final_at_time in opt_val_final.items() }
 
     @staticmethod
     def air_option( F_v
@@ -428,24 +447,25 @@ class AirOptionFlights:
                   , nb_sim    = 1000
                   , rho       = 0.9
                   , cuda_ind  = False
-                  , underlyer ='n' ):
-        """
-        Computes the value of the air option with low memory impact.
+                  , underlyer ='n'
+                  , keep_all_sims = False):
+        """ Computes the value of the air option with low memory impact.
 
         :param F_v: vector of forward prices, or a tuple (F_1_v, F_2_v) for return flights
         :type F_v: np.array or (np.array, np.array)
         :param s_v: vector of vols, or a tuple for return flights, similarly to F_v
         :type s_v: np.array or (np.array, np.array)
+        :param d_v: functions that describe the drift of the forward (list form)
+           d_v[i] is a function of (F_prev, ttm, time_step, params)
         :param T_l: simulation list, same as s_v
         :type T_l: np.array or (np.array, np.array)
         :param T_mat: maturity list
         :param K: strike price
-        :param d_v: functions that describe the drift of the forward (list form)
-           d_v[i] is a function of (F_prev, ttm, time_step, params)
         :param nb_sim: simulation number
         :param rho: correlation parameter, used only for now
         :param cuda_ind: indicator to use cuda
         :param underlyer: which model does the underlyer follow (normal 'n', log-normal 'ln')
+        :param keep_all_sims: keeps all the simulations for T_l
         """
 
         return_flight_ind = isinstance(F_v, tuple)
@@ -468,20 +488,31 @@ class AirOptionFlights:
                        , T_mat
                        , nb_sim   = nb_sim
                        , model    = underlyer
-                       , cuda_ind = cuda_ind)  # simulation of all flight prices
+                       , cuda_ind = cuda_ind
+                       , keep_all_sims= keep_all_sims )  # simulation of all flight prices
 
         # final option payoff
+        if not keep_all_sims:
+            if not cuda_ind:
+                return np.mean(np.maximum (np.amax(F_max, axis=0) - K, 0.))
+
+            # cuda result
+            return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))
+
+        # keep all simulation case
         if not cuda_ind:
-            return np.mean(np.maximum (np.amax(F_max, axis=0) - K, 0.))
+            return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
+                    for sim_time, F_max_at_time in F_max.items()}
 
         # cuda result
-        return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))
+        return {sim_time: np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_at_time) - K, 0.))
+                for sim_time, F_max_at_time in F_max.items()}
 
     @staticmethod
     def compute_date_by_fraction( dt_today : datetime.date
                                 , dt_final : datetime.date
                                 , fract    : int
-                                , total_fraction : int ) -> datetime.date :
+                                , total_fraction : int ) -> datetime.date:
         """
         Computes the date between dt_today and dt_final where the days between
         dt_today is the fract of dates between dt_today and dt_final

@@ -5,7 +5,7 @@ import numpy as np
 import scipy.integrate
 import logging
 
-from numpy.random import multivariate_normal as mn_cpu
+from typing import Tuple, List, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -51,67 +51,61 @@ def integrate_vol_drift( sd_fct
                                    , T_end)[0] / (T_end - T_start)
 
 
-def ln_step( F_sim_prev
-           , T_diff
-           , s_v_used
-           , d_v_used
-           , rn_sim_l
-           , cuda_ind = False):
-    """
-    Log-normal step of one step monte carlo
+def ln_step( F_sim_prev : np.array
+           , T_diff     : np.array
+           , s_v        : np.array
+           , d_v        : np.array
+           , rn_sim_l   : np.array
+           , cuda_ind = False ):
+    """ Log-normal step of one step monte carlo
 
     """
 
     if not cuda_ind:
-        expon_part = (np.sqrt(T_diff) * s_v_used) * rn_sim_l - 0.5 * s_v_used ** 2 * T_diff
-        expon_part += d_v_used * T_diff
+        expon_part = (np.sqrt(T_diff) * s_v) * rn_sim_l - 0.5 * s_v ** 2 * T_diff
+        expon_part += d_v * T_diff
         return F_sim_prev * np.exp(expon_part)
-    else:  # gpu
-        co.vtpm_cols_new_hd_ao(- 0.5 * s_v_used ** 2 * T_diff, np.sqrt(T_diff) * s_v_used, rn_sim_l)
-        F_sim_part = rn_sim_l
-        F_sim_part = co.vtpm_cols_new_hd(d_v_used * T_diff, F_sim_part, tm_ind='p')
-        # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-        co.sin_cos_exp_d(F_sim_part, F_sim_part, sin_cos_exp='exp')  # works faster than cumath
-        # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-        return F_sim_prev * F_sim_part
+
+    # gpu computation
+    co.vtpm_cols_new_hd_ao(- 0.5 * s_v ** 2 * T_diff, np.sqrt(T_diff) * s_v, rn_sim_l)
+    F_sim_part = co.vtpm_cols_new_hd(d_v * T_diff, rn_sim_l, tm_ind='p')
+    # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
+    co.sin_cos_exp_d(F_sim_part, F_sim_part, sin_cos_exp='exp')  # works faster than cumath
+    # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
+    return F_sim_prev * F_sim_part
 
 
-def normal_step( F_sim_prev
-               , T_diff
-               , s_v_used
-               , d_v_used
-               , rn_sim_l
+def normal_step( F_sim_prev  : np.array
+               , T_diff      : float
+               , s_v         : np.array
+               , d_v         : [np.array, None]
+               , rn_sim_l    : np.array
                , cuda_ind = False):
     """
     one time step of the normal model
 
-    :param F_sim_prev: previous simulated forward prices
-    :type F_sim_prev:  np.array, shape: (nb_contracts, nb_sim)
+    :param F_sim_prev: previous simulated forward prices, shape: (nb_contracts, nb_sim)
     :param T_diff:     time difference between two simulation times
-    :type T_diff:      double
-    :param s_v_used:   volatilities
-    :param d_v_used:   drift of the contracts
-    :param rn_sim_l:   simulation numbers,
-    :type rn_sim_l:    np.array, shape = (nb_contracts, nb_sims)
+    :param s_v: volatilities vector
+    :param d_v: drift vector of the contracts
+    :param rn_sim_l: simulation numbers, shape = (nb_contracts, nb_sims)
     :param cuda_ind:   indicator whether to use cuda or not, True or False
     """
 
     if not cuda_ind:
-        F_sim_next = F_sim_prev + s_v_used * np.sqrt(T_diff) * rn_sim_l
+        F_sim_next = F_sim_prev + s_v * np.sqrt(T_diff) * rn_sim_l
 
-        if d_v_used is not None:
-           F_sim_next += d_v_used * T_diff
+        if d_v is not None:
+           F_sim_next += d_v * T_diff
 
-    else:
-        F_sim_next = co.vtpm_cols_new_hd( s_v_used * np.sqrt(T_diff)
-                                        , rn_sim_l
-                                        , tm_ind = 't')
-        F_sim_next = co.vtpm_cols_new_hd( d_v_used * T_diff
-                                        , F_sim_next
-                                        , tm_ind = 'p')
-        F_sim_next += F_sim_prev
+        return F_sim_next
 
-    return F_sim_next
+    # cuda part
+    return F_sim_prev + co.vtpm_cols_new_hd( d_v * T_diff
+                                           , co.vtpm_cols_new_hd( s_v * np.sqrt(T_diff)
+                                                                , rn_sim_l
+                                                                , tm_ind = 't' )
+                                           , tm_ind = 'p')
 
 
 def vol_drift_vec( T_curr : float
@@ -119,7 +113,7 @@ def vol_drift_vec( T_curr : float
                  , s_v    : np.array
                  , d_v    : np.array
                  , ttm    : np.array
-                 , integrate_fct = integrate_vol_drift ) -> np.array:
+                 , integrate_fct = integrate_vol_drift ) -> Tuple[np.array, np.array]:
     """
     Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
     from s_v, d_v.
@@ -155,77 +149,7 @@ def vol_drift_vec( T_curr : float
     return s_v_used, d_v_used
 
 
-def mc_one_way( F_sim    : np.array
-              , T_l_diff : np.array
-              , T_v_exp  : np.array
-              , s_v      : np.array
-              , d_v      : np.array
-              , rho_m    : np.array
-              , model    ='normal'
-              , F_ret    = None
-              , cuda_ind = False ):
-    """
-    One way simulation of departure flights for already initialized simulations.
-
-    :param F_sim: initial flight values
-    :type F_sim: 2-dimensional np.array(nb_simulations, nb_fwds)
-    :param T_l_diff: difference between simulation times
-    :type T_l_diff: list[double] or np.array
-    :param T_v_exp: vector of departure dates (in numeric form)
-    :param s_v: volatilities for departure (size = nb_departure flights)
-    :param d_v: drift of departure flights (size = nb of departure flights)
-    :param rho_m: correlation matrix
-    :param model: underlying model: 'ln' or 'normal' - only 'normal' works so far
-    :param F_ret: return flight, already maximized over the return flights
-    :type F_ret: np.array(nb_simulations)
-    :param cuda_ind: cuda indicator (True or False), by default False
-    :type cuda_ind: bool
-    """
-
-    # also number of departure flights., nb_sim = nb. of simulations of those flights, also columns in F_sim
-    nb_sim, nb_fwds = F_sim.shape  # nb of forward contracts, also nb of rows in F_sim
-
-    T_l_local = add_zero_to_Tl(T_l_diff)  # TODO: THIS HERE IS PROBABLY WRONG
-
-    for T_ind, (T_diff, T_curr) in enumerate(zip(T_l_diff, T_l_local[:-1])):
-        ttm_used = np.array(T_v_exp) - T_curr
-        s_v_used, d_v_used = vol_drift_vec(T_curr, T_diff, s_v, d_v, ttm_used)
-
-        if nb_fwds == 1:
-            rn_sim_l = np.random.normal(size=(1, nb_sim))
-        else:
-            if not cuda_ind:
-                rn_sim_l = np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim)
-            else:
-                rn_sim_l = mn_gpu(0, rho_m, size=nb_sim)
-
-        one_step_model  = ln_step if model == 'ln' else normal_step  # normal model
-        F_sim_next      = one_step_model( F_sim
-                                        , T_diff
-                                        , s_v_used
-                                        , d_v_used
-                                        , rn_sim_l
-                                        , cuda_ind = cuda_ind )
-
-        if F_ret is None:  # no return flight given
-            F_sim = np.maximum(F_sim_next, F_sim)  # more proper, although the same as w/ amax
-        else:  # return flights
-            if not cuda_ind:
-                F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
-            else:
-                # F_dep_plus_ret = F_sim_next + F_ret
-                # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
-                # F_dep_plus_ret = co.vtpm_rows_new_ao(F_ret, F_sim_next)
-                co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
-                F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
-
-            # F_sim_next_new = ao_f(F_sim_next_used, F_sim_next_new)
-            F_sim = np.maximum(F_sim_next_ret, F_sim)
-
-    return F_sim
-
-
-def mc_mult_steps( F_v
+def mc_mult_steps( F_v     : [List, np.array]
                  , s_v     : np.array
                  , d_v     : np.array
                  , T_l     : np.array
@@ -234,59 +158,91 @@ def mc_mult_steps( F_v
                  , nb_sim  = 1000
                  , model    = 'n'
                  , F_ret    = None
-                 , cuda_ind = False):
+                 , cuda_ind = False
+                 , keep_all_sims = False  ):  # -> [np.array, Dict[np.array]]:
     """
     Multi-step monte-carlo integration of the ticket prices for one way Air options
 
     :param F_v: list of forward values
-    :type F_v:  list??/ numpy array of forward values 
-    :param s_v: vector of vols for forward vals
-    :param T_l: list of time points at which all F_v should be simulated
-    :type T_l: np.array
-    :param rho_m: correlation matrix
-    :type rho_m: 2-dimensional np.array
-    :param nb_sim: number of sims
+    :param s_v: (vector of) volatility of the forward ticket process.
+    :param d_v: drift of the forward ticket process.
+    :param T_l: time points at which all F_v should be simulated
+    :param rho_m: correlation matrix (2-dimensional array)
     :param T_v_exp: expiry of the forward contracts, maturity of aiplane tickets
-    :type T_v_exp:  np.array
-    :param F_prev:  previous values of the forward process TODO
-    :param d_v: drift of the forward ticket process
+    :param nb_sim: number of simulations
     :param model: model used for simulation, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
-    :param cuda_ind: cuda indicator
-    :returns: matrix of simulation values in the shape [time_step, simulation, fwd] or new parameters
-    :rtype:   TODO
+    :param cuda_ind: indicator whether to use cuda (True/False, default False)
+    :param keep_all_sims: keeps all simulations for each T_l
+    :returns: matrix of simulation values in the shape [simulation, fwd] if keep_all_sims = False,
+              or dictionary, where keys are simulation times and values are simulations for those times.
     """
+
+    one_step_model = ln_step if model == 'ln' else normal_step
 
     T_l_extend = add_zero_to_Tl(T_l)  # add 0 to simulation times if not already there
-    nb_fwds = len(F_v)
+    T_l_diff   = np.diff(T_l_extend)
+    nb_fwds    = len(F_v)
+    T0         = 0.  # T_l_extend[0]
 
-    F_sim = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty( (nb_sim, nb_fwds), np.double)
-
+    F_initial = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
     # write F_v_used in F_sim_prev by columns
     if not cuda_ind:
-        F_sim[:, :] = F_v
+        F_initial[:, :] = F_v
     else:
-        F_sim = co.set_mat_by_vec(F_v, nb_sim)
+        F_initial = co.set_mat_by_vec(F_v, nb_sim)
 
-    return mc_one_way( F_sim
-                     , np.diff(T_l_extend)
-                     , T_v_exp
-                     , s_v
-                     , d_v
-                     , rho_m
-                     , model = model
-                     , F_ret = F_ret
-                     , cuda_ind = cuda_ind)
+    F_sim = F_initial if not keep_all_sims else {T0: F_initial}  # keep simulations
+
+    # also number of departure flights., nb_sim = nb. of simulations of those flights, also columns in F_sim
+    nb_sim, nb_fwds = F_sim.shape  if not keep_all_sims else F_sim[T0].shape  # nb of forward contracts, also nb of rows in F_sim
+
+    for (T_diff, T_curr, T_prev) in zip(T_l_diff, T_l_extend[1:], T_l_extend[:-1]):  # T_diff = difference, T_curr: current time  # before: add_zero_to_Tl(T_l_diff)[:-1]
+        ttm_used = np.array(T_v_exp) - T_curr
+        s_v_used, d_v_used = vol_drift_vec(T_curr, T_diff, s_v, d_v, ttm_used)
+
+        if nb_fwds == 1:
+            rn_sim_l = np.random.normal(size=(1, nb_sim))
+        else:
+            rn_sim_l = np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim) if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
+
+        F_sim_next = one_step_model( F_sim if not keep_all_sims else F_sim[T_prev]
+                                   , T_diff
+                                   , s_v_used
+                                   , d_v_used
+                                   , rn_sim_l
+                                   , cuda_ind = cuda_ind )
+
+        if F_ret is None:  # no return flight given
+            if not keep_all_sims:
+                F_sim         = np.maximum(F_sim_next, F_sim)
+            else:
+                F_sim[T_curr] = np.maximum(F_sim_next, F_sim[T_prev])
+
+        else:  # return flights
+            if not cuda_ind:
+                F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
+            else:
+                # TODO: THIS HERE IS ALL WRONG!!!
+                # F_dep_plus_ret = F_sim_next + F_ret
+                # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
+                # F_dep_plus_ret = co.vtpm_rows_new_ao(F_ret, F_sim_next)
+                co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
+                F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
+
+            if not keep_all_sims:
+                F_sim = np.maximum(F_sim_next_ret, F_sim)
+            else:
+                F_sim[T_curr] = np.maximum(F_sim_next_ret, F_sim[T_prev])
+
+    return F_sim
 
 
-def add_zero_to_Tl(T_list):
-    """
-    Adds a zero to T_l if T_list doesnt already have it.
+def add_zero_to_Tl(T_list : List) -> np.array:
+    """ Prepends a zero to T_l if T_l doesnt already have it.
 
     :param T_list:  list of simulation times
-    :type T_list:   list
-    :returns:       array with potential zero added
-    :rtype:         numpy array, with the first element 0
+    :returns:       array with first element as 0, if it isnt already zero. potential zero added
     """
 
     if T_list[0] != 0.:
@@ -305,7 +261,8 @@ def mc_mult_steps_ret( F_v
                      , T_v_exp
                      , nb_sim=1000
                      , model    = 'n'
-                     , cuda_ind = False):
+                     , cuda_ind = False
+                     , keep_all_sims = False):
     """
     Simulates ticket prices for a return flight.
 
@@ -352,9 +309,9 @@ def mc_mult_steps_ret( F_v
                                                            , T_v_exp_ret
                                                            , nb_sim   = nb_sim
                                                            , model    = model
-                                                           , cuda_ind = cuda_ind )
+                                                           , cuda_ind = cuda_ind )  # TODO: CHECK IF take_all_sims
                                             , axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
-                        )
+                        , keep_all_sims=keep_all_sims)
 
 
 def mn_gpu(unimp, rho_m, size=100):

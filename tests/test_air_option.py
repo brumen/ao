@@ -22,7 +22,7 @@ class TestAirOptionFlights(TestCase):
 
         """
 
-        flights = [(100., datetime.date(2019, 6, 30), 'UA70'), (200., datetime.date(2019, 7, 5), 'UA71')]
+        flights = [(100., datetime.date(2019, 7, 15), 'UA70'), (200., datetime.date(2019, 7, 20), 'UA71')]
 
         aof = AirOptionFlights( datetime.date(2019, 6, 28)
                               , flights
@@ -31,7 +31,7 @@ class TestAirOptionFlights(TestCase):
         res1 = aof()  # air option value
         self.assertGreater(res1, 0.)
 
-        flights_ret = [(150., datetime.date(2019, 7, 15), 'UA72'), (250., datetime.date(2019, 7, 20), 'UA73')]
+        flights_ret = [(150., datetime.date(2019, 7, 22), 'UA72'), (250., datetime.date(2019, 7, 25), 'UA73')]
 
         aof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
 
@@ -39,6 +39,10 @@ class TestAirOptionFlights(TestCase):
 
         self.assertGreater(res2, 0.)
 
+        # option times
+        option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+
+        self.assertTrue(True)
 
 class TestAirOption(TestCase):
 
