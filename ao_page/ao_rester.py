@@ -2,7 +2,6 @@
 import logging
 import json
 import os.path
-import datetime
 
 import config
 
@@ -102,8 +101,7 @@ def write_inquiry():
     return jsonify({'valid': True})
 
 
-# TODO: CHECK IF THIS IS GET???/
-@ao_rester.route('/compute_option', methods = ['GET'])
+@ao_rester.route('/compute_option', methods = ['POST'])
 def compute_option_flask():
     """ Computes the option w/ server sent events (SSE)
 
@@ -114,13 +112,13 @@ def compute_option_flask():
     return Response(compute_option(request.args), mimetype="text/event-stream")
 
 
-@ao_rester.route('/compute_option_now', methods = ['GET'])
+@ao_rester.route('/compute_option_now', methods = ['POST'])
 def compute_option_now_flask():
     """ Immediate response compute option.
 
     """
 
-    return jsonify(compute_option(request.get_json()))
+    return jsonify(compute_option(request.args))
 
 
 @ao_rester.route('/ao_auto_fill_origin')

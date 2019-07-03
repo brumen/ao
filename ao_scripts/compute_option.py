@@ -42,7 +42,7 @@ def validate_strike(strike_i) -> float:
 
     try:
         return float(strike_i)
-    except ValueError:
+    except Exception:
         return None
 
 
@@ -78,34 +78,34 @@ def validate_and_get_data(form : ImmutableMultiDict ) -> [Tuple, None]:
 
     # output gathering
 
-    result = { 'origin': origin_place
-             , 'dest'  : dest_place
-             , 'option_start_date': option_start
-             , 'option_end_date': option_end
+    result = { 'origin'             : origin_place
+             , 'dest'               : dest_place
+             , 'option_start_date'  : option_start
+             , 'option_end_date'    : option_end
              , 'outbound_date_start': outbound_start
-             , 'outbound_date_end': outbound_end
-             , 'carrier': None if carrier == '' else carrier
-             , 'cabinclass': cabin_class
-             , 'adults': nb_people
-             , 'K': strike }
+             , 'outbound_date_end'  : outbound_end
+             , 'carrier'            : None if carrier == '' else carrier
+             , 'cabinclass'         : cabin_class
+             , 'adults'             : nb_people
+             , 'K'                  : strike }
 
     if return_ow == 'one_way':
         return result
 
     # return-flight
     option_start_ret = validate_dates(form.get('option_ret_start'))
-    option_end_ret = validate_dates(form.get('option_ret_end'))
-    inbound_start = validate_dates(form.get('outbound_start_ret'))
-    inbound_end = validate_dates(form.get('outbound_end_ret'))
+    option_end_ret   = validate_dates(form.get('option_ret_end'))
+    inbound_start    = validate_dates(form.get('outbound_start_ret'))
+    inbound_end      = validate_dates(form.get('outbound_end_ret'))
 
     if not (inbound_start <= inbound_end) or not (outbound_end < inbound_start):
         return None
 
     result.update({ 'option_ret_start_date': option_start_ret
-                  , 'option_ret_end_date': option_end_ret
-                  , 'inbound_date_start': inbound_start
-                  , 'inbound_date_end': inbound_end
-                  , 'return_flight': True})
+                  , 'option_ret_end_date'  : option_end_ret
+                  , 'inbound_date_start'   : inbound_start
+                  , 'inbound_date_end'     : inbound_end
+                  , 'return_flight'        : True})
 
     return result
 
@@ -138,7 +138,8 @@ def compute_option( form : ImmutableMultiDict
         ao = AirOptionMock(datetime.date.today(), **validated_data)
         for flight in ao.get_flights():  # this is a generator
             yield { 'finished': False
-                  , 'result'  : 'Fetchingn flight {0}'.format(flight) }  # TODO: This flight here is WRONG !!!!
+                  , 'result'  : 'Fetching flight {0}'.format(flight) }
 
+        # finally compute option
         yield { 'finished': True
               , 'result'  : ao() }
