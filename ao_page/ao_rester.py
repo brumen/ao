@@ -40,14 +40,16 @@ def time_now():
 
 @ao_rester.route('/verify_airline', methods = ['GET'])
 def verify_airline():
-    """
-    Checks that the airline is correct
+    """ Checks that the airline is correct.
     """
 
-    # TODO:  THIS CAN RETURN MULTIPLE AIRLINES - CHECK IF THIS WORK
-    airline_code = get_airline_code(request.args.get('airline', ''))
+    arguments = request.args
 
-    return jsonify({'found': airline_code})
+    if 'airline' not in arguments:
+        return jsonify({'valid': False})
+
+    return jsonify({ 'valid'  : True
+                   , 'airline': get_airline_code(request.args.get('airline'))})
 
 
 @ao_rester.route('/verify_origin', methods = ['GET'])
@@ -57,9 +59,12 @@ def verify_origin():
 
     """
 
-    # TODO: THIS CAN RETURN MULTIPLE CITIES
-    city_code = get_city_code(request.args.get('origin', ''))
-    return jsonify ({'found': city_code})
+    arguments = request.args
+    if 'origin' not in arguments:
+        return jsonify({'valid' : False})
+
+    return jsonify ({ 'valid': True
+                    , 'city_code': get_city_code(arguments.get('origin'))})
 
 
 @ao_rester.route('/find_relevant_carriers', methods = ['GET'])
@@ -68,11 +73,14 @@ def find_relevant_carriers():
 
     """
 
-    carriers = get_carriers_on_route( request.args.get('origin', '')
-                                    , request.args.get('dest'  , '') )
+    arguments = request.args
 
-    return jsonify({ 'is_valid'     : carriers is not None
-                   , 'list_carriers': carriers})
+    if ('origin' not in arguments) or ('dest' not in arguments):
+        return jsonify({'valid': False})
+
+    return jsonify({ 'valid'        : True
+                   , 'list_carriers': get_carriers_on_route( arguments.get('origin'), arguments.get('dest'))
+                   , } )
 
 
 @ao_rester.route('/recompute_option', methods = ['POST'])
@@ -108,18 +116,21 @@ def compute_option_flask():
     """
 
     # compute_option has to be a generator
+    arguments = json.loads(request.data.decode('utf8'))
 
-    return Response(compute_option(request.args), mimetype="text/event-stream")
+    return Response(compute_option(arguments), mimetype="text/event-stream")
 
 
 @ao_rester.route('/compute_option_now', methods = ['POST'])
 def compute_option_now_flask():
-    """ Immediate response compute option.
-
+    """ Immediate response compute option. Used for testing mostly.
     """
 
-    return jsonify(compute_option(request.args))
+    # TODO: if input from a form, see request.form
+    arguments = json.loads(request.data.decode('utf8'))
 
+    option_result = list(compute_option(arguments))
+    return jsonify(option_result[-1])  # just the last to jsonify
 
 @ao_rester.route('/ao_auto_fill_origin')
 def ao_auto_fill_origin():
