@@ -40,9 +40,14 @@ class TestAirOptionFlights(TestCase):
         self.assertGreater(res2, 0.)
 
         # option times
-        option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        # option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+
+        # call w/ option_times
+        option_range_2 = aof(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_3 = aof2(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         self.assertTrue(True)
+
 
 class TestAirOption(TestCase):
 

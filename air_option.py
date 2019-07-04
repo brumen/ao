@@ -308,10 +308,20 @@ class AirOptionFlights:
                 , option_start_date     = None
                 , option_end_date       = None
                 , option_ret_start_date = None
-                , option_ret_end_date   = None ):
+                , option_ret_end_date   = None
+                , option_maturities     = None
+                , dcf                   = 365.25 ):
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
 
+        All dates in the params are in datetime.date format
+        :param option_start_date: start date of the option (default: market date, self.mkt_date)
+        :param option_end_date: end date of the option (default: maturity of the first contract.)
+        :param option_ret_start_date: maturity for returning option, if any; default: market date
+        :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
+        :param option_maturities: list of maturities for which the option to be computed. If not None,
+                                  all other values are overridden.
+        :param dcf: day count factor
         """
 
         self.option_start_date     = option_start_date
@@ -319,58 +329,40 @@ class AirOptionFlights:
         self.option_ret_start_date = option_ret_start_date
         self.option_ret_end_date   = option_ret_end_date
 
-        if not self.__recompute_option_value:
+        if not self.__recompute_option_value and not option_maturities:
             return self.__option_value
 
-        # recompute option value
+        # extract forwards, etc. (T_l might be overwritten below)
         F_v, F_mat, s_v, d_v, T_l = self.__extract_prices_maturities_all()
+
+        if option_maturities:  # special case
+            # mapping between numerical maturities and datetime.date option_maturities
+            sim_times = {(maturity_date - self.mkt_date).days / dcf: maturity_date
+                         for maturity_date in option_maturities}
+
+            sim_times_num  = list(sim_times.keys())  # numerical times
+            T_l_maturities = sim_times_num if not self.return_flight else (sim_times_num, sim_times_num)
 
         self.__option_value = self.__class__.compute_option_raw( F_v
                                                                , s_v
                                                                , d_v
-                                                               , T_l
+                                                               , T_l if not option_maturities else T_l_maturities  # simulation times
                                                                , F_mat
                                                                , self.__K
                                                                , self.__rho
                                                                , nb_sim    = self.__nb_sim
                                                                , cuda_ind  = self.cuda_ind
-                                                               , underlyer = self.__underlyer)
+                                                               , underlyer = self.__underlyer
+                                                               , keep_all_sims = False if not option_maturities else True )
+
+        if option_maturities:
+            return {sim_times[sim_time_num]: option_for_sim_time
+                    for sim_time_num, option_for_sim_time in self.__option_value.items()
+                    if sim_time_num in sim_times }
 
         self.__recompute_option_value = False
 
         return self.__option_value
-
-    def option_range(self, option_maturities : List[datetime.date], dcf = 365.25):
-        """ Constructs a series of option prices for different maturities.
-
-        :param option_maturities: maturities for which options should be computed
-        :param dcf: day count factor
-        """
-
-        F_v, F_mat, s_v, d_v, _ = self.__extract_prices_maturities_all()
-
-        # mapping between numerical maturities and option_maturities
-        sim_times = {(maturity_date - self.mkt_date).days/dcf : maturity_date
-                     for maturity_date in option_maturities }
-
-        # TODO: THIS SHOULD BE BETTER DONE
-        sim_times_num = list(sim_times.keys())  # numerical times
-
-        options_for_num_times = self.__class__.compute_option_raw( F_v
-                                                , s_v
-                                                , d_v
-                                                , sim_times_num if not self.return_flight else (sim_times_num, sim_times_num)
-                                                , F_mat
-                                                , self.__K
-                                                , self.__rho
-                                                , nb_sim        = self.__nb_sim
-                                                , cuda_ind      = self.cuda_ind
-                                                , underlyer     = self.__underlyer
-                                                , keep_all_sims = True )
-
-        return {sim_times[sim_time_num]: option_for_sim_time
-                for sim_time_num, option_for_sim_time in options_for_num_times.items()
-                if sim_time_num in sim_times }
 
     @staticmethod
     def compute_option_raw( F_v
@@ -395,7 +387,7 @@ class AirOptionFlights:
         :type d_v:        np.array or tuple(np.array, np.array)
         :param T_l_num:   simulation times of for tickets; or a tuple for departure, return tickets
         :type T_l_num:    np.array 1-dimensional; or tuple (np.array, np.array)
-        :param T_mat_num: maturity of tickets TODO
+        :param T_mat_num: numerical value for maturity of tickets TODO
         :type T_mat_num:
         :param K:         strike of the option
         :type K:          double
@@ -406,7 +398,7 @@ class AirOptionFlights:
         :param cuda_ind:  whether to use cuda; True or False
         :param underlyer: which model to use - lognormal or normal ('ln' or 'n') - SO FAR ONLY NORMAL IS SUPPORTED.
         :type underlyer:  string
-        :param keep_all_sims: keeps all the simulations for T_l
+        :param keep_all_sims: keeps all the simulations for T_l and computes the option for each simulated date in T_l_num
         :returns:
         :rtype:
         """
