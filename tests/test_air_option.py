@@ -14,9 +14,6 @@ from air_option import AirOptionFlights, AirOptionSkyScanner, AirOptionMock
 
 class TestAirOptionFlights(TestCase):
 
-    def setUp(self):
-        print (1)
-
     def test_basic(self):
         """ Tests if AirOptionFlights even runs.
 
@@ -45,6 +42,58 @@ class TestAirOptionFlights(TestCase):
         # call w/ option_times
         option_range_2 = aof(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
         option_range_3 = aof2(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+
+        self.assertTrue(True)
+
+    def test_4(self):
+        """ Testing the compute_option_raw function.
+
+        """
+
+        nb_dep, nb_ret = 100, 100
+        F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
+        s_v = ( np.linspace(0.2, 1.4, nb_dep)
+              , np.linspace(0.2, 1.4, nb_ret) )
+        d_v = ( np.linspace(0.2, 1.4, nb_dep)
+              , np.linspace(0.2, 1.4, nb_ret) )
+        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
+                  , np.linspace(1.1, 1.2, nb_ret) )
+        T_l = ( np.array([0.55, 0.62, 0.73])
+              , np.array([0.55, 0.62, 0.73]) )
+        rho = 0.99
+
+        res1 = AirOptionFlights.compute_option_raw( F_v
+                                                 , s_v
+                                                 , d_v
+                                                 , T_l
+                                                 , T_v_exp
+                                                 , 400.  # K
+                                                 , rho )
+
+        res2 = AirOptionFlights.compute_option_raw( F_v
+                                                 , s_v
+                                                 , d_v
+                                                 , T_l
+                                                 , T_v_exp
+                                                 , 500.  # K
+                                                 , rho )
+
+        self.assertGreater(res1, res2)
+
+
+class TestAirOptionMock(TestCase):
+
+    def test_1(self):
+        """ Checking if the mock air option computation works.
+        """
+        aom = AirOptionMock( datetime.date(2019, 7, 2)
+                           , origin = 'SFO'
+                           , dest = 'EWR'
+                           # when can you change the option
+                           , K = 1600.
+                           , nb_sim = 10000 )
+
+        res1 = aom()
 
         self.assertTrue(True)
 
@@ -289,64 +338,5 @@ class TestAirOption(TestCase):
                                       , return_flight       = True
                                       , rho                 = rho )
             impact_rho[rho] = k1[1]
-
-        self.assertTrue(True)
-
-    def test_get_flight_data(self):
-        """
-        Tests whether the get_flight_data function even executes
-
-        """
-
-        res = ao.get_flight_data( outbound_date_start = self.outDate
-                                , outbound_date_end   = self.outDatePlusOne
-                                , inbound_date_start  = self.retDate
-                                , inbound_date_end    = self.retDatePlusOne )
-
-        self.assertTrue(True)
-
-    def test_4( self
-              , cuda_ind = False):
-        """
-        Testing the compute_option_raw function.
-
-        """
-
-        nb_dep, nb_ret = 50, 100
-        F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
-        s_v = ( np.linspace(0.2, 0.4, nb_dep)
-              , np.linspace(0.2, 0.4, nb_ret) )
-        d_v = ( np.linspace(0.2, 0.4, nb_dep)
-              , np.linspace(0.2, 0.4, nb_ret) )
-        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
-                  , np.linspace(1.1, 1.2, nb_ret) )
-        T_l = ( np.array([0.55, 0.62, 0.73])
-              , np.array([0.55, 0.62, 0.73]) )
-
-        res = ao.compute_option_raw( F_v
-                                   , s_v
-                                   , d_v
-                                   , T_l
-                                   , T_v_exp
-                                   , 150.  # K
-                                   , rho
-                                   , cuda_ind = cuda_ind)
-
-        self.assertTrue(True)
-
-
-class TestAirOptionMock(TestCase):
-
-    def test_1(self):
-        """ Checking if the mock air option computation works.
-        """
-        aom = AirOptionMock( datetime.date(2019, 7, 2)
-                           , origin = 'SFO'
-                           , dest = 'EWR'
-                           # when can you change the option
-                           , K = 1600.
-                           , nb_sim = 10000 )
-
-        res1 = aom()
 
         self.assertTrue(True)
