@@ -5,12 +5,12 @@ import numpy as np
 import scipy.integrate
 import logging
 
-from typing import Tuple, List, Dict
+from typing import Tuple, List
 
 logger = logging.getLogger(__name__)
 
 if config.CUDA_PRESENT:
-    import cuda_ops as co
+    import cuda.cuda_ops as co
     import pycuda.gpuarray as gpa
     import curand
     rn_gen_global = curand.create_gen_simple()  # generator of random numbers
@@ -37,7 +37,7 @@ def integrate_vol_drift( sd_fct
     :type ttm:            double
     :param params:        parameters of the integrating fucntion???
     :type params:
-    :param drift_vol_ind: indicator whether we are integrating drift or volatility
+    :param drift_vol_ind: indicator whether we are integrating drift or volatility ('vol' or 'drift')
     :type drift_vol_ind:  string
     '''
 
@@ -45,10 +45,10 @@ def integrate_vol_drift( sd_fct
         return np.sqrt(scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))**2
                                            , T_start
                                            , T_end)[0] / (T_end - T_start))
-    else:  # drift integration
-        return scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))
-                                   , T_start
-                                   , T_end)[0] / (T_end - T_start)
+    # drift integration
+    return scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))
+                               , T_start
+                               , T_end)[0] / (T_end - T_start)
 
 
 def ln_step( F_sim_prev : np.array
@@ -185,17 +185,17 @@ def mc_mult_steps( F_v     : [List, np.array]
     nb_fwds    = len(F_v)
     T0         = 0.  # T_l_extend[0]
 
-    F_initial = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
+    F_sim = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
     # write F_v_used in F_sim_prev by columns
     if not cuda_ind:
-        F_initial[:, :] = F_v
+        F_sim[:, :] = F_v
     else:
-        F_initial = co.set_mat_by_vec(F_v, nb_sim)
+        F_sim = co.set_mat_by_vec(F_v, nb_sim)
 
-    F_sim = F_initial if not keep_all_sims else {T0: F_initial}  # keep simulations
+    F_prev = F_sim  # previous simulations
 
     # also number of departure flights., nb_sim = nb. of simulations of those flights, also columns in F_sim
-    nb_sim, nb_fwds = F_sim.shape  if not keep_all_sims else F_sim[T0].shape  # nb of forward contracts, also nb of rows in F_sim
+    nb_sim, nb_fwds = F_sim.shape  # nb of forward contracts, also nb of rows in F_sim
 
     for (T_diff, T_curr, T_prev) in zip(T_l_diff, T_l_extend[1:], T_l_extend[:-1]):  # T_diff = difference, T_curr: current time  # before: add_zero_to_Tl(T_l_diff)[:-1]
         ttm_used = np.array(T_v_exp) - T_curr
@@ -206,7 +206,7 @@ def mc_mult_steps( F_v     : [List, np.array]
         else:
             rn_sim_l = np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim) if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
 
-        F_sim_next = one_step_model( F_sim if not keep_all_sims else F_sim[T_prev]
+        F_sim_next = one_step_model( F_sim if not keep_all_sims else F_prev
                                    , T_diff
                                    , s_v_used
                                    , d_v_used
@@ -217,7 +217,8 @@ def mc_mult_steps( F_v     : [List, np.array]
             if not keep_all_sims:
                 F_sim         = np.maximum(F_sim_next, F_sim)
             else:
-                F_sim[T_curr] = np.maximum(F_sim_next, F_sim[T_prev])
+                yield (T_curr, np.maximum(F_sim_next, F_prev))
+                F_prev = F_sim_next
 
         else:  # return flights
             if not cuda_ind:
@@ -233,12 +234,14 @@ def mc_mult_steps( F_v     : [List, np.array]
             if not keep_all_sims:
                 F_sim = np.maximum(F_sim_next_ret, F_sim)
             else:
-                F_sim[T_curr] = np.maximum(F_sim_next_ret, F_sim[T_prev])
+                yield (T_curr, np.maximum(F_sim_next_ret, F_prev))
+                F_prev = F_sim_next_ret
 
-    return F_sim
+    if not keep_all_sims:
+        yield (T_curr, F_sim)  # last value in T_curr
 
 
-def add_zero_to_Tl(T_list : List) -> np.array:
+def add_zero_to_Tl(T_list : List[float]) -> np.array:
     """ Prepends a zero to T_l if T_l doesnt already have it.
 
     :param T_list:  list of simulation times
@@ -253,36 +256,30 @@ def add_zero_to_Tl(T_list : List) -> np.array:
     return T_list
 
 
-def mc_mult_steps_ret( F_v
-                     , s_v
-                     , d_v
-                     , T_l
-                     , rho_m
-                     , T_v_exp
-                     , nb_sim=1000
-                     , model    = 'n'
-                     , cuda_ind = False
-                     , keep_all_sims = False):
-    """
-    Simulates ticket prices for a return flight.
+def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
+                     , s_v     : Tuple[np.array, np.array]
+                     , d_v     : Tuple[np.array, np.array]
+                     , T_l     : Tuple[List[float], List[float]]
+                     , rho_m   : Tuple[np.array, np.array]
+                     , T_v_exp : Tuple[np.array, np.array]
+                     , nb_sim        = 1000
+                     , model         = 'n'
+                     , cuda_ind      = False
+                     , keep_all_sims = False ):
+    """ Simulates ticket prices for a return flight.
 
-    :param F_v:     tuple of list of forward values, first for departure, second for return
-    :type F_v:      tuple of 1-dimensional np.array
-    :param s_v:     tuple of list of vols for tickets, first departure, then return
-    :type s_v:      tuple of 1-dimensional np.array (np.array([]), np.array([]))
-    :param T_l:     list of time points at which all F_v should be simulated
-    :param rho_m:   correlation matrix
-    :type rho_m:    2-dimensional np.array
-    :param nb_sim:  number of sims
-    :type nb_sim:   int
-    :param T_v_exp: expiry of forward contracts
+    :param F_v: tuple of list of forward values, first for departure, second for return (arrays in tuple are 1-dim)
+    :param s_v: tuple of list of vols for tickets, first departure, then return
     :param d_v: drift of the process, drift
                   d_v[i] is a function of (ttm, params)
-    :param model:   model 'ln' or 'n' for normal
-    :type model:    str
-    :param cuda_ind: whether cuda or cpu is used
-    :type cuda_ind:  bool
-    :returns:        matrix [time_step, simulation, fwd] or ticket prices
+    :param T_l: list of time points at which all F_v should be simulated
+    :param rho_m: correlation matrix (2-dim array)
+    :param nb_sim: number of sims
+    :param T_v_exp: expiry of forward contracts, expiry in numerical terms.
+    :param model: model 'ln' or 'n' for normal
+    :param cuda_ind: whether cuda or cpu is used (cuda = True, not cuda = False)
+    :param keep_all_sims: whether to keep the simulations
+    :returns: matrix [time_step, simulation, fwd] or ticket prices
     """
 
     F_v_dep,     F_v_ret     = F_v
@@ -291,6 +288,17 @@ def mc_mult_steps_ret( F_v
     T_l_dep,     T_l_ret     = add_zero_to_Tl(T_l[0]), add_zero_to_Tl(T_l[1])
     T_v_exp_dep, T_v_exp_ret = T_v_exp  # expiry values 
     rho_m_dep,   rho_m_ret   = rho_m
+
+    # mc_mult_steps is a generator and has exactly _0_ elements for keep_all_sims=False
+    _, F_ret_realized = list(mc_mult_steps( F_v_ret
+                                          , s_v_ret
+                                          , d_v_ret
+                                          , T_l_ret
+                                          , rho_m_ret
+                                          , T_v_exp_ret
+                                          , nb_sim   = nb_sim
+                                          , model    = model
+                                          , cuda_ind = cuda_ind ))[0]
 
     return mc_mult_steps( F_v_dep
                         , s_v_dep
@@ -301,16 +309,7 @@ def mc_mult_steps_ret( F_v
                         , nb_sim   = nb_sim
                         , cuda_ind = cuda_ind
                         , model    = model
-                        , F_ret    = np.amax( mc_mult_steps( F_v_ret
-                                                           , s_v_ret
-                                                           , d_v_ret
-                                                           , T_l_ret
-                                                           , rho_m_ret
-                                                           , T_v_exp_ret
-                                                           , nb_sim   = nb_sim
-                                                           , model    = model
-                                                           , cuda_ind = cuda_ind )  # TODO: CHECK IF take_all_sims
-                                            , axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
+                        , F_ret    = np.amax( F_ret_realized, axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
                         , keep_all_sims=keep_all_sims)
 
 

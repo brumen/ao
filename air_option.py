@@ -472,6 +472,7 @@ class AirOptionFlights:
 
         mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 
+        # F_max is either a matrix or a generator.
         F_max = mc_used( F_v
                        , s_v
                        , d_v
@@ -485,20 +486,22 @@ class AirOptionFlights:
 
         # final option payoff
         if not keep_all_sims:
+            # realize a generator
+            _, F_sim_realized = list(F_max)[0]
             if not cuda_ind:
-                return np.mean(np.maximum (np.amax(F_max, axis=0) - K, 0.))
+                return np.mean(np.maximum (np.amax(F_sim_realized, axis=0) - K, 0.))
 
             # cuda result
-            return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max) - K, 0.))
+            return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_sim_realized) - K, 0.))
 
         # keep all simulation case
         if not cuda_ind:
             return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
-                    for sim_time, F_max_at_time in F_max.items()}
+                    for sim_time, F_max_at_time in F_max}
 
         # cuda result
         return {sim_time: np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_at_time) - K, 0.))
-                for sim_time, F_max_at_time in F_max.items()}
+                for sim_time, F_max_at_time in F_max}
 
     @staticmethod
     def compute_date_by_fraction( dt_today : datetime.date
