@@ -44,7 +44,9 @@ class TestMC(unittest.TestCase):
                              , self.F_exp
                              , nb_sim )  # this last par. is maturity of forwards
 
-        self.assertEqual(v1.shape, (nb_sim, self.nb_tickets))  # v1 should be of this shape
+        sim_time, v1_sim = list(v1)[0]
+        self.assertEqual(v1_sim.shape, (nb_sim, self.nb_tickets))  # v1 should be of this shape
+        self.assertEqual(sim_time, sim_times[-1])
 
     def test_2(self):
         """
@@ -62,7 +64,9 @@ class TestMC(unittest.TestCase):
                                   , self.F_exp
                                   , nb_sim )
 
-        self.assertTrue(np.abs(np.average(F_sim_l[:, -1]) - self.F_v[-1]) < 5)
+        _, F_sim_realized = list(F_sim_l)[0]
+
+        self.assertTrue(np.abs(np.average(F_sim_realized[:, -1]) - self.F_v[-1]) < 5)
 
     def test_3(self):
         """
@@ -94,4 +98,6 @@ class TestMC(unittest.TestCase):
                                   , T_v_exp
                                   , nb_sim )
 
-        self.assertEqual(res.shape, (nb_sim, len(F_v[0])))  # result is for departure flights
+        sim_time, res_sim = list(res)[0]
+
+        self.assertEqual(res_sim.shape, (nb_sim, len(F_v[0])))  # result is for departure flights
