@@ -61,18 +61,7 @@ def ln_step( F_sim_prev : np.array
 
     """
 
-    if not cuda_ind:
-        expon_part = (np.sqrt(T_diff) * s_v) * rn_sim_l - 0.5 * s_v ** 2 * T_diff
-        expon_part += d_v * T_diff
-        return F_sim_prev * np.exp(expon_part)
-
-    # gpu computation
-    co.vtpm_cols_new_hd_ao(- 0.5 * s_v ** 2 * T_diff, np.sqrt(T_diff) * s_v, rn_sim_l)
-    F_sim_part = co.vtpm_cols_new_hd(d_v * T_diff, rn_sim_l, tm_ind='p')
-    # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-    co.sin_cos_exp_d(F_sim_part, F_sim_part, sin_cos_exp='exp')  # works faster than cumath
-    # F_sim_next = F_sim_prev * pycuda.cumath.exp(F_sim_part)
-    return F_sim_prev * F_sim_part
+    return F_sim_prev * np.exp((np.sqrt(T_diff) * s_v) * rn_sim_l - 0.5 * s_v ** 2 * T_diff + d_v * T_diff)
 
 
 def normal_step( F_sim_prev  : np.array
@@ -92,20 +81,16 @@ def normal_step( F_sim_prev  : np.array
     :param cuda_ind:   indicator whether to use cuda or not, True or False
     """
 
-    if not cuda_ind:
-        F_sim_next = F_sim_prev + s_v * np.sqrt(T_diff) * rn_sim_l
-
-        if d_v is not None:
-           F_sim_next += d_v * T_diff
-
-        return F_sim_next
+    #if not cuda_ind:
+    F_sim_next = F_sim_prev + s_v * np.sqrt(T_diff) * rn_sim_l
+    return F_sim_next + d_v * T_diff if d_v is not None else F_sim_next
 
     # cuda part
-    return F_sim_prev + co.vtpm_cols_new_hd( d_v * T_diff
-                                           , co.vtpm_cols_new_hd( s_v * np.sqrt(T_diff)
-                                                                , rn_sim_l
-                                                                , tm_ind = 't' )
-                                           , tm_ind = 'p')
+    #return F_sim_prev + co.vtpm_cols_new_hd( d_v * T_diff
+    #                                       , co.vtpm_cols_new_hd( s_v * np.sqrt(T_diff)
+    #                                                            , rn_sim_l
+    #                                                            , tm_ind = 't' )
+    #                                       , tm_ind = 'p')
 
 
 def vol_drift_vec( T_curr : float
@@ -183,14 +168,12 @@ def mc_mult_steps( F_v     : [List, np.array]
     T_l_extend = add_zero_to_Tl(T_l)  # add 0 to simulation times if not already there
     T_l_diff   = np.diff(T_l_extend)
     nb_fwds    = len(F_v)
-    T0         = 0.  # T_l_extend[0]
 
     F_sim = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
-    # write F_v_used in F_sim_prev by columns
-    if not cuda_ind:
-        F_sim[:, :] = F_v
-    else:
-        F_sim = co.set_mat_by_vec(F_v, nb_sim)
+    #if not cuda_ind:
+    F_sim[:, :] = F_v
+    #else:
+    #    F_sim = co.set_mat_by_vec(F_v, nb_sim)
 
     F_prev = F_sim  # previous simulations
 
@@ -221,15 +204,7 @@ def mc_mult_steps( F_v     : [List, np.array]
                 F_prev = F_sim_next
 
         else:  # return flights
-            if not cuda_ind:
-                F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
-            else:
-                # TODO: THIS HERE IS ALL WRONG!!!
-                # F_dep_plus_ret = F_sim_next + F_ret
-                # F_dep_plus_ret = co.vtpm_cols_new(F_ret, F_sim_next)
-                # F_dep_plus_ret = co.vtpm_rows_new_ao(F_ret, F_sim_next)
-                co.vtpm_rows_new_ao(F_ret, F_sim_next)  # WRONG WRONG WRONG WRONG WRONG WRONG
-                F_sim_next_ret = F_sim_next  # WRONG WRONG WRONG
+            F_sim_next_ret = F_sim_next + F_ret  # F_ret is already maximized over flights
 
             if not keep_all_sims:
                 F_sim = np.maximum(F_sim_next_ret, F_sim)

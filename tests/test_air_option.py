@@ -45,6 +45,32 @@ class TestAirOptionFlights(TestCase):
 
         self.assertTrue(True)
 
+    def test_extreme(self):
+        """ Tests if AirOptionFlights runs with multiple flights.
+        """
+
+        import time
+
+        nb_dep_flights = 50
+        dep_flights = list(zip( list(range(100, 100 + nb_dep_flights))
+                     , [datetime.date(2019, 7, 1) + datetime.timedelta(days=day_diff) for day_diff in range(nb_dep_flights)]
+                     , ['UA' + str(flight_nb) for flight_nb in range(nb_dep_flights)] ))
+
+        ret_flights = list(zip( list(range(100, 100 + nb_dep_flights))
+                     , [datetime.date(2019, 10, 1) + datetime.timedelta(days=day_diff) for day_diff in range(nb_dep_flights)]
+                     , ['UA' + str(flight_nb) for flight_nb in range(nb_dep_flights)] ))
+
+        aof = AirOptionFlights( datetime.date(2019, 6, 1)
+                              , (dep_flights, ret_flights)
+                              , K=300.
+                              , nb_sim=100000  )
+
+        t1 = time.time()
+        res1 = aof(option_maturities=[datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)])  # air option value
+        print(time.time() - t1)
+
+        self.assertTrue(True)
+
     def test_4(self):
         """ Testing the compute_option_raw function.
 
