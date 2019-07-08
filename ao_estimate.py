@@ -24,26 +24,27 @@ class EmptyFlights(Exception):
     pass
 
 
-def date_in_season(date : datetime.date, season : str):
+def date_in_season(date : [datetime.date, List[datetime.date]], season : str):
     """
     checks whether date is in season
     :param date: given in date format, datetime format or any list related format 
     :param season: either 'summer' or 'winter'
     """
 
-    cnd_outer = type(date) is datetime.date or type(date) is datetime.datetime
+    cnd_outer = isinstance(date, datetime.date) or isinstance(date, datetime.datetime)
 
     if season == 'summer':
         if cnd_outer:
             return 5 <= date.month < 10
-        else:  # it's a list type object
-            return [ 5 <= d.month < 10 for d in date]
+
+        # it's a list type object
+        return [ 5 <= d.month < 10 for d in date]
 
     else:  # season == winter
         if cnd_outer: 
             return date.month <= 4 or date.month >= 10
-        else:
-            return [d.month <= 4 or d.month >= 10 for d in date]
+
+        return [d.month <= 4 or d.month >= 10 for d in date]
 
 
 def hour_in_section_atomic(hour_used, sect):
