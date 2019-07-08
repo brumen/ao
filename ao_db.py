@@ -4,7 +4,7 @@ import sqlite3
 import time
 import logging
 import datetime
-from typing import List  # for python3 typing
+from typing import List, Tuple  # for python3 typing
 
 # ao modules
 import ao_codes
@@ -33,14 +33,11 @@ def run_db(s):
     return res
 
 
-def run_db_mysql(s):
-    """
-    runs the query on the mysql database,
+def run_db_mysql(s : str) -> List:
+    """ Runs the query on the mysql database,
 
-    :param s:   query to be executed
-    :type s:    string
-    :returns:   result of the mysql executed
-    :rtype:     List
+    :param s: query to be executed
+    :returns: list of results obtained.
     """
 
     with MysqlConnectorEnv() as new_mysql:
@@ -75,7 +72,7 @@ def find_dep_hour_day( dep_hour : str
 
 
 def find_dep_hour_day_inv( dep_date : datetime.date
-                         , dep_time : datetime.time ) -> tuple :
+                         , dep_time : datetime.time ) -> Tuple:
     """ Inverse of the function above: computes hour_start, hour_end and day_of_week list from dep_date, dep_time.
 
     :param dep_date: departure date
@@ -260,7 +257,7 @@ def commit_flights_to_live(flights_l : List):
 
 
 def commit_flights_to_db( flights_l : List
-                        , host_db   = 'localhost' ):
+                        , host_db   = 'localhost' ) -> None:
     """
     Inserts into db the flights in the flights_l.
 
@@ -330,7 +327,7 @@ def insert_flight( origin_place  : str
     :param existing_pairs:  TODO:
     """
 
-    logger.debug(" ".join([ "Inserting flight from"
+    logger.debug(' '.join([ "Inserting flight from"
                           , origin_place
                           , "to"
                           , dest_place

@@ -3,26 +3,22 @@
 import sqlite3
 from   mysql_connector_env   import MysqlConnectorEnv
 from   ao_codes              import SQLITE_FILE
+import aiomysql
 
 
-def insert_into_reg_ids_db():
-    """
-    Constructs table reg_ids, for historical reference
+def insert_into_reg_ids_db() -> None:
+    """ Constructs table reg_ids, for historical reference
 
     """
 
     ins_l = []
     for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
         for dep_day in ['weekday', 'weekend']:
-            for dep_season in range(1,13):
+            for dep_season in range(1, 13):  # months
                 ins_l.append((dep_season, dep_hour, dep_day))
-    add_regs_str = """INSERT INTO reg_ids
-                      (month, tod, weekday_ind)
-                      VALUES (%s, %s, %s)
-    """
 
     with MysqlConnectorEnv() as mysql_conn:
-        mysql_conn.cursor().executemany(add_regs_str, ins_l)
+        mysql_conn.cursor().executemany("INSERT INTO reg_ids (month, tod, weekday_ind) VALUES (%s, %s, %s)", ins_l)
         mysql_conn.commit()
 
 
@@ -109,21 +105,9 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
                          (as_of, price, reg_id, flight_id) 
                          VALUES (%s, %s, %s, %s)"""
 
-    find_rid_str = """
-    SELECT reg_id from reg_ids 
-    WHERE month = %s AND tod = '%s' AND weekday_ind = '%s'
-    """
-
-    find_fid_str = """
-    SELECT flight_id from flight_ids 
-    WHERE flight_id_long = '%s'
-    """
-
-    ins_new_fid_str = """
-        INSERT INTO flight_ids (flight_id_long, 
-            orig, dest, dep_date, arr_date, carrier) 
-        VALUES (%s, %s, %s, %s, %s, %s);
-    """
+    find_rid_str = "SELECT reg_id    FROM reg_ids    WHERE month = %s AND tod = '%s' AND weekday_ind = '%s'"
+    find_fid_str = "SELECT flight_id FROM flight_ids WHERE flight_id_long = '%s'"
+    ins_new_fid_str = "INSERT INTO flight_ids (flight_id_long, orig, dest, dep_date, arr_date, carrier) VALUES (%s, %s, %s, %s, %s, %s);"
 
     # this for loop finds all the flight_ids not previously in the database
     if add_flight_ids:
@@ -132,7 +116,7 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
             # cursor for inserting the flight_ids
             mysql_c_fid_ins = mysql_conn_fid_ins.cursor()
 
-            fids_new = set() # Set()
+            fids_new = set()
             fids_size = 0
 
             for row in c_ao.execute(all_flights):
@@ -199,7 +183,6 @@ async def calibrate_all_2(loop, flight_ids_fixed, batch_size):
     """
 
     nb_flight_ids = len(flight_ids_fixed)
-    print ("FINISHED preliminary ")
     pool = await aiomysql.create_pool( host     = 'localhost'
                                      , port     = 3306
                                      , user     = DB_USER
