@@ -3,15 +3,16 @@
 # Nicholas Higham  "Computing the Nearest Correlation matrix - A Problem in Finance"
 #
 
+import numpy as np
 import scipy
 import scipy.linalg
 
-from numpy import diag, eye, dot, sqrt, zeros, abs, array
+from typing import Tuple
+from numpy  import diag, eye, dot, sqrt, zeros, abs, array
 
 
-def u_proj(A, W):
-    """
-    computes the projection of A to U projection
+def u_proj(A : array, W : array) -> array:
+    """ Computes the projection of A to U projection
 
     """
 
@@ -21,19 +22,17 @@ def u_proj(A, W):
     return A - dot(W_inv, dot(diag(theta), W_inv))
 
 
-def mat_positive(A):
-    """
-    spectral decomposition of A, positive part of A
+def mat_positive(A : array) -> array:
+    """ Spectral decomposition of A, positive part of A.
 
     :param A: matrix of of which one wants the spectral decomposition of
-    :type A:  numpy matrix
     """
 
     A_eig_v, A_eig_m = scipy.linalg.eig(A)
     return dot(A_eig_m, dot(diag(0.5 * (A_eig_v + abs(A_eig_v))), A_eig_m.transpose()))
 
 
-def mat_inv_sqrt(A):
+def mat_inv_sqrt(A : array) -> Tuple[array, array]:
     """
     computes the W^(0.5), W^(-0.5)
 
@@ -43,12 +42,12 @@ def mat_inv_sqrt(A):
 
     U, S, VT = scipy.linalg.svd(A)
     res = dot(dot(U, diag(sqrt(S))), VT)
+
     return res, scipy.linalg.inv(res)
 
 
-def s_proj(A, W):
-    """
-    computes S proj of A
+def s_proj(A : array, W : array) -> array:
+    """ Computes S proj of A.
     """
 
     W_one_half, W_inv_one_half = mat_inv_sqrt(W)
@@ -56,9 +55,8 @@ def s_proj(A, W):
     return dot(W_inv_one_half, dot(mat_positive(dot(W_one_half, dot(A, W_one_half))), W_inv_one_half))
 
 
-def near_corr(A, W, nb_iter):
-    """
-    iterative algorithm for finding the nearest correlation matrix.
+def near_corr(A : array, W : array, nb_iter : int) -> array:
+    """ Iterative algorithm for finding the nearest correlation matrix.
 
     """
 
@@ -74,7 +72,7 @@ def near_corr(A, W, nb_iter):
     return Y.real  # round away the zeros
 
 
-def near_corr_simple(A : array, nb_iter=10):
+def near_corr_simple(A : array, nb_iter=10) -> array:
     """
     computes the nearest correlation matrix to A
 
