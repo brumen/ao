@@ -1,5 +1,5 @@
 # air option computation file
-import config
+# import config
 import datetime
 import numpy as np
 import logging
@@ -7,9 +7,9 @@ import functools
 
 from typing import List, Tuple
 
-if config.CUDA_PRESENT:
-    import cuda_ops
-    import pycuda.gpuarray as gpa
+#if config.CUDA_PRESENT:
+#    import cuda_ops
+#    import pycuda.gpuarray as gpa
 
 import vols.vols as vols
 import mc
@@ -488,20 +488,20 @@ class AirOptionFlights:
         if not keep_all_sims:
             # realize a generator
             _, F_sim_realized = list(F_max)[0]
-            if not cuda_ind:
-                return np.mean(np.maximum (np.amax(F_sim_realized, axis=0) - K, 0.))
+            # if not cuda_ind:
+            return np.mean(np.maximum (np.amax(F_sim_realized, axis=0) - K, 0.))
 
             # cuda result
-            return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_sim_realized) - K, 0.))
+            # return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_sim_realized) - K, 0.))
 
         # keep all simulation case
-        if not cuda_ind:
-            return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
-                    for sim_time, F_max_at_time in F_max}
+        #if not cuda_ind:
+        return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
+                for sim_time, F_max_at_time in F_max}
 
         # cuda result
-        return {sim_time: np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_at_time) - K, 0.))
-                for sim_time, F_max_at_time in F_max}
+        #return {sim_time: np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_at_time) - K, 0.))
+        #        for sim_time, F_max_at_time in F_max}
 
     @staticmethod
     def compute_date_by_fraction( dt_today : datetime.date

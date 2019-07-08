@@ -1,6 +1,6 @@
 # specialized monte carlo for AirOptions
 
-import config
+# import config
 import numpy as np
 import scipy.integrate
 import logging
@@ -9,13 +9,13 @@ from typing import Tuple, List
 
 logger = logging.getLogger(__name__)
 
-if config.CUDA_PRESENT:
-    import cuda.cuda_ops as co
-    import pycuda.gpuarray as gpa
-    import curand
-    rn_gen_global = curand.create_gen_simple()  # generator of random numbers
-else:
-    rn_gen_global = None
+#if config.CUDA_PRESENT:
+#    import cuda.cuda_ops as co
+#    import pycuda.gpuarray as gpa
+#    import curand
+#    rn_gen_global = curand.create_gen_simple()  # generator of random numbers
+#else:
+#    rn_gen_global = None
 
 
 def integrate_vol_drift( sd_fct
@@ -169,7 +169,7 @@ def mc_mult_steps( F_v     : [List, np.array]
     T_l_diff   = np.diff(T_l_extend)
     nb_fwds    = len(F_v)
 
-    F_sim = np.empty((nb_sim, nb_fwds)) if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
+    F_sim = np.empty((nb_sim, nb_fwds))  # if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
     #if not cuda_ind:
     F_sim[:, :] = F_v
     #else:
@@ -187,7 +187,7 @@ def mc_mult_steps( F_v     : [List, np.array]
         if nb_fwds == 1:
             rn_sim_l = np.random.normal(size=(1, nb_sim))
         else:
-            rn_sim_l = np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim) if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
+            rn_sim_l = np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim)  # if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
 
         F_sim_next = one_step_model( F_sim if not keep_all_sims else F_prev
                                    , T_diff
@@ -288,24 +288,24 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
                         , keep_all_sims=keep_all_sims)
 
 
-def mn_gpu(unimp, rho_m, size=100):
-    """
-    Standard multivariate normal with rho_m as correlation variable
-
-    :param unimp: unimportant, so that it coincides w/ mn from numpy
-    :type unimp:  None
-    :param rho_m: correlation matrix
-    :type rho_m:  rectangular 2-dimensional np.array
-    :param size:  number of simulation variables, an integer
-    """
-
-    nb_fwds = rho_m.shape[0]
-    sim_rn_init = gpa.empty((nb_fwds, size), dtype=np.double)
-    rho_m_chol_cuda = gpa.to_gpu(np.linalg.cholesky(rho_m))
-    simulated_rn = gpa.empty((nb_fwds, size), dtype=np.double)
-    curand.gen_eff_dev_rns_double( sim_rn_init.size
-                                 , np.longlong(sim_rn_init.ptr)
-                                 , rn_gen_global)
-    co.matmul(rho_m_chol_cuda, sim_rn_init, simulated_rn)
-
-    return simulated_rn
+# def mn_gpu(unimp, rho_m, size=100):
+#     """
+#     Standard multivariate normal with rho_m as correlation variable
+#
+#     :param unimp: unimportant, so that it coincides w/ mn from numpy
+#     :type unimp:  None
+#     :param rho_m: correlation matrix
+#     :type rho_m:  rectangular 2-dimensional np.array
+#     :param size:  number of simulation variables, an integer
+#     """
+#
+#     nb_fwds = rho_m.shape[0]
+#     sim_rn_init = gpa.empty((nb_fwds, size), dtype=np.double)
+#     rho_m_chol_cuda = gpa.to_gpu(np.linalg.cholesky(rho_m))
+#     simulated_rn = gpa.empty((nb_fwds, size), dtype=np.double)
+#     curand.gen_eff_dev_rns_double( sim_rn_init.size
+#                                  , np.longlong(sim_rn_init.ptr)
+#                                  , rn_gen_global)
+#     co.matmul(rho_m_chol_cuda, sim_rn_init, simulated_rn)
+#
+#     return simulated_rn
