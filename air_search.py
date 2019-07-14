@@ -214,7 +214,8 @@ def get_ticket_prices( origin_place  : str
                      , cabinclass         = 'Economy'
                      , adults             = 1
                      , use_cache          = False
-                     , insert_into_livedb = False ):
+                     , insert_into_livedb = False
+                     , host = 'localhosts'):
     """
     Returns the ticket prices for a flight
 
@@ -226,26 +227,22 @@ def get_ticket_prices( origin_place  : str
     :param adults: number of adult tickets booked
     :param: use_cache:
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
+    :param host: mysql host server.
     :returns: TODO
     :rtype:
     """
 
-    # local time
-    lt = time.localtime()
-    lt_dt = datetime.datetime(lt.tm_year, lt.tm_mon, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec)
-    lt_adj = (lt_dt - ao_codes.livedb_delay).isoformat()
-    
     # first check the local database
     flights_live_local = """
     SELECT as_of, flight_id, dep_date, dep_time, arr_date, price, carrier, flight_nb 
     FROM flights_live 
     WHERE orig = '{0}' AND dest = '{1}' AND dep_date = '{2}' AND cabin_class = '{3}' AND as_of > '{4}' 
-    """.format(origin_place, dest_place, outbound_date, cabinclass, lt_adj)
+    """.format(origin_place, dest_place, outbound_date, cabinclass, (datetime.datetime.now() - ao_codes.livedb_delay).isoformat())
 
     if include_carriers is not None:
         flights_live_local += "  AND carrier = '{0}'".format(include_carriers)  # include_carriers is only 1 in this case
 
-    with MysqlConnectorEnv() as mysql_conn:
+    with MysqlConnectorEnv(host=host) as mysql_conn:
         mysql_curr = mysql_conn.cursor()
         mysql_curr.execute(flights_live_local)
         flights_in_ldb = mysql_curr.fetchall()
@@ -274,7 +271,7 @@ def get_ticket_prices( origin_place  : str
         return F_v, flights_v, reorganize_ticket_prices(flights_v)
 
 
-def reorganize_ticket_prices(itin):
+def reorganize_ticket_prices(itin) -> dict:
     """
     reorganize ticket prices by levels:
        day
@@ -287,7 +284,6 @@ def reorganize_ticket_prices(itin):
                    where the first is the departure date, second departure time, third flight price
     :type itin: list of (tuple, double)
     :returns: dictionary as of the form as described above in the function description
-    :rtype: dict
     """
 
     # get the days from the list of
@@ -295,10 +291,8 @@ def reorganize_ticket_prices(itin):
 
     reorgTickets = dict()
 
-    for (date, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
+    for (date_dt, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
         time_of_day_res = ao_codes.get_tod(hour)
-
-        date_dt = date  # TODO: CHECK IF THIS HERE IS CORRECT ds.convert_datedash_date(date)
 
         # part to insert into dict d
         if date_dt not in reorgTickets.keys():
@@ -311,18 +305,16 @@ def reorganize_ticket_prices(itin):
     return reorgTickets
 
 
-def get_all_carriers( origin_place : str
-                    , dest_place   : str
+def get_all_carriers( origin_place  : str
+                    , dest_place    : str
                     , outbound_date : datetime.date
                     , cabinclass    = 'Economy') -> set:
-    """
-    gets all carriers for a selected route and selected date (direct flights only)
+    """ Gets all carriers for a selected route and selected date (direct flights only)
 
     :param origin_place: IATA code of the origin airport
     :param dest_place:   IATA code of the destination airport
     :param outbound_date: date of the flights between origin, destination
-    :returns:
-    :
+    :returns: flights for the route selected.
     """
 
     all_data = get_ticket_prices( origin_place  = origin_place
