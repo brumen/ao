@@ -1,5 +1,4 @@
 # getting the params from the database
-import numpy as np
 import datetime
 
 from typing import List, Tuple
@@ -9,6 +8,8 @@ import ds
 import ao_codes
 
 from mysql_connector_env import MysqlConnectorEnv
+
+from ao_codes import day_str as all_ranks
 
 
 def get_drift_vol_from_db( dep_date : datetime.date
@@ -212,14 +213,12 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
 
 
 def find_close_regid( month   : int
-                    , tod
+                    , tod     : str
                     , weekday : str ):
-    """
-    logic how to select regid which is close to desired one
+    """ Logic how to select regid which is close to desired one
 
-    :param month: month
-    :param tod: time of day
-    :type tod:
+    :param month: month desired.
+    :param tod: time of day, 'morning', 'afternoon', 'evening', 'night'
     :param weekday: weekday, can be either 'weekday' or 'weekend'
     :returns:
     :rtype:
@@ -237,8 +236,6 @@ def find_close_regid( month   : int
                   , rot_month(month, 2)
                   , rot_month(month, -2)]
 
-    # tod ranking
-    from ao_codes import day_str as all_ranks
     tod_idx = all_ranks.index(tod)
     tod_ranks = [ all_ranks[tod_idx]
                 , all_ranks[(tod_idx+1) % 4]

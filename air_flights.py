@@ -18,8 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_minmax_ow(rof):
-    """
-    computes the min/max ticket by different subsets of tickets (e.g. days,
+    """ Computes the min/max ticket by different subsets of tickets (e.g. days,
         hours, etc. ). This function only does that for one-way flights;
         adds fields 'min_max' to reorg_flights_v
 
