@@ -18,31 +18,18 @@ from mysql_connector_env import MysqlConnectorEnv
 logger = logging.getLogger(__name__)
 
 
-def run_db(s):
-    """
-    run query s on the database
-    """
-
-    res = []
-
-    with sqlite3.connect(SQLITE_FILE) as conn:
-        c = conn.cursor()
-        for row in c.execute(s):
-            res.append(row)
-
-    return res
-
-
-def run_db_mysql(s : str) -> List:
+def run_db_mysql(s : str, host = 'localhost') -> List:
     """ Runs the query on the mysql database,
 
     :param s: query to be executed
+    :param host: mysql db host.
     :returns: list of results obtained.
     """
 
-    with MysqlConnectorEnv() as new_mysql:
+    with MysqlConnectorEnv(host=host) as new_mysql:
         my_cursor = new_mysql.cursor()
         my_cursor.execute(s)
+
         return my_cursor.fetchall()
 
 

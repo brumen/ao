@@ -33,6 +33,6 @@ class TestAoEstimate(TestCase):
         dest = 'EWR'
         carrier = 'UA'
 
-        print (flight_vol(orig, dest, carrier))
+        res = flight_vol(orig, dest, carrier)
 
         self.assertTrue(True)
