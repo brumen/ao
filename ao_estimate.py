@@ -14,16 +14,18 @@ from typing      import List, Tuple
 from scipy.stats import norm  # quantiles of normal distr. norm.ppf(x)
 from tkinter     import Frame, Button, Label
 
-import ds
-from   ao_db               import SQLITE_FILE, run_db, run_db_mysql
-from   ao_codes            import LARGE_DRIFT, DCF
-from   mysql_connector_env import MysqlConnectorEnv
+from ao_db               import SQLITE_FILE, run_db_mysql
+from ao_codes            import LARGE_DRIFT, DCF
+from mysql_connector_env import MysqlConnectorEnv
 
 
 logger = logging.getLogger(__name__)
 
 
 class EmptyFlights(Exception):
+    """ Exception for empty flights identification.
+    """
+
     pass
 
 
@@ -85,6 +87,92 @@ def hour_in_section(hour, section):
     return [hour_in_section_atomic(h.hour, section) for h in hour]
 
 
+def flight_vol( orig    : str
+              , dest    : str
+              , carrier : str
+              , as_of_date = None
+              , insert_into_db    = False
+              , model             = 'n'
+              , correct_drift_vol = False
+              , db_host = 'localhost'):
+    """ Gets the flight for a particular origin, destination, carrier.
+
+    :param orig: IATA code of the origin airport (e.g. SFO)
+    :param dest: IATA code of the dest. airport (e.g. EWR)
+    :param carrier: IATA code of the carrier airline (e.g. UA)
+    :param as_of_date: the date of this computation.
+    :param insert_into_db: indicator whether to insert the computed volatility in the database.
+    :param model: normal ('n') or log-normal ('ln') model to compute drift/vol over
+    :param db_host: mysql database host.
+    """
+
+    for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
+        for dep_day in ['weekday', 'weekend']:
+            for dep_season in range(1,13):
+                with MysqlConnectorEnv(host=db_host) as conn_mysql:
+                    selected_flights = pd.read_sql_query("""SELECT DISTINCT flord.as_of, fids.orig, fids.dest, flord.price, rid.tod, rid.month, rid.weekday_ind
+                                                FROM flights_ord flord, flight_ids fids, reg_ids rid
+                                                WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}' AND tod='{3}' AND month = '{4}' AND weekday_ind = '{5}'
+                                                AND flord.flight_id = fids.flight_id 
+                                                AND rid.reg_id = flord.reg_id
+                                                ORDER BY as_of""".format(orig, dest, carrier, dep_hour, dep_season, dep_day)
+                                            , conn_mysql
+                                            , parse_dates={'as_of': '%Y-%m-%d'})
+
+                print (flight_vol_intern( selected_flights
+                                 , model             = model
+                                 , correct_drift_vol = correct_drift_vol ))
+                # TODO: TO FIX THIS!!
+                if insert_into_db:
+                    insert_into_db_function(as_of_date if as_of_date else time.localtime())
+
+
+def flight_vol_intern( flights : pd.DataFrame
+                     , model             = 'n'
+                     , correct_drift_vol = False):
+    """ Compute the volatility of particular flight between orig, dest and carrier
+
+    :param flights: selected flights over which vol & drift is computed.
+    :param model: indicator whether drift & vol should be computed for normal or log-normal model. ('n' or 'ln')
+    :param correct_drift_vol: correct drift and vol: drift to 500. if negative,  computes the flight volatility and drift.
+    """
+
+    drift        = 0.  # this will be incrementally added
+    drift_len    = 0
+    vol_1, vol_2 = 0., 0.
+    sum_price    = 0.
+
+    sel_flights           = flights.drop_duplicates(subset='as_of')
+    sel_flights_dep_dates = sel_flights['as_of']
+
+    for sf_dd in sel_flights_dep_dates:
+        sel_flights_ss = sel_flights[sel_flights_dep_dates == sf_dd]  # subset of sel. flights
+
+        if len(sel_flights_ss) > 1:
+            drift_len_local, drift_local, vol_local_1, vol_local_2, \
+                sum_price_tmp = compute_partial_drift_vol( sel_flights_ss['as_of']
+                                                         , sel_flights_ss['price']
+                                                         , model = model )
+            drift += drift_local
+            vol_1 += vol_local_1
+            vol_2 += vol_local_2
+            drift_len += drift_len_local
+            sum_price += sum_price_tmp
+
+    if drift_len == 0:
+        return None
+
+    drift    /= drift_len
+    vol       = np.sqrt((vol_1/drift_len - (vol_2/drift_len)**2))
+    avg_price = np.double(sum_price) / drift_len
+
+    # correct drift if negative or has no drift results
+    if correct_drift_vol and (drift <= 0):
+        drift = LARGE_DRIFT  # large value
+
+    return drift, vol, drift_len, avg_price
+
+
 def compute_partial_drift_vol( date_l  : List[datetime.date]
                              , price_l : List[float]
                              , model = 'n'
@@ -116,249 +204,43 @@ def compute_partial_drift_vol( date_l  : List[datetime.date]
           , np.sum(price_l)
 
 
-def flight_vol( orig              = 'SFO'
-              , dest              = 'EWR'
-              , carrier           = 'UA'
-              , insert_into_db    = False
-              , as_of_date        = None
-              , use_cache         = False
-              , model             = 'n'
-              , correct_drift_vol = False):
-    """ Gets the flight for the following parameters.
+def insert_into_db_function(PARAMS):
 
-    :param orig:    IATA code of the origin airport (e.g. SFO)
-    :param dest:    IATA code of the dest. airport (e.g. EWR)
-    :param carrier: IATA code of the carrier airline (e.g. UA)
-    """
+    # TODO: TO FINISH
 
-    lt = time.localtime()
-    as_of = '-'.join([str(lt.tm_year), str(ds.d2s(lt.tm_mon)), str(ds.d2s(lt.tm_mday))])\
-            + 'T' + \
-            ':'.join([str(ds.d2s(lt.tm_hour)), str(ds.d2s(lt.tm_min)), str(ds.d2s(lt.tm_sec))])
-        
-    if as_of_date is None:
-        as_of_used = as_of
-    else:
-        as_of_used = as_of_date
-
-    if use_cache:
-        db_used          = "flights_cache"
-        price_field      = 'min_price'
-        parse_dates_used = { 'as_of'   : '%Y-%m-%dT%H:%M:%S'
-                           , 'dep_date': '%Y-%m-%dT%H:%M:%S' }
-    else:
-        db_used          = "flights"
-        price_field      = 'price'
-        parse_dates_used = { 'as_of'   : '%Y-%m-%d'
-                           , 'dep_date': '%Y-%m-%dT%H:%M:%S'
-                           , 'arr_date': '%Y-%m-%dT%H:%M:%S' }
-        
-    direct_flights = """
-    SELECT DISTINCT as_of, orig, dest, {0}, month, tod, weekday_ind  
-    FROM {1} 
-    WHERE orig= '{2}' AND dest = '{3}' AND carrier='{4}' 
-    ORDER BY as_of""".format(price_field, db_used, orig, dest, carrier)
-
-    with sqlite3.connect(SQLITE_FILE) as conn_ao:
-
-        df1 = pd.read_sql_query( direct_flights
-                               , conn_ao
-                               , parse_dates = parse_dates_used)
-
-    if len(df1) == 0:  # empty frame
-        raise EmptyFlights('No flights found')
-
-    for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
-        for dep_day in ['weekday', 'weekend']:
-            for dep_season in range(1, 13):
-
-                flight_vol_intern( orig
-                                 , dest
-                                 , carrier
-                                 , df1
-                                 , dep_hour          = dep_hour
-                                 , dep_day           = dep_day
-                                 , dep_season        = dep_season
-                                 , insert_into_db    = insert_into_db
-                                 , as_of_date        = as_of_used
-                                 , use_cache         = use_cache
-                                 , model             = model
-                                 , correct_drift_vol = correct_drift_vol)
-
-
-def flight_vol_mysql( orig    : str
-                    , dest    : str
-                    , carrier : str
-                    , as_of_date = None
-                    , insert_into_db    = False
-                    , model             = 'n'
-                    , correct_drift_vol = False
-                    , db_host = 'localhost'):
-    """ Gets the flight for a particular origin, destination, carrier.
-
-    :param orig:    IATA code of the origin airport (e.g. SFO)
-    :param dest:    IATA code of the dest. airport (e.g. EWR)
-    :param carrier: IATA code of the carrier airline (e.g. UA)
-    """
-
-    lt = time.localtime()
-
-    as_of = as_of_date if as_of_date is not None else \
-        str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
-        str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
-
-    with MysqlConnectorEnv(host=db_host) as conn_mysql:
-        df1 = pd.read_sql_query( """SELECT DISTINCT flord.as_of, fids.orig, fids.dest, flord.price, rid.tod, rid.month, rid.weekday_ind
-                                    FROM flights_ord flord, flight_ids fids, reg_ids rid
-                                    WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}'
-                                    AND flord.flight_id = fids.flight_id 
-                                    AND rid.reg_id = flord.reg_id
-                                    ORDER BY as_of""".format(orig, dest, carrier)
-                               , conn_mysql
-                               , parse_dates = {'as_of': '%Y-%m-%d'})
-    
-    if len(df1) == 0:  # empty frame
-        raise EmptyFlights('No flights found')
-
-    for dep_hour in ['morning', 'afternoon', 'evening', 'night']:
-        for dep_day in ['weekday', 'weekend']:
-            for dep_season in range(1,13):
-                flight_vol_intern( orig
-                                 , dest
-                                 , carrier
-                                 , df1
-                                 , dep_hour          = dep_hour
-                                 , dep_day           = dep_day
-                                 , dep_season        = dep_season
-                                 , insert_into_db    = insert_into_db
-                                 , as_of_date        = as_of
-                                 , use_cache         = False
-                                 , model             = model
-                                 , correct_drift_vol = correct_drift_vol )
-
-
-def flight_vol_intern( orig : str
-                     , dest : str
-                     , carrier : str
-                     , df1
-                     , dep_hour          = 'morning'
-                     , dep_day           = 'weekday'
-                     , dep_season        = 10
-                     , insert_into_db    = False
-                     , as_of_date        = None
-                     , use_cache         = False
-                     , model             = 'n'
-                     , correct_drift_vol = False):
-    """ Compute the volatility of particular flight between orig, dest and carrier
-
-    :param orig: IATA code of the originating airport (like 'EWR')
-    :param dest: IATA code of the dest. airport
-    :param carrier: IATA code of the carrier airline ('UA')
-    :param df1: data frame related to flights, has to be in the form given in flight_vol
-    :param dep_hour: departure hour, one of 'morning', 'afternoon', 'evening', 'night'
-    :param dep_day: 'weekday', 'weekend' 
-    :param dep_season: month of departure (1, 2, ... 12)
-    :param as_of_date: which date to use, if None; use the current date
-    :param dcf: day count factor 
-    :param use_cache: using the cached database 
-    :param correct_drift_vol: correct drift and vol: drift to 500. if negative 
-    computes the flight volatility and drift 
-    """
-
-    price_field = 'min_price' if use_cache else 'price'
-
-    drift        = 0.  # this will be incrementally added
-    drift_len    = 0
-    vol_1, vol_2 = 0., 0.
-    sum_price    = 0.
-
-    filter_used = [(df1['month'] == dep_season) and (df1['tod'] == dep_hour) and
-                   (df1['weekday_ind'] == dep_day)]
-    
-    sel_flights           = df1[filter_used].drop_duplicates(subset='as_of')
-    sel_flights_dep_dates = sel_flights['dep_date']
-
-    for sf_dd in sel_flights_dep_dates:
-        sel_flights_ss = sel_flights[sel_flights_dep_dates == sf_dd]  # subset of sel. flights
-
-        if len(sel_flights_ss) > 1:
-            drift_len_local, drift_local, vol_local_1, vol_local_2, \
-                sum_price_tmp = compute_partial_drift_vol( sel_flights_ss['as_of']
-                                                         , sel_flights_ss[price_field]
-                                                         , model = model )
-            drift += drift_local
-            vol_1 += vol_local_1
-            vol_2 += vol_local_2
-            drift_len += drift_len_local
-            sum_price += sum_price_tmp
-
-    if drift_len == 0:
-        return None
-
-    drift    /= drift_len
-    vol       = np.sqrt((vol_1/drift_len - (vol_2/drift_len)**2))
-    avg_price = np.double(sum_price) / drift_len
-
-    # correct drift if negative or has no drift results
-    if correct_drift_vol and (drift <= 0):
-        drift = LARGE_DRIFT  # large value
-        
     if insert_into_db and (drift_len != 0):  # insert only if there is anything to insert
-        # TODO: CHECK IF THIS IS OK HERE
+        with MysqlConnectorEnv(host='localhost') as conn:
+            conn.cursor().executemany(
+                """INSERT INTO params (as_of, orig, dest, carrier, drift, vol avg_price, reg_id)
+                   VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
+                , (as_of_date, orig, dest, carrier, drift, vol, avg_price, REG_ID))  # TODO: MISSING HERE
+            conn.commit()
+
         with sqlite3.connect(SQLITE_FILE) as conn_ao:
             conn_ao.execute("INSERT INTO params VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, '{9}', '{10}')"\
                             .format(as_of_date, orig, dest, '1', carrier, drift, vol, avg_price, dep_season, dep_hour, dep_day))
             conn_ao.commit()
-            
-    return drift, vol, drift_len, avg_price
 
 
-def all_vols_by_airline(carrier : str
+def all_vols_by_airline( carrier : str
                        , insert_into_db    = False
                        , as_of_date        = None
-                       , use_cache         = False
                        , model             = 'n'
-                       , correct_drift_vol = False ):
-    """ Estimates all drift/vol pairs for a particular airline
-
-    :param carrier: carrier for which to get the parameters 'UA'.
-
-    """
-
-    orig_dest_l = run_db("SELECT DISTINCT orig, dest FROM {0} WHERE carrier = '{1}'".format( 'flights_cache' if use_cache else 'flights'
-                                                                                           , carrier ) )
-
-    for orig, dest in orig_dest_l:
-        try:
-            flight_vol( orig
-                      , dest
-                      , carrier
-                      , insert_into_db    = insert_into_db
-                      , as_of_date        = as_of_date
-                      , use_cache         = use_cache
-                      , model             = model
-                      , correct_drift_vol = correct_drift_vol)
-
-        except EmptyFlights:
-            logger.info('No flights found for {0}, {1}, {2}'.format(orig, dest, carrier))
-
-
-def all_vols_by_airline_mysql( carrier : str
-                             , insert_into_db    = False
-                             , as_of_date        = None
-                             , model             = 'n'
-                             , correct_drift_vol = False):
-    """ Estimates all drift/vol pairs for a particular airline
+                       , correct_drift_vol = False):
+    """ Estimates all drift/vol pairs for a particular airline.
 
     :param carrier: airline, carrier ('UA')
-
+    :param insert_into_db: indicator whether to insert into db.
+    :param as_of_date: the date we are running the estimation, if None, today's date/time.
+    :param model: log-normal ('ln') or normal('n') model to estimate.
+    :param correct_drift_vol: indicator whether to correct drift/volatility w/ large/small values.
     """
-    # list of origins and destinations
+
     orig_dest_l = run_db_mysql("SELECT DISTINCT orig, dest FROM flights WHERE carrier = '{0}'".format(carrier) )
 
     for orig, dest in orig_dest_l:  # select a subset of only those
         try:
-            flight_vol_mysql( orig
+            flight_vol( orig
                             , dest
                             , carrier
                             , insert_into_db    = insert_into_db
@@ -366,46 +248,27 @@ def all_vols_by_airline_mysql( carrier : str
                             , model             = model
                             , correct_drift_vol = correct_drift_vol)
 
-        except EmptyFlights:
+        except EmptyFlights:  # if fails return empty
             logger.info('No flights between {0} and {1} for carrier {2}'.format(orig, dest, carrier))
+
+        except Exception as e:
+            raise e
 
 
 def all_vols( insert_into_db    = False
             , as_of_date        = None
-            , use_cache         = False
             , model             = 'n'
-            , correct_drift_vol = False):
-    """ Estimates all drift/vol pairs for all airlines
-
-    """
-
-    # list of airlines
-    airline_l     = run_db("SELECT DISTINCT carrier FROM {0}".format('flights_cache' if use_cache else 'flights'))
-    airline_l_str = map(lambda x: str(x[0]), airline_l)
-
-    for carrier in airline_l_str:
-        all_vols_by_airline( carrier           = carrier
-                           , insert_into_db    = insert_into_db
-                           , as_of_date        = as_of_date
-                           , use_cache         = use_cache
-                           , model             = model
-                           , correct_drift_vol = correct_drift_vol)
-
-
-def all_vols_mysql( insert_into_db    = False
-                  , as_of_date        = None
-                  , model             = 'n'
-                  , correct_drift_vol = False ):
+            , correct_drift_vol = False ):
     """ Estimates all drift/vol pairs for all airlines.
 
     """
 
     for carrier, _ in run_db_mysql("SELECT DISTINCT carrier FROM flights"):
-        all_vols_by_airline_mysql( carrier           = str(carrier)
-                                 , insert_into_db    = insert_into_db
-                                 , as_of_date        = as_of_date
-                                 , model             = model
-                                 , correct_drift_vol = correct_drift_vol )
+        all_vols_by_airline( carrier           = str(carrier)
+                           , insert_into_db    = insert_into_db
+                           , as_of_date        = as_of_date
+                           , model             = model
+                           , correct_drift_vol = correct_drift_vol )
 
 
 def flight_corr( orig_l     : List[str]
@@ -528,15 +391,13 @@ def compute_conf_band( x0
                      , drift
                      , vol
                      , quant = 0.9):
-    """
-    Constructs mean, confidence bands for log-normal process starting from x0,
+    """Constructs mean, confidence bands for log-normal process starting from x0,
 
     :param ts: time-series
     :param x0: starting value of time series
     :param drift, vol: drift, vol of the process
     :param quant: quantile to which to display bounds 
     :returns:
-    :rtype:       TODO
     """
 
     mean_ts = x0 + ts * drift

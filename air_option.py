@@ -42,33 +42,32 @@ class AirOptionFlights:
                 , simplify_compute     = 'take_last_only'
                 , underlyer            = 'n'
                 , correct_drift        = True ):
-        """
-        Computes the air option for the flights
+        """ Computes the air option for the flights.
 
         :param mkt_date: market date
         :param flights: flights to compute the air option over.
                         pairs of (flight forward value, flight_date(forward maturity date), flight_nb )
         :type flights: [(double, datetime.date, str)] or tuple([(double, datetime.date, str)], [(double, datetime.date, str)])
 
-        :param option_start_date:       the date when you can start changing the outbound flight
-        :type option_start_date:        datetime.date
-        :param option_end_date:         the date when you stop changing the outbound flight
-        :type option_end_date:          datetime.date
-        :param option_ret_start_date:   the date when you can start changing the inbound flight
-        :type option_ret_start_date:    datetime.date
-        :param option_ret_end_date:     the date when you stop changing the outbound flight
-        :type option_ret_end_date:      datetime.date
-        :param K:                       option strike
-        :type K:                        double
-        :param cuda_ind:                whether to use cuda for computation
-        :type cuda_ind:                 bool
-        :param nb_sim:                  number of simulations
-        :type nb_sim:                   int
-        :param rho:                     correlation between flights parameter
-        :type rho:                      double
-        :param simplify_compute:        simplifies the computation in that it only simulates the last simulation date,
-                                          options are: "take_last_only", "all_sim_dates"
-        :type simplify_compute:         str
+        :param option_start_date: the date when you can start changing the outbound flight
+        :type option_start_date: datetime.date
+        :param option_end_date: the date when you stop changing the outbound flight
+        :type option_end_date: datetime.date
+        :param option_ret_start_date: the date when you can start changing the inbound flight
+        :type option_ret_start_date: datetime.date
+        :param option_ret_end_date: the date when you stop changing the outbound flight
+        :type option_ret_end_date: datetime.date
+        :param K: option strike
+        :type K: double
+        :param cuda_ind: whether to use cuda for computation
+        :type cuda_ind: bool
+        :param nb_sim: number of simulations
+        :type nb_sim: int
+        :param rho: correlation between flights parameter
+        :type rho: double
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :type simplify_compute: str
         """
 
         self.mkt_date  = mkt_date
