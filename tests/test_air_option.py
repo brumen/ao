@@ -25,23 +25,24 @@ class TestAirOptionFlights(TestCase):
                               , flights
                               , K=1600. )
 
-        res1 = aof()  # air option value
+        res1 = aof.PV()  # air option value
+        aof.PV01()
         self.assertGreater(res1, 0.)
 
         flights_ret = [(150., datetime.date(2019, 7, 22), 'UA72'), (250., datetime.date(2019, 7, 25), 'UA73')]
 
         aof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
 
-        res2 = aof2()
-
+        res2 = aof2.PV()
+        aof2.PV01()
         self.assertGreater(res2, 0.)
 
         # option times
         # option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         # call w/ option_times
-        option_range_2 = aof(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
-        option_range_3 = aof2(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_2 = aof.PV(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_3 = aof2.PV(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         self.assertTrue(True)
 
@@ -66,7 +67,7 @@ class TestAirOptionFlights(TestCase):
                               , nb_sim=100000  )
 
         t1 = time.time()
-        res1 = aof(option_maturities=[datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)])  # air option value
+        res1 = aof.PV(option_maturities=[datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)])  # air option value
         print(time.time() - t1)
 
         self.assertTrue(True)
@@ -119,7 +120,7 @@ class TestAirOptionMock(TestCase):
                            , K = 1600.
                            , nb_sim = 10000 )
 
-        res1 = aom()
+        res1 = aom.PV()
 
         self.assertTrue(True)
 
