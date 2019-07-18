@@ -391,7 +391,12 @@ class AirOptionFlights:
                         , option_maturities     = option_maturities
                         , dcf                   = dcf )
 
-    def __find_flight_by_number(self, flight_nb):
+    def __find_flight_by_number(self, flight_nb : str):
+        """ Finds the flight number in self.flights by flight_nb
+
+        :param flight_nb: flight number, e.g. 'UA71'
+        :returns: index in the self.flights for one-way flight, or (0,1), index for return flight.
+        """
 
         if not self.return_flight:
             return [fnb for _, _, fnb in self.flights].index(flight_nb)
@@ -404,14 +409,15 @@ class AirOptionFlights:
 
         return 1, [fnb for _, _, fnb in self.flights[1]].index(flight_nb)
 
-    def __PV01( self
-              , option_start_date     = None
-              , option_end_date       = None
-              , option_ret_start_date = None
-              , option_ret_end_date   = None
-              , dcf                   = 365.25
-              , bump_value            = 0.01 ):
-        """ Computes PV01 for each flight. flights are given in self.flights.
+    @functools.lru_cache(maxsize=128)
+    def PV01( self
+            , option_start_date     = None
+            , option_end_date       = None
+            , option_ret_start_date = None
+            , option_ret_end_date   = None
+            , dcf                   = 365.25
+            , bump_value            = 0.01 ):
+        """ Cached version of the __PV function. All parameters are the same.
         """
 
         delta_dict = {}
@@ -421,9 +427,10 @@ class AirOptionFlights:
                     , option_ret_end_date   = option_ret_end_date
                     , dcf                   = dcf)  # original PV
 
+        # Bumping flights.
         for flight_elt in self.flights if not self.return_flight else self.flights[0] + self.flights[1]:
             flight_value, flight_date, flight_nb = flight_elt
-            new_flight_elt = (flight_value + bump_value, flight_date, flight_nb)  # bumping it.
+            new_flight_elt = (flight_value + bump_value, flight_date, flight_nb)  # bumping the flight element.
 
             if not self.return_flight:
                 self.flights[self.__find_flight_by_number(flight_nb)] = new_flight_elt
@@ -437,6 +444,7 @@ class AirOptionFlights:
                                              , option_ret_end_date   = option_ret_end_date
                                              , dcf                   = dcf) - pv
 
+            # setting the flight element back, after it was bumped above.
             if not self.return_flight:
                 self.flights[self.__find_flight_by_number(flight_nb)] = flight_elt
             else:
@@ -447,22 +455,6 @@ class AirOptionFlights:
         delta_dict['total'] = sum([delta_value for flight_nb, delta_value in delta_dict.items() ])
 
         return delta_dict
-
-    @functools.lru_cache(maxsize=128)
-    def PV01( self
-          , option_start_date     = None
-          , option_end_date       = None
-          , option_ret_start_date = None
-          , option_ret_end_date   = None
-          , dcf                   = 365.25 ):
-        """ Cached version of the __PV function. All parameters are the same.
-        """
-
-        return self.__PV01( option_start_date     = option_start_date
-                          , option_end_date       = option_end_date
-                          , option_ret_start_date = option_ret_start_date
-                          , option_ret_end_date   = option_ret_end_date
-                          , dcf                   = dcf )
 
     @staticmethod
     def compute_option_raw( F_v
