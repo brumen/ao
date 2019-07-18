@@ -622,11 +622,11 @@ class AirOptionFlights:
         Computes the date between dt_today and dt_final where the days between
         dt_today is the fract of dates between dt_today and dt_final
 
-        :param dt_today:       "today's" date in datetime.date format
-        :param dt_final:       final date that one considers for excersing the option
-        :param fract:          the fraction of the days between dt_today and dt_final (usually 3)
+        :param dt_today: "today's" date in datetime.date format
+        :param dt_final: final date that one considers for excersing the option
+        :param fract: the fraction of the days between dt_today and dt_final (usually 3)
         :param total_fraction: total number of options that one considers (usually 3)
-        :returns:              outbound date fract/total_fraction between dt_today and dt_final
+        :returns: outbound date fract/total_fraction between dt_today and dt_final
         """
 
         # fraction needs to be an integer
