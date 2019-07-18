@@ -382,6 +382,15 @@ class AirOptionFlights:
           , option_maturities     = None
           , dcf                   = 365.25 ):
         """ Cached version of the __PV function. All parameters are the same.
+
+        All dates in the params are in datetime.date format
+        :param option_start_date: start date of the option (default: market date, self.mkt_date)
+        :param option_end_date: end date of the option (default: maturity of the first contract.)
+        :param option_ret_start_date: maturity for returning option, if any; default: market date
+        :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
+        :param option_maturities: list of maturities for which the option to be computed. If not None,
+                                  all other values are overridden.
+        :param dcf: day count factor
         """
 
         return self.__PV( option_start_date     = option_start_date
@@ -417,7 +426,16 @@ class AirOptionFlights:
             , option_ret_end_date   = None
             , dcf                   = 365.25
             , bump_value            = 0.01 ):
-        """ Cached version of the __PV function. All parameters are the same.
+        """ Cached version of PV01 function. All parameters are the same.
+
+        All dates in the params are in datetime.date format
+        :param option_start_date: start date of the option (default: market date, self.mkt_date)
+        :param option_end_date: end date of the option (default: maturity of the first contract.)
+        :param option_ret_start_date: maturity for returning option, if any; default: market date
+        :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
+        :param option_maturities: list of maturities for which the option to be computed. If not None,
+                                  all other values are overridden.
+        :param dcf: day count factor
         """
 
         delta_dict = {}
