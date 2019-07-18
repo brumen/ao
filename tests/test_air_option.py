@@ -41,16 +41,15 @@ class TestAirOptionFlights(TestCase):
         # option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         # call w/ option_times
-        option_range_2 = aof.PV(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
-        option_range_3 = aof2.PV(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_2 = aof.PV(option_maturities=(datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
+        option_range_3 = aof2.PV(option_maturities= (datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
 
         self.assertTrue(True)
 
     def test_extreme(self):
         """ Tests if AirOptionFlights runs with multiple flights.
-        """
 
-        import time
+        """
 
         nb_dep_flights = 50
         dep_flights = list(zip( list(range(100, 100 + nb_dep_flights))
@@ -66,9 +65,7 @@ class TestAirOptionFlights(TestCase):
                               , K=300.
                               , nb_sim=100000  )
 
-        t1 = time.time()
-        res1 = aof.PV(option_maturities=[datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)])  # air option value
-        print(time.time() - t1)
+        res1 = aof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
 
         self.assertTrue(True)
 
