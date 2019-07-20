@@ -26,7 +26,7 @@ class TestAirOptionFlights(TestCase):
                               , K=1600. )
 
         res1 = aof.PV()  # air option value
-        aof.PV01()
+        aof_pv01 = aof.PV01()
         self.assertGreater(res1, 0.)
 
         flights_ret = [(150., datetime.date(2019, 7, 22), 'UA72'), (250., datetime.date(2019, 7, 25), 'UA73')]
@@ -34,7 +34,7 @@ class TestAirOptionFlights(TestCase):
         aof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
 
         res2 = aof2.PV()
-        aof2.PV01()
+        aof2_pv01 = aof2.PV01()
         self.assertGreater(res2, 0.)
 
         # option times

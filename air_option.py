@@ -470,7 +470,7 @@ class AirOptionFlights:
                 self.flights[dep_ret_ind][flight_idx] = flight_elt
 
         # total delta
-        delta_dict['total'] = sum([delta_value for flight_nb, delta_value in delta_dict.items() ])
+        # delta_dict['total'] = sum([delta_value for flight_nb, delta_value in delta_dict.items() ])
 
         return delta_dict
 
