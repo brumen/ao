@@ -1,5 +1,4 @@
 # air option computation file
-# import config
 import datetime
 import numpy as np
 import logging
@@ -7,15 +6,12 @@ import functools
 
 from typing import List, Tuple
 
-#if config.CUDA_PRESENT:
-#    import cuda_ops
-#    import pycuda.gpuarray as gpa
-
-import vols.vols as vols
 import mc
 import ds
 import ao_codes
-from air_flights import get_flight_data, find_minmax_flight_subset
+
+from vols.vols   import corr_hyp_sec_mat
+from air_flights import get_flight_data
 from ao_codes    import MIN_PRICE
 
 from ao_params import get_drift_vol_from_db
@@ -25,16 +21,11 @@ logger = logging.getLogger(__name__)
 
 class AirOptionFlights:
     """ Handles the air option for a particular set of flights.
-
     """
 
     def __init__( self
                 , mkt_date : datetime.date
-                , flights               = None
-                , option_start_date     = None
-                , option_end_date       = None
-                , option_ret_start_date = None
-                , option_ret_end_date   = None
+                , flights  : List[Tuple[float, datetime.date, str]]
                 , cuda_ind             = False
                 , K                    = 1600.
                 , nb_sim               = 10000
@@ -81,13 +72,7 @@ class AirOptionFlights:
         self.__underlyer = underlyer
         self.__correct_drift = correct_drift
 
-        self.__simplify_compute     = simplify_compute
-
-        # option date setup default, could be something or None
-        #self.__option_start_date     = option_start_date
-        #self.__option_end_date       = option_end_date
-        #self.__option_ret_start_date = option_ret_start_date
-        #self.__option_ret_end_date   = option_ret_end_date
+        self.__simplify_compute = simplify_compute
 
         # caching variables
         self.__recompute_option_value = True  # indicator whether the option should be recomputed
@@ -574,11 +559,11 @@ class AirOptionFlights:
 
         if return_flight_ind:
             # correlation matrix for departing, returning flights
-            rho_m = ( vols.corr_hyp_sec_mat(rho, range(len(F_v[0])))
-                    , vols.corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
+            rho_m = ( corr_hyp_sec_mat(rho, range(len(F_v[0])))
+                    , corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
 
         else:  # only outgoing flight
-            rho_m = vols.corr_hyp_sec_mat(rho, range(len(F_v)))
+            rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
         mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 

@@ -12,7 +12,7 @@ import pandas as pd
 from typing      import List, Tuple
 
 from ao_db               import SQLITE_FILE, run_db_mysql
-from ao_codes            import LARGE_DRIFT, DCF
+from ao_codes            import LARGE_DRIFT
 from mysql_connector_env import MysqlConnectorEnv
 
 
@@ -271,8 +271,7 @@ def flight_corr( orig_l     : List[str]
                , dep_date_l : List[datetime.date]
                , dcf        = 365.25
                , host       = 'localhost'):
-    """
-    Compute the correlation between flights in the list
+    """ Compute the correlation between flights in the list
 
     :param orig_l: origin list of IATA airports, ['EWR'...]
     :param dest_l: destination list of IATA airports ['SFO', ...]
@@ -319,8 +318,7 @@ def find_flight_ids( orig     : str
                    , carrier  : str
                    , min_nb_obs = 0
                    , host       = 'localhost' ) -> pd.DataFrame :
-    """
-    returns the flight ids for a flight from orig to dest on carrier
+    """ Returns the flight ids for a flight from orig to dest on carrier.
 
     :param orig:       IATA code of the origin airport (like 'SFO')
     :param dest:       IATA code of the destination airport (like 'EWR')

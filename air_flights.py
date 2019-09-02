@@ -121,9 +121,8 @@ def sort_all( F_v : np.array
             , d_v
             , fl_v
             , reorg_flights_v ):
-    """
-    Sorts the flights according to the F_v,
-    _Important_ assmption being that similar flights by values are most correlated.
+    """ Sorts the flights according to the F_v,
+        _Important_ assmption being that similar flights by values are most correlated.
 
     regorg_flights_v is useless TODO: FIX LATER.
 
@@ -143,8 +142,7 @@ def obtain_flights( origin_place : str
                   , insert_into_livedb = True
                   , io_ind             = 'out'
                   , correct_drift      = True):
-    """
-    Get the flights for outbound and/or inbound flight
+    """ Get the flights for outbound and/or inbound flight.
 
     :param origin_place:  origin of flights, IATA code (like 'EWR')
     :param dest_place:    dest of flights, IATA code (like 'SFO')
@@ -265,8 +263,7 @@ def obtain_flights_recompute( origin_place
                             , insert_into_livedb = True
                             , io_ind        = 'out'
                             , correct_drift = True ):
-    """
-    Get the flights for recompute method.
+    """ Get the flights for recompute method.
     IMPORTANT: cabinclass, adults, insert_into_livedb HAVE TO BE THERE, to correspond to obtain_flights fct.
 
     :param origin_place:
