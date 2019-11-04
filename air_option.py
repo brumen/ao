@@ -106,11 +106,12 @@ class AirOptionFlights:
 
     @functools.lru_cache(maxsize=128)
     def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
-        """ Gets drift and vol for flights. It caches it, so that drift and vol are not regetting it.
+        """ Gets drift and vol for flights. It caches it, so that drift and vol do not forget it.
 
+        :param flight_nb: flight number, e.g. 'UA96'
         """
 
-        return (0.3, 0.3)
+        return 0.3, 0.3
 
     def _drift_for_flight(self, flight_nb : Tuple[datetime.date, str]) -> float:
         """ Drift for flight, read from the database.
@@ -140,23 +141,58 @@ class AirOptionFlights:
         # TODO: IMPLEMENT HERE IF YOU CAN!!!
         return 'SFO', 'EWR', 'UA'
 
-    def __extract_prices_maturities(self, flights : List[Tuple[float, datetime.date, str]], dcf = 365.25):
-        """ Extracts flight prices, maturities, and obtains drifts and volatilities from flights.
-
-        :param flights: flights list of (flight_price, flight_date, flight_nb)
-        :param dcf: day-count convention
+    @property
+    def __F_v(self) -> List[Union[float, Tuple[float, float]]]:
+        """  Flights forward values. Extracts the forward values from the flights.
         """
 
-        F_v, F_mat, s_v, d_v = [], [], [], []
+        return [fwd_value for fwd_value, _, _ in self.flights]
 
-        # TODO: THIS CAN BE REWRITTEN BETTER USING ZIP
-        for (F_dep_value, F_dep_maturity, flight_nb) in flights:
-            F_v.append(F_dep_value)
-            F_mat.append((F_dep_maturity - self.mkt_date).days/dcf)  # maturity has to be in numeric terms
-            s_v.append(self._vol_for_flight  ((F_dep_maturity, flight_nb)))
-            d_v.append(self._drift_for_flight((F_dep_maturity, flight_nb)))
+    @property
+    def __F_mat_v(self, dcf = 365.25) -> List[Union[float, Tuple[float, float]]]:
+        """ Extracts maturities from the flights.
 
-        return F_v, F_mat, s_v, d_v
+        :param dcf: day-count factor for transforming it to numerical values.
+        """
+
+        # maturity has to be in numeric terms
+        return [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in self.flights]
+
+    @property
+    def __s_v(self) -> List[Union[float, Tuple[float, float]]]:
+        """ Extracts the volatilities for the flights.
+
+        """
+
+        return [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+
+    @property
+    def __d_v(self) -> List[Union[float, Tuple[float, float]]]:
+        """ Extracts the list of drifts for the flights.
+
+        """
+
+        return [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+
+    # def __extract_prices_maturities(self, flights : List[Tuple[float, datetime.date, str]], dcf = 365.25):
+    #     """ Extracts flight prices, maturities, and obtains drifts and volatilities from flights.
+    #
+    #     :param flights: flights list of (flight_price, flight_date, flight_nb)
+    #     :param dcf: day-count convention
+    #     """
+    #
+    #     F_v, F_mat, s_v, d_v = [], [], [], []
+    #
+    #     # TODO: THIS CAN BE REWRITTEN BETTER USING ZIP
+    #     for (F_dep_value, F_dep_maturity, flight_nb) in flights:
+    #         F_v.append(F_dep_value)
+    #         F_mat.append((F_dep_maturity - self.mkt_date).days/dcf)  # maturity has to be in numeric terms
+    #         s_v.append(self._vol_for_flight  ((F_dep_maturity, flight_nb)))
+    #         d_v.append(self._drift_for_flight((F_dep_maturity, flight_nb)))
+    #
+    #     return F_v, F_mat, s_v, d_v
+
+    def __dep_sim_times_num(self):
 
     def __extract_prices_maturities_all(self
                                        , option_start_date     = None
@@ -240,7 +276,7 @@ class AirOptionFlights:
         :param dcf: day count factor
         """
 
-        # extract forwards, etc. (T_l might be overwritten below)
+        # extract forwards, etc. (sim_times might be overwritten below)
         F_v, F_mat, s_v, d_v, T_l = self.__extract_prices_maturities_all( option_start_date
                                                                         , option_end_date
                                                                         , option_ret_start_date = option_ret_start_date
@@ -404,11 +440,9 @@ class AirOptionFlights:
         :param rho:       correlation matrix for flight tickets, or a tuple of matrices for departure, return tickets
         :type rho:        np.array 2 dimensional; or a tuple of two such matrices
         :param nb_sim:    number of simulations
-        :type nb_sim:     integer
         :param cuda_ind:  whether to use cuda; True or False
         :param underlyer: which model to use - lognormal or normal ('ln' or 'n') - SO FAR ONLY NORMAL IS SUPPORTED.
-        :type underlyer:  string
-        :param keep_all_sims: keeps all the simulations for T_l and computes the option for each simulated date in T_l_num
+        :param keep_all_sims: keeps all the simulations for sim_times and computes the option for each simulated date in T_l_num
         :returns:
         :rtype:
         """
@@ -439,60 +473,75 @@ class AirOptionFlights:
         return {sim_time: max(min_payoff, (1. + percentage_markup) * opt_val_final_at_time)
                 for sim_time, opt_val_final_at_time in opt_val_final.items() }
 
-    @staticmethod
-    def air_option( F_v
-                  , s_v
-                  , d_v
-                  , T_l
-                  , T_mat
-                  , K
-                  , nb_sim    = 1000
-                  , rho       = 0.9
-                  , cuda_ind  = False
-                  , underlyer ='n'
-                  , keep_all_sims = False):
-        """ Computes the value of the air option with low memory impact.
+    def __air_option_sims( self
+                         , sim_times : Union[np.array, Tuple[np.array, np.array]]
+                         , nb_sim    = 1000
+                         , rho       = 0.9
+                         , cuda_ind  = False
+                         , underlyer ='n'
+                         , keep_all_sims = False):
+        """ Only simulations used for air options.
 
-        :param F_v: vector of forward prices, or a tuple (F_1_v, F_2_v) for return flights
-        :type F_v: np.array or (np.array, np.array)
-        :param s_v: vector of vols, or a tuple for return flights, similarly to F_v
-        :type s_v: np.array or (np.array, np.array)
-        :param d_v: functions that describe the drift of the forward (list form)
-           d_v[i] is a function of (F_prev, ttm, time_step, params)
-        :param T_l: simulation list, same as s_v
-        :type T_l: np.array or (np.array, np.array)
-        :param T_mat: maturity list
-        :param K: strike price
-        :param nb_sim: simulation number
+        :param sim_times: simulation list, same as s_v
+        :param nb_sim: number of simulations
         :param rho: correlation parameter, used only for now
         :param cuda_ind: indicator to use cuda
         :param underlyer: which model does the underlyer follow (normal 'n', log-normal 'ln')
-        :param keep_all_sims: keeps all the simulations for T_l
+        :param keep_all_sims: keeps all the simulations for sim_times
         """
 
-        return_flight_ind = isinstance(F_v, tuple)
+        return_flight_ind = isinstance(self.__F_v, tuple)
 
+        F_v = self.__F_v
         if return_flight_ind:
             # correlation matrix for departing, returning flights
+
             rho_m = ( corr_hyp_sec_mat(rho, range(len(F_v[0])))
                     , corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
 
         else:  # only outgoing flight
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
+        # which monte-carlo method to use.
         mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 
-        # F_max is either a matrix or a generator.
-        F_max = mc_used( F_v
-                       , s_v
-                       , d_v
-                       , T_l
-                       , rho_m
-                       , T_mat
-                       , nb_sim   = nb_sim
-                       , model    = underlyer
-                       , cuda_ind = cuda_ind
-                       , keep_all_sims= keep_all_sims )  # simulation of all flight prices
+        return mc_used( F_v
+                      , self.__s_v
+                      , self.__d_v
+                      , sim_times
+                      , rho_m
+                      , self.__F_mat_v
+                      , nb_sim   = nb_sim
+                      , model    = underlyer
+                      , cuda_ind = cuda_ind
+                      , keep_all_sims= keep_all_sims)
+
+    def air_option(self
+                   , sim_times : Union[np.array, Tuple[np.array, np.array]]
+                   , K         : float
+                   , nb_sim    = 1000
+                   , rho       = 0.9
+                   , cuda_ind  = False
+                   , underlyer ='n'
+                   , keep_all_sims = False):
+        """ Computes the value of the air option with low memory impact.
+
+        :param sim_times: simulation list, same as s_v
+        :type sim_times: np.array or (np.array, np.array)
+        :param K: strike price
+        :param nb_sim: simulation number
+        :param rho: correlation parameter, used only for now
+        :param cuda_ind: indicator to use cuda
+        :param underlyer: which model does the underlyer follow (normal 'n', log-normal 'ln')
+        :param keep_all_sims: keeps all the simulations for sim_times
+        """
+
+        F_max = self.__air_option_sims( sim_times
+                                      , nb_sim    = nb_sim
+                                      , rho       = rho
+                                      , cuda_ind  = cuda_ind
+                                      , underlyer = underlyer
+                                      , keep_all_sims = keep_all_sims )
 
         # final option payoff
         if not keep_all_sims:
@@ -543,40 +592,27 @@ class AirOptionSkyScanner(AirOptionFlights):
                 , mkt_date
                 , origin    = 'SFO'
                 , dest      = 'EWR'
-                # when can you change the option
-                , option_start_date     = None
-                , option_end_date       = None
-                , option_ret_start_date = None
-                , option_ret_end_date   = None
                 # next 4 - when do the (changed) flights occur
-                , outbound_date_start = None
+                , outbound_date_start = None  # departing flights info.
                 , outbound_date_end   = None
-                , inbound_date_start  = None
+                , inbound_date_start  = None  # returning flights info
                 , inbound_date_end    = None
-                , K          = 1600.
-                , carrier    = 'UA'
-                , nb_sim     = 10000
-                , rho        = 0.95
-                , adults     = 1
-                , cabinclass = 'Economy'
-                , cuda_ind   = False
-                , simplify_compute = 'take_last_only'
-                , underlyer        = 'n'
-                , return_flight    = False
-                , recompute_ind    = False
-                , correct_drift    = True ):
+                , K                   = 1600.
+                , carrier             = 'UA'
+                , nb_sim              = 10000
+                , rho                 = 0.95
+                , adults              = 1
+                , cabinclass          = 'Economy'
+                , cuda_ind            = False
+                , simplify_compute    = 'take_last_only'
+                , underlyer           = 'n'
+                , return_flight       = False
+                , recompute_ind       = False
+                , correct_drift       = True ):
         """ Computes the air option from the data provided.
 
         :param origin: IATA code of the origin airport ('SFO')
         :param dest: IATA code of the destination airport ('EWR')
-        :param option_start_date: the date when you can start changing the outbound flight
-        :type option_start_date: datetime.date
-        :param option_end_date: the date when you stop changing the outbound flight
-        :type option_end_date: datetime.date
-        :param option_ret_start_date: the date when you can start changing the inbound flight
-        :type option_ret_start_date: datetime.date
-        :param option_ret_end_date: the date when you stop changing the outbound flight
-        :type option_ret_end_date: datetime.date
         :param outbound_date_start: start date for outbound flights to change to
         :type outbound_date_start: datetime.date
         :param outbound_date_end: end date for outbound flights to change to
