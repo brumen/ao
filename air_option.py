@@ -704,10 +704,6 @@ class AirOptionSkyScanner(AirOptionFlights):
 
         super(AirOptionSkyScanner, self).__init__( mkt_date              = self.mkt_date
                                                  , flights               = list(self.get_flights())
-                                                 , option_start_date     = option_start_date
-                                                 , option_end_date       = option_end_date
-                                                 , option_ret_start_date = option_ret_start_date
-                                                 , option_ret_end_date   = option_ret_end_date
                                                  , cuda_ind              = cuda_ind
                                                  , rho                   = rho
                                                  , nb_sim                = nb_sim
