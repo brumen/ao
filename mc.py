@@ -158,7 +158,7 @@ def mc_mult_steps( F_v     : [List, np.array]
     :param model: model used for simulation, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
     :param cuda_ind: indicator whether to use cuda (True/False, default False)
-    :param keep_all_sims: keeps all simulations for each T_l
+    :param keep_all_sims: keeps all simulations for each sim_times
     :returns: matrix of simulation values in the shape [simulation, fwd] if keep_all_sims = False,
               or dictionary, where keys are simulation times and values are simulations for those times.
     """
@@ -217,7 +217,7 @@ def mc_mult_steps( F_v     : [List, np.array]
 
 
 def add_zero_to_Tl(T_list : List[float]) -> np.array:
-    """ Prepends a zero to T_l if T_l doesnt already have it.
+    """ Prepends a zero to sim_times if sim_times doesnt already have it.
 
     :param T_list:  list of simulation times
     :returns:       array with first element as 0, if it isnt already zero. potential zero added
