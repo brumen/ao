@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import functools
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import mc
 import ds
@@ -25,7 +25,8 @@ class AirOptionFlights:
 
     def __init__( self
                 , mkt_date : datetime.date
-                , flights  : List[Tuple[float, datetime.date, str]]
+                , flights  : Union[ List[Tuple[float, datetime.date, str]]
+                                  , List[Tuple[Tuple[float, datetime.date, str], Tuple[float, datetime.date, str]]]]
                 , cuda_ind             = False
                 , K                    = 1600.
                 , nb_sim               = 10000
@@ -38,27 +39,11 @@ class AirOptionFlights:
         :param mkt_date: market date
         :param flights: flights to compute the air option over.
                         pairs of (flight forward value, flight_date(forward maturity date), flight_nb )
-        :type flights: [(double, datetime.date, str)] or tuple([(double, datetime.date, str)], [(double, datetime.date, str)])
-
-        :param option_start_date: the date when you can start changing the outbound flight
-        :type option_start_date: datetime.date
-        :param option_end_date: the date when you stop changing the outbound flight
-        :type option_end_date: datetime.date
-        :param option_ret_start_date: the date when you can start changing the inbound flight
-        :type option_ret_start_date: datetime.date
-        :param option_ret_end_date: the date when you stop changing the outbound flight
-        :type option_ret_end_date: datetime.date
         :param K: option strike
-        :type K: double
-        :param cuda_ind: whether to use cuda for computation
-        :type cuda_ind: bool
         :param nb_sim: number of simulations
-        :type nb_sim: int
         :param rho: correlation between flights parameter
-        :type rho: double
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
                                  options are: "take_last_only", "all_sim_dates"
-        :type simplify_compute: str
         """
 
         self.mkt_date  = mkt_date
@@ -94,92 +79,6 @@ class AirOptionFlights:
     def flights(self, new_flights):
         self.__recompute_option_value = True  # recompute everything
         self.__flights = new_flights
-
-    # @property
-    # def option_start_date(self) -> datetime.date :
-    #     """ Default option start date if none provided, else option_start_date, if already set.
-    #
-    #     """
-    #
-    #     # TODO: THERE SHOULD BE SOME BOUNDARY VALUES CHECKING.
-    #     if not self.__option_start_date:
-    #         self.__option_start_date = self.mkt_date  # default option start date
-    #
-    #     return self.__option_start_date
-    #
-    # @option_start_date.setter
-    # def option_start_date(self, new_start_date : datetime.date ):
-    #     """ Setting a new option start date.
-    #
-    #     :param new_start_date: new option start date
-    #
-    #     """
-    #
-    #     if new_start_date != self.__option_start_date:
-    #         self.__option_start_date      = new_start_date
-    #         self.__recompute_option_value = True
-    #
-    # @property
-    # def option_end_date(self):
-    #     """ Option end date, either set explicitly, or defaults to the first of the flight.
-    #
-    #     """
-    #
-    #     if not self.__option_end_date:
-    #         # first elt of self._flights are departing flights
-    #         dep_flights = self.flights if not self.return_flight else self.flights[0]
-    #         self.__option_end_date = min([dep_time for _, dep_time, _ in dep_flights])
-    #
-    #     return self.__option_end_date
-    #
-    # @option_end_date.setter
-    # def option_end_date(self, new_end_date):
-    #
-    #     if new_end_date != self.__option_end_date:
-    #         self.__option_end_date = new_end_date
-    #         self.__recompute_option_value = True
-    #
-    # @property
-    # def option_ret_start_date(self) -> datetime.date :
-    #     """ Default option start date if none provided, else option_start_date, if already set.
-    #
-    #     """
-    #
-    #     # TODO: THERE SHOULD BE SOME BOUNDARY VALUES CHECKING.
-    #     if not self.__option_ret_start_date:
-    #         self.__option_ret_start_date = self.mkt_date  # default option start date
-    #
-    #     return self.__option_ret_start_date
-    #
-    # @option_ret_start_date.setter
-    # def option_ret_start_date(self, new_start_date : datetime.date ):
-    #     """ Setting a new option start date.
-    #
-    #     :param new_start_date: new option start date
-    #     """
-    #
-    #     if new_start_date != self.__option_ret_start_date:
-    #         self.__option_ret_start_date = new_start_date
-    #         self.__recompute_option_value = True
-    #
-    # @property
-    # def option_ret_end_date(self):
-    #     """ Option end date, either set explicitly, or defaults to the first of the flight
-    #
-    #     """
-    #
-    #     if not self.__option_ret_end_date:
-    #         # first elt of self._flights are departing flights
-    #         self.__option_ret_end_date = min([dep_time for _, dep_time, _ in self.flights[1]])
-    #
-    #     return self.__option_ret_end_date
-    #
-    # @option_ret_end_date.setter
-    # def option_ret_end_date(self, new_end_date):
-    #
-    #     if new_end_date != self.__option_ret_end_date:
-    #         self.__option_ret_end_date = new_end_date
-    #         self.__recompute_option_value = True
 
     @staticmethod
     def construct_sim_times( date_start    : datetime.date
@@ -265,45 +164,61 @@ class AirOptionFlights:
                                        , option_ret_start_date = None
                                        , option_ret_end_date   = None ):
         """ Same as extract_prices_maturities, just that it considers both departing, returning flights
+            Returns the following tuple:
+               a. In case of departing flights:
+                  F_v, F_mat, s_v, d_v, dep_sim_times_num: F_v   - list of departure flight forward values.
+                                                           F_mat - list of departure flight maturities
+                                                           s_v   - list of dep. flight volatilities
+                                                           d_v   - list of dep. flight drifts
+                                                           dep_sim_times_num - simulated teimes for departures
+               b. In case of return flights:
+                  (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), (dep_sim_times_num, ret_sim_times_num)
+                  where we return tuples instead of single values.
 
+        :param option_start_date: start date of departure Air optionality
+                                  - you can choose flights between these date and the option_end_date
+        :param option_end_date: end date of departure Air Optionality - similar to start date.
+        :param option_ret_start_date: start date of option return optionality,
+                                      you can choose return flights starting from this date
+        :param option_ret_end_date: end date of option return optionality, in conjunction w/ option_ret_start_date
         """
 
         # all simulation times
         if option_start_date or option_end_date:
-            T_l_dep_num = AirOptionFlights.construct_sim_times( option_start_date
-                                                              , option_end_date
-                                                              , self.mkt_date
-                                                              , simplify_compute = self.__simplify_compute)
+            dep_sim_times_num = AirOptionFlights.construct_sim_times( option_start_date
+                                                                    , option_end_date
+                                                                    , self.mkt_date
+                                                                    , simplify_compute = self.__simplify_compute)
         else:
             dep_flights = self.flights if not self.return_flight else self.flights[0]
-            T_l_dep_num = AirOptionFlights.construct_sim_times( self.mkt_date
+            dep_sim_times_num = AirOptionFlights.construct_sim_times( self.mkt_date
                                                               , min([dep_time for _, dep_time, _ in dep_flights])
                                                               , self.mkt_date
                                                               , simplify_compute=self.__simplify_compute)
 
         if self.return_flight:
             if option_ret_start_date or option_ret_end_date:
-                T_l_ret_num = AirOptionFlights.construct_sim_times( option_ret_start_date
-                                                                  , option_ret_end_date
-                                                                  , self.mkt_date
-                                                                  , simplify_compute = self.__simplify_compute )
+                ret_sim_times_num = AirOptionFlights.construct_sim_times( option_ret_start_date
+                                                                        , option_ret_end_date
+                                                                        , self.mkt_date
+                                                                        , simplify_compute = self.__simplify_compute )
             else:
-                T_l_ret_num = AirOptionFlights.construct_sim_times( self.mkt_date
-                                                                  , min([dep_time for _, dep_time, _ in self.flights[1]])
-                                                                  , self.mkt_date
-                                                                  , simplify_compute = self.__simplify_compute )
+                ret_sim_times_num = AirOptionFlights.construct_sim_times( self.mkt_date
+                                                                        , min([dep_time for _, dep_time, _ in self.flights[1]])
+                                                                        , self.mkt_date
+                                                                        , simplify_compute = self.__simplify_compute )
 
         if self.return_flight:  # return flights
             departing_flights, returning_flights = self.flights
             F_v_dep, F_mat_dep, s_v_dep, d_v_dep = self.__extract_prices_maturities(departing_flights)
             F_v_ret, F_mat_ret, s_v_ret, d_v_ret = self.__extract_prices_maturities(returning_flights)
 
-            return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), (T_l_dep_num, T_l_ret_num)
+            return (F_v_dep, F_v_ret), (F_mat_dep, F_mat_ret), (s_v_dep, s_v_ret), (d_v_dep, d_v_ret), (dep_sim_times_num, ret_sim_times_num)
 
         # one-way flights
         F_v, F_mat, s_v, d_v = self.__extract_prices_maturities(self.flights)
 
-        return F_v, F_mat, s_v, d_v, T_l_dep_num
+        return F_v, F_mat, s_v, d_v, dep_sim_times_num
 
     def __PV( self
             , option_start_date     = None
