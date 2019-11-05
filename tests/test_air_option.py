@@ -70,7 +70,7 @@ class TestAirOptionFlights(TestCase):
         self.assertTrue(True)
 
     def test_4(self):
-        """ Testing the compute_option_raw function.
+        """ Testing the air_option_with_markup function.
 
         """
 
@@ -86,21 +86,21 @@ class TestAirOptionFlights(TestCase):
               , np.array([0.55, 0.62, 0.73]) )
         rho = 0.99
 
-        res1 = AirOptionFlights.compute_option_raw( F_v
-                                                 , s_v
-                                                 , d_v
-                                                 , T_l
-                                                 , T_v_exp
-                                                 , 400.  # K
-                                                 , rho )
+        res1 = AirOptionFlights.air_option_with_markup(F_v
+                                                       , s_v
+                                                       , d_v
+                                                       , T_l
+                                                       , T_v_exp
+                                                       , 400.  # K
+                                                       , rho)
 
-        res2 = AirOptionFlights.compute_option_raw( F_v
-                                                 , s_v
-                                                 , d_v
-                                                 , T_l
-                                                 , T_v_exp
-                                                 , 500.  # K
-                                                 , rho )
+        res2 = AirOptionFlights.air_option_with_markup(F_v
+                                                       , s_v
+                                                       , d_v
+                                                       , T_l
+                                                       , T_v_exp
+                                                       , 500.  # K
+                                                       , rho)
 
         self.assertGreater(res1, res2)
 
@@ -193,7 +193,7 @@ class TestAirOption(TestCase):
         tickets = np.linspace(450., 400., 50)
         s_v = 100. * np.ones(len(tickets))
         T_l = np.linspace(1./365., 180./365., 180)
-        T_mat = T_l + 0.01  # some increase over T_l
+        T_mat = T_l + 0.01  # some increase over sim_times
 
         res = AirOption.air_option( tickets
                                   , s_v
