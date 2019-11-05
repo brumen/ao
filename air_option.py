@@ -142,37 +142,59 @@ class AirOptionFlights:
         return 'SFO', 'EWR', 'UA'
 
     @property
-    def _F_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _F_v(self) -> Union[List[float], Tuple[List[float], List[float]]]:
         """  Flights forward values. Extracts the forward values from the flights.
         """
 
-        return [fwd_value for fwd_value, _, _ in self.flights]
+        # one-directional flights
+        if not self.return_flight:
+            return [fwd_value for fwd_value, _, _ in self.flights]
+
+        # return flights
+        dep_flights, ret_flights = self.flights
+        return [fwd_value for fwd_value, _, _ in dep_flights], [fwd_value for fwd_value, _, _ in ret_flights]
 
     @property
-    def _F_mat_v(self, dcf = 365.25) -> List[Union[float, Tuple[float, float]]]:
+    def _F_mat_v(self, dcf = 365.25) -> Union[List[float], Tuple[List[float], List[float]]]:
         """ Extracts maturities from the flights.
 
         :param dcf: day-count factor for transforming it to numerical values.
         """
 
         # maturity has to be in numeric terms
-        return [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in self.flights]
+        if not self.return_flight:
+            return [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in self.flights]
+
+        # return flights
+        dep_flights, ret_flights = self.flights
+        return [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in dep_flights],\
+               [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in ret_flights],
 
     @property
-    def _s_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _s_v(self) -> Union[List[float], Tuple[List[float], List[float]]]:
         """ Extracts the volatilities for the flights.
-
         """
 
-        return [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+        if not self.return_flight:
+            return [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+
+        # return flights
+        dep_flights, ret_flights = self.flights
+        return [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in dep_flights], \
+               [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in ret_flights]
 
     @property
-    def _d_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _d_v(self) -> Union[List[float], Tuple[List[float], List[float]]]:
         """ Extracts the list of drifts for the flights.
-
         """
 
-        return [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+        if not self.return_flight:
+            return [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
+
+        # return flights
+        dep_flights, ret_flights = self.flights
+        return [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in dep_flights], \
+               [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in ret_flights]
 
     def __dep_ret_sim_times_num( self
                                , option_start_date     = None
@@ -378,7 +400,7 @@ class AirOptionFlights:
         # markups to the option value
         F_v = self._F_v
         percentage_markup = ao_codes.reserves + ao_codes.tax_rate
-        F_v_max = np.max(F_v) if type(F_v) is not tuple else  max(np.max(F_v[0]), np.max(F_v[1]))
+        F_v_max = np.max(F_v) if type(F_v) is not tuple else max(np.max(F_v[0]), np.max(F_v[1]))
 
         # minimal payoff
         min_payoff = max(MIN_PRICE, F_v_max / ao_codes.ref_base_F * MIN_PRICE)
