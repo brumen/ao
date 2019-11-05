@@ -22,26 +22,44 @@ class AirOptionFlightsExchange(AirOptionFlights):
         used in simulation, computation.
     """
 
-    # TODO: FINISH THIS 4 PROPERTIES HERE!!!
-
+    # TODO: THESE 4 PROPERTIES HERE ARE UNIFINISHED
     @property
-    def __strike_fwd(self) -> float:
+    def __strike_fwd(self) -> Union[float, Tuple[float, float]]:
         """ Forward value associated w/ the strike flight.
         """
 
-        return 1.
+        if not self.return_flight:
+            return 1.
+
+        # return flights
+        return 1., 1.
 
     @property
-    def __strike_s(self) -> float:
-        return 1.
+    def __strike_s(self) -> Union[float, Tuple[float, float]]:
+
+        if not self.return_flight:
+            return 1.
+
+        # return flights
+        return 1., 1.
 
     @property
-    def __strike_d(self) -> float:
-        return 2.
+    def __strike_d(self) -> Union[float, Tuple[float, float]]:
+
+        if not self.return_flight:
+            return 2.
+
+        # return flights
+        return 2., 2.
 
     @property
-    def __strike_F_mat(self) -> float:
-        return 3.
+    def __strike_F_mat(self) -> Union[float, Tuple[float, float]]:
+
+        if not self.return_flight:
+            return 3.
+
+        # return flights
+        return 3., 3.
 
     def _air_option_sims(self
                          , sim_times : Union[np.array, Tuple[np.array, np.array]]
@@ -53,13 +71,22 @@ class AirOptionFlightsExchange(AirOptionFlights):
         """ Parameters the same as in the base class.
         """
 
-        return_flight_ind = isinstance(self._F_v, tuple)
+        # TODO: Remove this part later.
+        # return_flight_ind = isinstance(self._F_v, tuple)
 
-        F_v = self._F_v + [self.__strike_fwd]
+        if not self.return_flight:
+            F_v = self._F_v + [self.__strike_fwd]
 
-        if return_flight_ind:
+        else:  # return flight, add to each component individually
+            F_v_0, F_v_1 = self._F_v
+            F_v_0.append(self.__strike_fwd[0])
+            F_v_1.append(self.__strike_fwd[1])
+            F_v = (F_v_0, F_v_1)
+
+        if self.return_flight:  # return_flight_ind:
             # correlation matrix for departing, returning flights
 
+            # TODO: CHECK WHY this is highlighted.
             rho_m = ( corr_hyp_sec_mat(rho, range(len(F_v[0])))
                     , corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
 
@@ -67,10 +94,10 @@ class AirOptionFlightsExchange(AirOptionFlights):
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
         # which monte-carlo method to use.
-        mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
+        mc_used = mc.mc_mult_steps if not self.return_flight else mc.mc_mult_steps_ret
 
-        s_v     = self._s_v + [self.__strike_s]
-        d_v     = self._d_v + [self.__strike_d]
+        s_v     = self._s_v     + [self.__strike_s]
+        d_v     = self._d_v     + [self.__strike_d]
         F_mat_v = self._F_mat_v + [self.__strike_F_mat]
 
         return mc_used( F_v
@@ -217,32 +244,48 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
         return self.__strike_flight_cache
 
     @property
-    def __strike_fwd(self) -> float:
+    def __strike_fwd(self) -> Union[float, Tuple[float, float]]:
         """ Forward value associated w/ the strike flight.
         """
 
-        return self.__info_strike_flight[0]  # TODO: THIS IS COMPLETELY WRONG
+        if not self.return_flight:
+            return self.__info_strike_flight[0]  # TODO: CHECK THIS
+
+        info_dep_flight, info_ret_flight = self.__info_strike_flight  # TODO: CHECK THIS
+        return info_dep_flight[0], info_ret_flight[0]
 
     @property
-    def __strike_s(self) -> float:
+    def __strike_s(self) -> Union[float, Tuple[float, float]]:
         """ Volatility associated w/ the strike flight.
         """
 
-        return self.__info_strike_flight[1]  # TODO: COMPLETELY WRONG
+        if not self.return_flight:
+            return self.__info_strike_flight[1]  # TODO: COMPLETELY WRONG
+
+        info_dep_flight, info_ret_flight = self.__info_strike_flight  # TODO: CHECK THIS
+        return info_dep_flight[1], info_ret_flight[1]
 
     @property
-    def __strike_d(self) -> float:
+    def __strike_d(self) -> Union[float, Tuple[float, float]]:
         """ Drift associated w/ the strike flight.
         """
 
-        return self.__info_strike_flight[2]  # TODO: COMPLETELY WRONG
+        if not self.return_flight:
+            return self.__info_strike_flight[2]  # TODO: COMPLETELY WRONG
+
+        info_dep_flight, info_ret_flight = self.__info_strike_flight  # TODO: CHECK THIS
+        return info_dep_flight[2], info_ret_flight[2]
 
     @property
-    def __strike_F_mat(self) -> float:
+    def __strike_F_mat(self) -> Union[float, Tuple[float, float]]:
         """Flight maturity associated w/ the strike flight.
         """
 
-        return self.__info_strike_flight[3]  # TODO: COMPLETELY WRONG
+        if not self.return_flight:
+            return self.__info_strike_flight[3]  # TODO: COMPLETELY WRONG
+
+        info_dep_flight, info_ret_flight = self.__info_strike_flight  # TODO: CHECK THIS
+        return info_dep_flight[3], info_ret_flight[3]
 
 
 class AirOptionMockExchange(AirOptionSkyScannerExchange):
