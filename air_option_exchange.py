@@ -84,14 +84,14 @@ class AirOptionFlightsExchange(AirOptionFlights):
                       , cuda_ind = cuda_ind
                       , keep_all_sims= keep_all_sims)
 
-    def air_option(self
-                   , sim_times : Union[np.array, Tuple[np.array, np.array]]
-                   , K         : float
-                   , nb_sim    = 1000
-                   , rho       = 0.9
-                   , cuda_ind  = False
-                   , underlyer ='n'
-                   , keep_all_sims = False):
+    def air_option( self
+                  , sim_times : Union[np.array, Tuple[np.array, np.array]]
+                  , K         : float
+                  , nb_sim    = 1000
+                  , rho       = 0.9
+                  , cuda_ind  = False
+                  , underlyer ='n'
+                  , keep_all_sims = False):
 
         """ Parameters the same as in the base.
         """
@@ -103,18 +103,17 @@ class AirOptionFlightsExchange(AirOptionFlights):
                                       , underlyer = underlyer
                                       , keep_all_sims = keep_all_sims)
 
-        # Importnt: These two lines differ from the previous one.
-        F_max = F_all[:, :-1]  # all other forward prices
-        K     = F_all[:, -1]  # last column is simulated strike
-
         # final option payoff
         if not keep_all_sims:
-            _, F_sim_realized = list(F_max)[0]
-            return np.mean(np.maximum (np.amax(F_sim_realized, axis=0) - K, 0.))
+            F_max_all = list(F_all)[0]
+            # Importnt: These two lines differ from the previous one.
+            _, F_max = F_max_all  # all other forward prices
+
+            return np.mean(np.maximum (np.amax(F_max[:, :-1], axis=0) - F_max[:, -1].reshape((nb_sim, 1)), 0.))
 
         # keep all simulation case
-        return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
-                for sim_time, F_max_at_time in F_max}
+        return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time[:, :-1], axis=0) - F_max_at_time[:, -1].reshape((nb_sim, 1)), 0.))
+                for sim_time, F_max_at_time in F_all}
 
 
 class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner):
@@ -122,7 +121,7 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
     """
 
     def __init__( self
-                , mkt_date
+                , mkt_date  : datetime.date
                 , origin    = 'SFO'
                 , dest      = 'EWR'
                 # next 4 - when do the (changed) flights occur
@@ -144,6 +143,7 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
                 , correct_drift       = True ):
         """ Computes the air option from the data provided.
 
+        :param mkt_date: market date
         :param origin: IATA code of the origin airport ('SFO')
         :param dest: IATA code of the destination airport ('EWR')
         :param outbound_date_start: start date for outbound flights to change to
