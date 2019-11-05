@@ -564,14 +564,14 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__correct_drift       = correct_drift
         self.__recompute_ind       = recompute_ind
 
-        super(AirOptionSkyScanner, self).__init__( mkt_date              = self.mkt_date
-                                                 , flights               = list(self.get_flights())
-                                                 , cuda_ind              = cuda_ind
-                                                 , rho                   = rho
-                                                 , nb_sim                = nb_sim
-                                                 , K                     = K
-                                                 , simplify_compute      = simplify_compute
-                                                 , underlyer             = underlyer )
+        super().__init__( mkt_date              = self.mkt_date
+                        , flights               = list(self.get_flights())
+                        , cuda_ind              = cuda_ind
+                        , rho                   = rho
+                        , nb_sim                = nb_sim
+                        , K                     = K
+                        , simplify_compute      = simplify_compute
+                        , underlyer             = underlyer )
 
     def get_flights(self):
         """ Returns the flights from SkyScanner.
