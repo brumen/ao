@@ -1,6 +1,5 @@
 # exchange version of the air option
 
-import datetime
 import numpy as np
 from typing import Union, Tuple
 

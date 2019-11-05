@@ -50,7 +50,7 @@ class AirOptionFlights:
         self.__flights = flights
         self.return_flight = True if isinstance(self.__flights, tuple) else False  # return flight indicator
 
-        self.__K = K
+        self._K = K  # strike price or strike "flight"
         self.__nb_sim = nb_sim
         self.__rho = rho
         self.__cuda_ind = cuda_ind
@@ -142,14 +142,14 @@ class AirOptionFlights:
         return 'SFO', 'EWR', 'UA'
 
     @property
-    def __F_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _F_v(self) -> List[Union[float, Tuple[float, float]]]:
         """  Flights forward values. Extracts the forward values from the flights.
         """
 
         return [fwd_value for fwd_value, _, _ in self.flights]
 
     @property
-    def __F_mat_v(self, dcf = 365.25) -> List[Union[float, Tuple[float, float]]]:
+    def _F_mat_v(self, dcf = 365.25) -> List[Union[float, Tuple[float, float]]]:
         """ Extracts maturities from the flights.
 
         :param dcf: day-count factor for transforming it to numerical values.
@@ -159,7 +159,7 @@ class AirOptionFlights:
         return [(F_dep_maturity - self.mkt_date).days / dcf for _, F_dep_maturity, _ in self.flights]
 
     @property
-    def __s_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _s_v(self) -> List[Union[float, Tuple[float, float]]]:
         """ Extracts the volatilities for the flights.
 
         """
@@ -167,7 +167,7 @@ class AirOptionFlights:
         return [self._vol_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in self.flights]
 
     @property
-    def __d_v(self) -> List[Union[float, Tuple[float, float]]]:
+    def _d_v(self) -> List[Union[float, Tuple[float, float]]]:
         """ Extracts the list of drifts for the flights.
 
         """
@@ -228,13 +228,13 @@ class AirOptionFlights:
 
         return dep_sim_times_num
 
-    def __PV( self
-            , option_start_date     = None
-            , option_end_date       = None
-            , option_ret_start_date = None
-            , option_ret_end_date   = None
-            , option_maturities     = None
-            , dcf                   = 365.25 ):
+    def PV( self
+          , option_start_date     = None
+          , option_end_date       = None
+          , option_ret_start_date = None
+          , option_ret_end_date   = None
+          , option_maturities     = None
+          , dcf                   = 365.25 ):
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
 
@@ -259,13 +259,13 @@ class AirOptionFlights:
             sim_times_num  = list(sim_times.keys())  # numerical times
             sim_time_maturities = sim_times_num if not self.return_flight else (sim_times_num, sim_times_num)
 
-        option_value = self._compute_option_raw( sim_times if not option_maturities else sim_time_maturities  # simulation times
-                                               , self.__K
-                                               , self.__rho
-                                               , nb_sim    = self.__nb_sim
-                                               , cuda_ind  = self.cuda_ind
-                                               , underlyer = self.__underlyer
-                                               , keep_all_sims = False if not option_maturities else True )
+        option_value = self.air_option_with_markup(sim_times if not option_maturities else sim_time_maturities  # simulation times
+                                                   , self._K
+                                                   , self.__rho
+                                                   , nb_sim    = self.__nb_sim
+                                                   , cuda_ind  = self.cuda_ind
+                                                   , underlyer = self.__underlyer
+                                                   , keep_all_sims = False if not option_maturities else True)
 
         if option_maturities:
             return {sim_times[sim_time_num]: option_for_sim_time
@@ -273,33 +273,6 @@ class AirOptionFlights:
                     if sim_time_num in sim_times }
 
         return option_value
-
-    @functools.lru_cache(maxsize=128)
-    def PV( self
-          , option_start_date     = None
-          , option_end_date       = None
-          , option_ret_start_date = None
-          , option_ret_end_date   = None
-          , option_maturities     = None
-          , dcf                   = 365.25 ):
-        """ Cached version of the __PV function. All parameters are the same.
-
-        All dates in the params are in datetime.date format
-        :param option_start_date: start date of the option (default: market date, self.mkt_date)
-        :param option_end_date: end date of the option (default: maturity of the first contract.)
-        :param option_ret_start_date: maturity for returning option, if any; default: market date
-        :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
-        :param option_maturities: list of maturities for which the option to be computed. If not None,
-                                  all other values are overridden.
-        :param dcf: day count factor
-        """
-
-        return self.__PV( option_start_date     = option_start_date
-                        , option_end_date       = option_end_date
-                        , option_ret_start_date = option_ret_start_date
-                        , option_ret_end_date   = option_ret_end_date
-                        , option_maturities     = option_maturities
-                        , dcf                   = dcf )
 
     def __find_flight_by_number(self, flight_nb : str):
         """ Finds the flight number in self.flights by flight_nb
@@ -357,11 +330,11 @@ class AirOptionFlights:
                 dep_ret_ind, flight_idx = self.__find_flight_by_number(flight_nb)
                 self.flights[dep_ret_ind][flight_idx] = new_flight_elt
 
-            delta_dict[flight_nb] = self.__PV( option_start_date     = option_start_date
-                                             , option_end_date       = option_end_date
-                                             , option_ret_start_date = option_ret_start_date
-                                             , option_ret_end_date   = option_ret_end_date
-                                             , dcf                   = dcf) - pv
+            delta_dict[flight_nb] = self.PV( option_start_date     = option_start_date
+                                           , option_end_date       = option_end_date
+                                           , option_ret_start_date = option_ret_start_date
+                                           , option_ret_end_date   = option_ret_end_date
+                                           , dcf                   = dcf) - pv
 
             # setting the flight element back, after it was bumped above.
             if not self.return_flight:
@@ -375,26 +348,23 @@ class AirOptionFlights:
 
         return delta_dict
 
-    def _compute_option_raw( self
-                            , sim_times : Union[np.array, Tuple[np.array, np.array]]
-                            , K
-                            , rho       : float
-                            , nb_sim    = 10000
-                            , cuda_ind  = False
-                            , underlyer = 'n'
-                            , keep_all_sims = False):
-        """
-        Computes the value of the option sequentially, in order to minimize memory footprint
+    def air_option_with_markup(self
+                               , sim_times : Union[np.array, Tuple[np.array, np.array]]
+                               , K         : float
+                               , rho       : Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
+                               , nb_sim    = 10000
+                               , cuda_ind  = False
+                               , underlyer = 'n'
+                               , keep_all_sims = False):
+        """ Computes the value of the option sequentially, in order to minimize memory footprint.
 
         :param sim_times: simulation times of for flight tickets; or a tuple for (departure, return tickets)
         :param K:         strike of the option
         :param rho:       correlation matrix for flight tickets, or a tuple of matrices for departure, return tickets
-        :type rho:        np.array 2 dimensional; or a tuple of two such matrices
         :param nb_sim:    number of simulations
         :param cuda_ind:  whether to use cuda; True or False
         :param underlyer: which model to use - lognormal or normal ('ln' or 'n') - SO FAR ONLY NORMAL IS SUPPORTED.
         :param keep_all_sims: keeps all the simulations for sim_times and computes the option for each simulated date in sim_times
-        :returns:
         """
 
         opt_val_final = self.air_option(sim_times
@@ -406,7 +376,7 @@ class AirOptionFlights:
                                         , keep_all_sims = keep_all_sims)
 
         # markups to the option value
-        F_v = self.__F_v
+        F_v = self._F_v
         percentage_markup = ao_codes.reserves + ao_codes.tax_rate
         F_v_max = np.max(F_v) if type(F_v) is not tuple else  max(np.max(F_v[0]), np.max(F_v[1]))
 
@@ -420,7 +390,7 @@ class AirOptionFlights:
         return {sim_time: max(min_payoff, (1. + percentage_markup) * opt_val_final_at_time)
                 for sim_time, opt_val_final_at_time in opt_val_final.items() }
 
-    def __air_option_sims( self
+    def _air_option_sims(self
                          , sim_times : Union[np.array, Tuple[np.array, np.array]]
                          , nb_sim    = 1000
                          , rho       = 0.9
@@ -437,9 +407,9 @@ class AirOptionFlights:
         :param keep_all_sims: keeps all the simulations for sim_times
         """
 
-        return_flight_ind = isinstance(self.__F_v, tuple)
+        return_flight_ind = isinstance(self._F_v, tuple)
 
-        F_v = self.__F_v
+        F_v = self._F_v
         if return_flight_ind:
             # correlation matrix for departing, returning flights
 
@@ -453,11 +423,11 @@ class AirOptionFlights:
         mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
 
         return mc_used( F_v
-                      , self.__s_v
-                      , self.__d_v
+                      , self._s_v
+                      , self._d_v
                       , sim_times
                       , rho_m
-                      , self.__F_mat_v
+                      , self._F_mat_v
                       , nb_sim   = nb_sim
                       , model    = underlyer
                       , cuda_ind = cuda_ind
@@ -483,31 +453,25 @@ class AirOptionFlights:
         :param keep_all_sims: keeps all the simulations for sim_times
         """
 
-        F_max = self.__air_option_sims( sim_times
+        F_max = self._air_option_sims(sim_times
                                       , nb_sim    = nb_sim
                                       , rho       = rho
                                       , cuda_ind  = cuda_ind
                                       , underlyer = underlyer
-                                      , keep_all_sims = keep_all_sims )
+                                      , keep_all_sims = keep_all_sims)
 
         # final option payoff
         if not keep_all_sims:
             # realize a generator
             _, F_sim_realized = list(F_max)[0]
-            # if not cuda_ind:
             return np.mean(np.maximum (np.amax(F_sim_realized, axis=0) - K, 0.))
 
             # cuda result
             # return np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_sim_realized) - K, 0.))
 
         # keep all simulation case
-        #if not cuda_ind:
         return {sim_time: np.mean(np.maximum (np.amax(F_max_at_time, axis=0) - K, 0.))
                 for sim_time, F_max_at_time in F_max}
-
-        # cuda result
-        #return {sim_time: np.mean(gpa.maximum(cuda_ops.amax_gpu_0(F_max_at_time) - K, 0.))
-        #        for sim_time, F_max_at_time in F_max}
 
     @staticmethod
     def compute_date_by_fraction( dt_today : datetime.date
