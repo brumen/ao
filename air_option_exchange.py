@@ -85,20 +85,22 @@ class AirOptionFlightsExchange(AirOptionFlights):
 
         if self.return_flight:  # return_flight_ind:
             # correlation matrix for departing, returning flights
+            s_v     = (self._s_v[0] + [self.__strike_s[0]]        , self._s_v[1] + [self.__strike_s[1]])
+            d_v     = (self._d_v[0] + [self.__strike_d[0]]        , self._d_v[1] + [self.__strike_d[1]])
+            F_mat_v = (self._F_mat_v[0] + [self.__strike_F_mat[0]], self._F_mat_v[1] + [self.__strike_F_mat[1]])
 
             # TODO: CHECK WHY this is highlighted.
             rho_m = ( corr_hyp_sec_mat(rho, range(len(F_v[0])))
                     , corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
 
         else:  # only outgoing flight
+            s_v = self._s_v + [self.__strike_s]
+            d_v = self._d_v + [self.__strike_d]
+            F_mat_v = self._F_mat_v + [self.__strike_F_mat]
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
         # which monte-carlo method to use.
         mc_used = mc.mc_mult_steps if not self.return_flight else mc.mc_mult_steps_ret
-
-        s_v     = self._s_v     + [self.__strike_s]
-        d_v     = self._d_v     + [self.__strike_d]
-        F_mat_v = self._F_mat_v + [self.__strike_F_mat]
 
         return mc_used( F_v
                       , s_v

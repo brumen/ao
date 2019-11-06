@@ -46,7 +46,7 @@ class AirOptionFlights:
         self.__flights = flights
         self.return_flight = True if isinstance(flights, tuple) else False  # return flight indicator
 
-        self._K = K  # strike price or strike "flight"
+        self.K = K  # strike price or strike "flight"
         self.__rho = rho
         self.__underlyer = underlyer
         self.__simplify_compute = simplify_compute
@@ -270,7 +270,7 @@ class AirOptionFlights:
             sim_time_maturities = sim_times_num if not self.return_flight else (sim_times_num, sim_times_num)
 
         option_value = self.air_option_with_markup(sim_times if not option_maturities else sim_time_maturities  # simulation times
-                                                   , self._K
+                                                   , self.K
                                                    , self.__rho
                                                    , nb_sim    = nb_sim
                                                    , cuda_ind      = cuda_ind
