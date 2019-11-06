@@ -27,20 +27,16 @@ class AirOptionFlights:
                 , mkt_date : datetime.date
                 , flights  : Union[ List[Tuple[float, datetime.date, str]]
                                   , List[Tuple[Tuple[float, datetime.date, str], Tuple[float, datetime.date, str]]]]
-                , cuda_ind             = False
                 , K                    = 1600.
-                , nb_sim               = 10000
                 , rho                  = 0.95
                 , simplify_compute     = 'take_last_only'
-                , underlyer            = 'n'
-                , correct_drift        = True ):
+                , underlyer            = 'n' ):
         """ Computes the air option for the flights.
 
         :param mkt_date: market date
         :param flights: flights to compute the air option over.
                         pairs of (flight forward value, flight_date(forward maturity date), flight_nb )
         :param K: option strike
-        :param nb_sim: number of simulations
         :param rho: correlation between flights parameter
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
                                  options are: "take_last_only", "all_sim_dates"
@@ -48,28 +44,16 @@ class AirOptionFlights:
 
         self.mkt_date  = mkt_date
         self.__flights = flights
-        self.return_flight = True if isinstance(self.__flights, tuple) else False  # return flight indicator
+        self.return_flight = True if isinstance(flights, tuple) else False  # return flight indicator
 
         self._K = K  # strike price or strike "flight"
-        self.__nb_sim = nb_sim
         self.__rho = rho
-        self.__cuda_ind = cuda_ind
         self.__underlyer = underlyer
-        self.__correct_drift = correct_drift
-
         self.__simplify_compute = simplify_compute
 
         # caching variables
         self.__recompute_option_value = True  # indicator whether the option should be recomputed
         self.__option_value = None
-
-    @property
-    def cuda_ind(self):
-        return self.__cuda_ind
-
-    @cuda_ind.setter
-    def cuda_ind(self, new_cuda_ind):
-        self.__cuda_ind = new_cuda_ind
 
     @property
     def flights(self):
@@ -256,7 +240,9 @@ class AirOptionFlights:
           , option_ret_start_date = None
           , option_ret_end_date   = None
           , option_maturities     = None
-          , dcf                   = 365.25 ):
+          , nb_sim                = 1000
+          , dcf                   = 365.25
+          , cuda_ind              = False ):
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
 
@@ -267,7 +253,9 @@ class AirOptionFlights:
         :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
         :param option_maturities: list of maturities for which the option to be computed. If not None,
                                   all other values are overridden.
+        :param nb_sim: number of simulations to use for computation.
         :param dcf: day count factor
+        :param cuda_ind: indicator whether to use cuda
         """
 
         # extract forwards, etc. (sim_times might be overwritten below)
@@ -284,9 +272,9 @@ class AirOptionFlights:
         option_value = self.air_option_with_markup(sim_times if not option_maturities else sim_time_maturities  # simulation times
                                                    , self._K
                                                    , self.__rho
-                                                   , nb_sim    = self.__nb_sim
-                                                   , cuda_ind  = self.cuda_ind
-                                                   , underlyer = self.__underlyer
+                                                   , nb_sim    = nb_sim
+                                                   , cuda_ind      = cuda_ind
+                                                   , underlyer     = self.__underlyer
                                                    , keep_all_sims = False if not option_maturities else True)
 
         if option_maturities:
@@ -320,6 +308,7 @@ class AirOptionFlights:
             , option_end_date       = None
             , option_ret_start_date = None
             , option_ret_end_date   = None
+            , nb_sim                = 10000
             , dcf                   = 365.25
             , bump_value            = 0.01 ):
         """ Cached version of PV01 function. All parameters are the same.
@@ -329,9 +318,8 @@ class AirOptionFlights:
         :param option_end_date: end date of the option (default: maturity of the first contract.)
         :param option_ret_start_date: maturity for returning option, if any; default: market date
         :param option_ret_end_date: maturity of the returning flights, default: earliest return flight date.
-        :param option_maturities: list of maturities for which the option to be computed. If not None,
-                                  all other values are overridden.
         :param dcf: day count factor
+        :param bump_value: value by which to bump forward ticket prices to compute the PV01
         """
 
         delta_dict = {}
@@ -339,6 +327,7 @@ class AirOptionFlights:
                     , option_end_date       = option_end_date
                     , option_ret_start_date = option_ret_start_date
                     , option_ret_end_date   = option_ret_end_date
+                    , nb_sim                = nb_sim
                     , dcf                   = dcf)  # original PV
 
         # Bumping flights.
@@ -356,6 +345,7 @@ class AirOptionFlights:
                                            , option_end_date       = option_end_date
                                            , option_ret_start_date = option_ret_start_date
                                            , option_ret_end_date   = option_ret_end_date
+                                           , nb_sim                = nb_sim
                                            , dcf                   = dcf) - pv
 
             # setting the flight element back, after it was bumped above.
@@ -365,15 +355,12 @@ class AirOptionFlights:
                 dep_ret_ind, flight_idx = self.__find_flight_by_number(flight_nb)
                 self.flights[dep_ret_ind][flight_idx] = flight_elt
 
-        # total delta
-        # delta_dict['total'] = sum([delta_value for flight_nb, delta_value in delta_dict.items() ])
-
         return delta_dict
 
     def air_option_with_markup(self
                                , sim_times : Union[np.array, Tuple[np.array, np.array]]
                                , K         : float
-                               , rho       : Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
+                               , rho       : Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
                                , nb_sim    = 10000
                                , cuda_ind  = False
                                , underlyer = 'n'
@@ -518,11 +505,10 @@ class AirOptionFlights:
 
 class AirOptionSkyScanner(AirOptionFlights):
     """ Class for handling the air options from SkyScanner inputs.
-
     """
 
     def __init__( self
-                , mkt_date
+                , mkt_date  : datetime.date
                 , origin    = 'SFO'
                 , dest      = 'EWR'
                 # next 4 - when do the (changed) flights occur
@@ -532,16 +518,15 @@ class AirOptionSkyScanner(AirOptionFlights):
                 , inbound_date_end    = None
                 , K                   = 1600.
                 , carrier             = 'UA'
-                , nb_sim              = 10000
                 , rho                 = 0.95
                 , adults              = 1
                 , cabinclass          = 'Economy'
-                , cuda_ind            = False
                 , simplify_compute    = 'take_last_only'
                 , underlyer           = 'n'
                 , return_flight       = False
                 , recompute_ind       = False
-                , correct_drift       = True ):
+                , correct_drift       = True
+                , db_host             = 'localhost' ):
         """ Computes the air option from the data provided.
 
         :param origin: IATA code of the origin airport ('SFO')
@@ -555,24 +540,15 @@ class AirOptionSkyScanner(AirOptionFlights):
         :param inbound_date_end: end date for inbound flights to change to
         :type inbound_date_end: datetime.date
         :param K: option strike
-        :type K: double
         :param carrier: IATA code of the carrier
-        :type carrier: str
-        :param nb_sim: number of simulations
-        :type nb_sim: int
         :param rho: correlation between flights parameter
-        :type rho: double
         :param adults: nb. of people on this ticket
-        :type adults: int
         :param cabinclass: class of flight ticket
-        :type cabinclass: str
-        :param cuda_ind: whether to use cuda for computation
-        :type cuda_ind: bool
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date
         :type simplify_compute: str, options are: "take_last_only", "all_sim_dates"
+        :param db_host: database host, where the market & flight data is located.
         """
 
-        self.mkt_date = mkt_date  # TODO: THIS IS NOT PARTICULARLY CLEAN, AS THIS IS RE-ASSIGNED in the subclass
         self.__origin = origin
         self.__dest   = dest
         self.__outbound_date_start = outbound_date_start
@@ -585,20 +561,19 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__return_flight       = return_flight
         self.__correct_drift       = correct_drift
         self.__recompute_ind       = recompute_ind
+        self.db_host               = db_host
 
-        super().__init__( mkt_date              = self.mkt_date
-                        , flights               = list(self.get_flights())
-                        , cuda_ind              = cuda_ind
-                        , rho                   = rho
-                        , nb_sim                = nb_sim
-                        , K                     = K
-                        , simplify_compute      = simplify_compute
-                        , underlyer             = underlyer )
+        super().__init__( mkt_date         = mkt_date
+                        , flights          = list(self.get_flights())
+                        , K                = K
+                        , rho              = rho
+                        , simplify_compute = simplify_compute
+                        , underlyer        = underlyer )
 
     def get_flights(self):
         """ Returns the flights from SkyScanner.
-
         """
+
         return get_flight_data( origin_place        = self.__origin
                               , dest_place          = self.__dest
                               , outbound_date_start = self.__outbound_date_start
@@ -614,8 +589,7 @@ class AirOptionSkyScanner(AirOptionFlights):
 
     @functools.lru_cache(maxsize=128)
     def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
-        """ Gets drift and vol for flights. It caches it, so that drift and vol are not regetting it.
-
+        """ Gets drift and vol for flights. It caches it, so that drift and vol are not re-fetching it.
         """
 
         dep_date, flight_id = flight_nb
@@ -625,9 +599,8 @@ class AirOptionSkyScanner(AirOptionFlights):
                                     , orig
                                     , dest
                                     , carrier
-                                    , default_drift_vol = (500., 501.)
-                                    , fwd_value         = None
-                                    , db_host           = 'localhost' )
+                                    , default_drift_vol = (500., 501.)  # TODO: FIX THIS PARAMETERS
+                                    , db_host           = self.db_host )
 
 
 class AirOptionMock(AirOptionSkyScanner):
@@ -636,8 +609,7 @@ class AirOptionMock(AirOptionSkyScanner):
     """
 
     def get_flights(self):
-        """ Generates mock flight data. Is a generator.
-
+        """ Generates mock flight data - used for testing. Is a generator.
         """
 
         nb_flights = 15

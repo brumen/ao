@@ -132,9 +132,7 @@ class AirOptionFlightsExchange(AirOptionFlights):
 
         # final option payoff
         if not keep_all_sims:
-            F_max_all = list(F_all)[0]
-            # Importnt: These two lines differ from the previous one.
-            _, F_max = F_max_all  # all other forward prices
+            _, F_max = list(F_all)[0]  # there is only one  observation
 
             return np.mean(np.maximum (np.amax(F_max[:, :-1], axis=0) - F_max[:, -1].reshape((nb_sim, 1)), 0.))
 
@@ -158,16 +156,15 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
                 , inbound_date_end    = None
                 , K                   = ('UA96', datetime.date(2018, 1, 1))
                 , carrier             = 'UA'
-                , nb_sim              = 10000
                 , rho                 = 0.95
                 , adults              = 1
                 , cabinclass          = 'Economy'
-                , cuda_ind            = False
                 , simplify_compute    = 'take_last_only'
                 , underlyer           = 'n'
                 , return_flight       = False
                 , recompute_ind       = False
-                , correct_drift       = True ):
+                , correct_drift       = True
+                , default_drift_vol   = (500., 501.) ):
         """ Computes the air option from the data provided.
 
         :param mkt_date: market date
@@ -186,20 +183,16 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
         :param carrier: IATA code of the carrier
         :type carrier: str
         :param nb_sim: number of simulations
-        :type nb_sim: int
-        :param rho: correlation between flights parameter
-        :type rho: double
+        :param rho: correlation between flights processes
         :param adults: nb. of people on this ticket
-        :type adults: int
         :param cabinclass: class of flight ticket
-        :type cabinclass: str
         :param cuda_ind: whether to use cuda for computation
-        :type cuda_ind: bool
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date
         :type simplify_compute: str, options are: "take_last_only", "all_sim_dates"
+        :param default_drift_vol: default drift & vol.
         """
 
-        self.mkt_date = mkt_date  # TODO: THIS IS NOT PARTICULARLY CLEAN, AS THIS IS RE-ASSIGNED in the subclass
+        # market date is assigned in the superclass
         self.__origin = origin
         self.__dest   = dest
         self.__outbound_date_start = outbound_date_start
@@ -212,15 +205,14 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
         self.__return_flight       = return_flight
         self.__correct_drift       = correct_drift
         self.__recompute_ind       = recompute_ind
+        self.__default_drift_vol   = default_drift_vol
 
-        super().__init__( mkt_date              = self.mkt_date
-                        , flights               = list(self.get_flights())
-                        , cuda_ind              = cuda_ind
-                        , rho                   = rho
-                        , nb_sim                = nb_sim
-                        , K                     = K
-                        , simplify_compute      = simplify_compute
-                        , underlyer             = underlyer )
+        super().__init__( mkt_date         = mkt_date
+                        , flights          = list(self.get_flights())
+                        , K                = K
+                        , rho              = rho
+                        , simplify_compute = simplify_compute
+                        , underlyer        = underlyer )
 
         # cache about strike flight
         self.__strike_flight_cache = None
@@ -233,13 +225,12 @@ class AirOptionSkyScannerExchange(AirOptionFlightsExchange, AirOptionSkyScanner)
         dep_date, flight_id = self.K
         orig, dest, carrier = self._get_origin_dest_carrier_from_flight(flight_id)
 
-        self.__strike_flight_cache =  get_drift_vol_from_db( dep_date
-                                    , orig
-                                    , dest
-                                    , carrier
-                                    , default_drift_vol = (500., 501.)
-                                    , fwd_value         = None
-                                    , db_host           = 'localhost' )
+        self.__strike_flight_cache = get_drift_vol_from_db( dep_date
+                                                          , orig
+                                                          , dest
+                                                          , carrier
+                                                          , default_drift_vol = self.__default_drift_vol
+                                                          , db_host           = self.db_host )
 
         return self.__strike_flight_cache
 
