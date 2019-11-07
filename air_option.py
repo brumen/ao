@@ -383,7 +383,7 @@ class AirOptionFlights:
                                         , cuda_ind  = cuda_ind
                                         , underlyer = underlyer
                                         , keep_all_sims = keep_all_sims)
-        print('Actual option {0}'.format(opt_val_final))
+
         logger.info('Actual option value: {0}'.format(opt_val_final))
 
         # markups to the option value

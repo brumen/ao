@@ -71,9 +71,6 @@ class AirOptionFlightsExchange(AirOptionFlights):
         """ Parameters the same as in the base class.
         """
 
-        # TODO: Remove this part later.
-        # return_flight_ind = isinstance(self._F_v, tuple)
-
         if not self.return_flight:
             F_v = self._F_v + [self.__strike_fwd]
 
