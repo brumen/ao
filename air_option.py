@@ -26,7 +26,7 @@ class AirOptionFlights:
     def __init__( self
                 , mkt_date : datetime.date
                 , flights  : Union[ List[Tuple[float, datetime.date, str]]
-                                  , List[Tuple[Tuple[float, datetime.date, str], Tuple[float, datetime.date, str]]]]
+                                  , Tuple[List[Tuple[float, datetime.date, str]], List[Tuple[float, datetime.date, str]]]]
                 , K                    = 1600.
                 , rho                  = 0.95
                 , simplify_compute     = 'take_last_only'
@@ -383,6 +383,8 @@ class AirOptionFlights:
                                         , cuda_ind  = cuda_ind
                                         , underlyer = underlyer
                                         , keep_all_sims = keep_all_sims)
+        print('Actual option {0}'.format(opt_val_final))
+        logger.info('Actual option value: {0}'.format(opt_val_final))
 
         # markups to the option value
         F_v = self._F_v

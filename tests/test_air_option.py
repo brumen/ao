@@ -15,15 +15,14 @@ from air_option import AirOptionFlights, AirOptionSkyScanner, AirOptionMock
 class TestAirOptionFlights(TestCase):
 
     def test_basic(self):
-        """ Tests if AirOptionFlights even runs.
-
+        """ Tests if AirOptionFlights even runs, and tests some characteristics of option value
         """
 
         flights = [(100., datetime.date(2019, 7, 15), 'UA70'), (200., datetime.date(2019, 7, 20), 'UA71')]
 
         aof = AirOptionFlights( datetime.date(2019, 6, 28)
                               , flights
-                              , K=1600. )
+                              , K=200. )
 
         res1 = aof.PV()  # air option value
         aof_pv01 = aof.PV01()
@@ -62,47 +61,11 @@ class TestAirOptionFlights(TestCase):
 
         aof = AirOptionFlights( datetime.date(2019, 6, 1)
                               , (dep_flights, ret_flights)
-                              , K=300.
-                              , nb_sim=100000  )
+                              , K=300. )
 
         res1 = aof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
 
         self.assertTrue(True)
-
-    def test_4(self):
-        """ Testing the air_option_with_markup function.
-
-        """
-
-        nb_dep, nb_ret = 100, 100
-        F_v = (np.linspace(100., 150., nb_dep), np.linspace(100., 150., nb_ret))
-        s_v = ( np.linspace(0.2, 1.4, nb_dep)
-              , np.linspace(0.2, 1.4, nb_ret) )
-        d_v = ( np.linspace(0.2, 1.4, nb_dep)
-              , np.linspace(0.2, 1.4, nb_ret) )
-        T_v_exp = ( np.linspace(0.9, 1., nb_dep)
-                  , np.linspace(1.1, 1.2, nb_ret) )
-        T_l = ( np.array([0.55, 0.62, 0.73])
-              , np.array([0.55, 0.62, 0.73]) )
-        rho = 0.99
-
-        res1 = AirOptionFlights.air_option_with_markup(F_v
-                                                       , s_v
-                                                       , d_v
-                                                       , T_l
-                                                       , T_v_exp
-                                                       , 400.  # K
-                                                       , rho)
-
-        res2 = AirOptionFlights.air_option_with_markup(F_v
-                                                       , s_v
-                                                       , d_v
-                                                       , T_l
-                                                       , T_v_exp
-                                                       , 500.  # K
-                                                       , rho)
-
-        self.assertGreater(res1, res2)
 
 
 class TestAirOptionMock(TestCase):
@@ -110,16 +73,13 @@ class TestAirOptionMock(TestCase):
     def test_1(self):
         """ Checking if the mock air option computation works.
         """
+
         aom = AirOptionMock( datetime.date(2019, 7, 2)
                            , origin = 'SFO'
                            , dest = 'EWR'
-                           # when can you change the option
-                           , K = 1600.
-                           , nb_sim = 10000 )
+                           , K = 1600.)
 
-        res1 = aom.PV()
-
-        self.assertTrue(True)
+        self.assertGreaterEqual(aom.PV(), 0.)
 
 
 class TestAirOption(TestCase):
