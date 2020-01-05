@@ -3,7 +3,6 @@
 # Nicholas Higham  "Computing the Nearest Correlation matrix - A Problem in Finance"
 #
 
-import numpy as np
 import scipy
 import scipy.linalg
 

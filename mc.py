@@ -1,45 +1,25 @@
 # specialized monte carlo for AirOptions
 
-# import config
 import numpy as np
 import scipy.integrate
-import logging
 
-from typing import Tuple, List
-
-logger = logging.getLogger(__name__)
-
-#if config.CUDA_PRESENT:
-#    import cuda.cuda_ops as co
-#    import pycuda.gpuarray as gpa
-#    import curand
-#    rn_gen_global = curand.create_gen_simple()  # generator of random numbers
-#else:
-#    rn_gen_global = None
+from typing import Tuple, List, Callable
 
 
-def integrate_vol_drift( sd_fct
-                       , T_start
-                       , T_end
-                       , ttm
-                       , drift_vol_ind = 'vol'):
-    '''
-    Integrates the drift/volatility of the diffusion process - used in option value calculation
-    integrates the drift between the T_start and T_end, where T_start is ttm away from maturity
+def integrate_vol_drift( sd_fct  : Callable[[float], float]
+                       , T_start : float
+                       , T_end   : float
+                       , ttm     : float
+                       , drift_vol_ind = 'vol') -> float:
+    """ Integrates the drift/volatility of the diffusion process - used in option value calculation
+            integrates the drift between the T_start and T_end, where T_start is ttm away from maturity
 
-    :param sd_fct:        integrating function, for vol or drift
-    :type sd_fct:         function of one argument
-    :param T_start:       start of the integration
-    :type T_start:        double
-    :param T_end:         end of integration
-    :type T_end:          double
-    :param ttm:           time to maturity
-    :type ttm:            double
-    :param params:        parameters of the integrating fucntion???
-    :type params:
+    :param sd_fct: integrating function, for vol or drift, f(x) = vol/drift
+    :param T_start: start of the integration
+    :param T_end: end of integration
+    :param ttm: time to maturity
     :param drift_vol_ind: indicator whether we are integrating drift or volatility ('vol' or 'drift')
-    :type drift_vol_ind:  string
-    '''
+    """
 
     if drift_vol_ind == 'vol':  # vol integration
         return np.sqrt(scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))**2
@@ -55,10 +35,14 @@ def ln_step( F_sim_prev : np.array
            , T_diff     : np.array
            , s_v        : np.array
            , d_v        : np.array
-           , rn_sim_l   : np.array
-           , cuda_ind = False ):
-    """ Log-normal step of one step monte carlo
+           , rn_sim_l   : np.array ):
+    """ Log-normal step of one step monte carlo.
 
+    :param F_sim_prev: previous simulated forward prices, shape: (nb_contracts, nb_sim)
+    :param T_diff: time difference between two simulation times
+    :param s_v: volatility vector
+    :param d_v: drift vector of the contracts
+    :param rn_sim_l: simulation numbers, shape = (nb_contracts, nb_sims)
     """
 
     return F_sim_prev * np.exp((np.sqrt(T_diff) * s_v) * rn_sim_l - 0.5 * s_v ** 2 * T_diff + d_v * T_diff)
@@ -68,29 +52,19 @@ def normal_step( F_sim_prev  : np.array
                , T_diff      : float
                , s_v         : np.array
                , d_v         : [np.array, None]
-               , rn_sim_l    : np.array
-               , cuda_ind = False):
-    """
-    one time step of the normal model
+               , rn_sim_l    : np.array ):
+    """ One time step of the normal model
 
     :param F_sim_prev: previous simulated forward prices, shape: (nb_contracts, nb_sim)
-    :param T_diff:     time difference between two simulation times
-    :param s_v: volatilities vector
+    :param T_diff: time difference between two simulation times
+    :param s_v: volatility vector
     :param d_v: drift vector of the contracts
     :param rn_sim_l: simulation numbers, shape = (nb_contracts, nb_sims)
-    :param cuda_ind:   indicator whether to use cuda or not, True or False
     """
 
-    #if not cuda_ind:
     F_sim_next = F_sim_prev + s_v * np.sqrt(T_diff) * rn_sim_l
-    return F_sim_next + d_v * T_diff if d_v is not None else F_sim_next
 
-    # cuda part
-    #return F_sim_prev + co.vtpm_cols_new_hd( d_v * T_diff
-    #                                       , co.vtpm_cols_new_hd( s_v * np.sqrt(T_diff)
-    #                                                            , rn_sim_l
-    #                                                            , tm_ind = 't' )
-    #                                       , tm_ind = 'p')
+    return F_sim_next + d_v * T_diff if d_v is not None else F_sim_next
 
 
 def vol_drift_vec( T_curr : float
@@ -99,9 +73,8 @@ def vol_drift_vec( T_curr : float
                  , d_v    : np.array
                  , ttm    : np.array
                  , integrate_fct = integrate_vol_drift ) -> Tuple[np.array, np.array]:
-    """
-    Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
-    from s_v, d_v.
+    """ Creates the volatility and drift vector for the current time T_curr, until T_curr + T_diff
+           from s_v, d_v.
     
     :param T_curr: current time
     :param T_diff: difference to the next time
@@ -145,8 +118,7 @@ def mc_mult_steps( F_v     : [List, np.array]
                  , F_ret    = None
                  , cuda_ind = False
                  , keep_all_sims = False  ):  # -> [np.array, Dict[np.array]]:
-    """
-    Multi-step monte-carlo integration of the ticket prices for one way Air options
+    """ Multi-step monte-carlo integration of the ticket prices for one way Air options.
 
     :param F_v: list of forward values
     :param s_v: (vector of) volatility of the forward ticket process.
@@ -170,11 +142,7 @@ def mc_mult_steps( F_v     : [List, np.array]
     nb_fwds    = len(F_v)
 
     F_sim = np.empty((nb_sim, nb_fwds))  # if not cuda_ind else gpa.empty((nb_sim, nb_fwds), np.double)
-    #if not cuda_ind:
     F_sim[:, :] = F_v
-    #else:
-    #    F_sim = co.set_mat_by_vec(F_v, nb_sim)
-
     F_prev = F_sim  # previous simulations
 
     # also number of departure flights., nb_sim = nb. of simulations of those flights, also columns in F_sim
@@ -286,26 +254,3 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
                         , model    = model
                         , F_ret    = np.amax( F_ret_realized, axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
                         , keep_all_sims=keep_all_sims)
-
-
-# def mn_gpu(unimp, rho_m, size=100):
-#     """
-#     Standard multivariate normal with rho_m as correlation variable
-#
-#     :param unimp: unimportant, so that it coincides w/ mn from numpy
-#     :type unimp:  None
-#     :param rho_m: correlation matrix
-#     :type rho_m:  rectangular 2-dimensional np.array
-#     :param size:  number of simulation variables, an integer
-#     """
-#
-#     nb_fwds = rho_m.shape[0]
-#     sim_rn_init = gpa.empty((nb_fwds, size), dtype=np.double)
-#     rho_m_chol_cuda = gpa.to_gpu(np.linalg.cholesky(rho_m))
-#     simulated_rn = gpa.empty((nb_fwds, size), dtype=np.double)
-#     curand.gen_eff_dev_rns_double( sim_rn_init.size
-#                                  , np.longlong(sim_rn_init.ptr)
-#                                  , rn_gen_global)
-#     co.matmul(rho_m_chol_cuda, sim_rn_init, simulated_rn)
-#
-#     return simulated_rn
