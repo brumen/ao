@@ -2,67 +2,40 @@
 import datetime
 import calendar as cal
 
-from typing import List
+from typing import List, Union
 
 
-def conv_local(date_str : str):
-    """
-    converts the string date into datetime for a single string
+def conv_datestr_datetime(date_ : str) -> datetime.date:
+    """ Converts the string date into datetime for a single string
 
     :param date_str: date in the form of '20170501'
-    :type date_str:  string
     :returns:     datetime.date version of the date
-    :rtype:       datetime.date
-    """
-    return datetime.datetime(int(date_str[0:4]),
-                             int(date_str[4:6]),
-                             int(date_str[6:8]))
-
-
-def convert_str_datetime(date_ : str) -> [datetime.date, List[datetime.date]]:
-    """ Converts yyyymmdd into datetime.
-
     """
 
-    if type(date_) is list:
-        return [conv_local(d_elt) for d_elt in date_]
+    return datetime.date(int(date_[0:4]), int(date_[4:6]), int(date_[6:8]))
 
-    # str. case
-    return conv_local(date_)
 
-    
-def convert_str_dateslash(date_ : [str, List[str]]) -> [str, List[str]]:
-    """ Converts yyyymmdd into date slash format
-
-    :param date_: date in string 'yyyymmdd' format
-    :returns:     date in / format '2017/05/05' or a list of them
+def convert_str_datetime(date_ : Union[str, List[str]]) -> Union[datetime.date, List[datetime.date]]:
+    """ Converts date of yyyymmdd format into datetime.date format.
     """
 
-    def conv_local(d_elt):
-        return str(int(d_elt[4:6])) + '/' + str(int(d_elt[6:8])) + '/' + str(int(d_elt[0:4]))
+    if isinstance(date_, list):
+        return [conv_datestr_datetime(d_elt) for d_elt in date_]
 
-    if type(date_) is list:
-        return [conv_local(d_elt) for d_elt in date_]
-
-    return conv_local(date_)
+    return conv_datestr_datetime(date_)  # str. case
 
 
-def convert_str_date(date_ : [str, List[str]]) -> datetime.date:
-    """ Converts yyyymmdd into datetime
+def convert_str_date(date_ : [str, List[str]]) -> Union[datetime.date, List[datetime.date]]:
+    """ Converts yyyymmdd into datetime.date format.
 
-    :param date_: date in yyyymmdd format
-    :returns:     date in datetime.date format
+    :param date_: date in yyyymmdd format. (or a list of them)
+    :returns:     date in datetime.date format (or a list of them)
     """
 
-    def conv_local(d_elt):
-        return datetime.date(int(d_elt[0:4]),
-                             int(d_elt[4:6]),
-                             int(d_elt[6:8]))
-    
-    if type(date_) is list:
-        return [conv_local(d_elt) for d_elt in date_]
+    if isinstance(date_, list):
+        return [datetime.date(int(d_elt[0:4]), int(d_elt[4:6]), int(d_elt[6:8])) for d_elt in date_]
 
-    return conv_local(date_)
+    return datetime.date(int(date_[0:4]), int(date_[4:6]), int(date_[6:8]))
 
 
 def d2s(i : int) -> str:
@@ -85,42 +58,15 @@ def convert_datetime_str(date_ : datetime.date) -> str:
     return str(date_.year) + d2s(date_.month) + d2s(date_.day)
 
 
-def convert_dt_minus(date_ : datetime.date) -> str:
-    """
-    converts datetime.date to string date with - format
+def convert_datedash_date(date_ : str) -> datetime.date:
+    """ converts date in form 2016-10-5 -> dt.date(..)
 
-    :param date_: datetime.date in datetime.date format
-    :returns:     date in - format '2017-05-02'
-    """
-
-    return str(date_.year) + '-' + d2s(date_.month) + '-' + d2s(date_.day)
-
-
-def convert_dateslash_str(dates : str) -> str:
-    """ Converts date in form 10/5/2016 -> 20161005
-
+    :param date_: date in the format described.
+    :returns: the same date in datetime.date format
     """
 
-    mon, day, year = dates.split('/')
-    return year + d2s(int(mon)) + d2s(int(day))    
+    year, mon, day = date_.split('-')
 
-
-def convert_datedash_str(dates):
-    """ Converts date in form 10-5-2016 -> 20161005.
-
-    """
-
-    mon, day, year = dates.split('-')
-
-    return year + d2s(int(mon)) + d2s(int(day))
-
-
-def convert_datedash_date(dates):
-    """
-    converts date in form 2016-10-5 -> dt.date(..)
-    """
-
-    year, mon, day = dates.split('-')
     return datetime.date(int(year), int(mon), int(day))
 
 
@@ -130,8 +76,9 @@ def convert_datedash_time_dt(date_i, hour_i):
     returns:
     """
 
-    year, mon, day = date_i.split('-')
+    year, mon, day     = date_i.split('-')
     hour, minutes, sec = hour_i.split(':')
+
     return datetime.datetime( int(year)
                             , int(mon)
                             , int(day)
@@ -147,9 +94,7 @@ def convert_date_datedash(_date : datetime.date) -> str:
     :returns:     date in datedash format
     """
 
-    return '-'.join([ str(_date.year)
-                    , d2s(_date.month)
-                    , d2s(_date.day)])
+    return '-'.join([ str(_date.year), d2s(_date.month), d2s(_date.day)])
 
 
 def convert_hour_time(hour):
@@ -161,19 +106,6 @@ def convert_hour_time(hour):
     hour, minute, sec = hour.split(':')
 
     return datetime.time(int(hour), int(minute), int(sec))
-
-
-def convert_dateslash_dash(dates : str) -> str:
-    """
-    converts date in form 10/5/2016 -> 2016-10-05
-
-    :param dates: date in 10/5/2016 format
-    :returns:     same date in the 2016-10-05 format
-    """
-
-    mon, day, year = dates.split('/')
-
-    return '-'.join([year, d2s(int(mon)), d2s(int(day))])
 
 
 def process_mm( m     : cal.monthcalendar
@@ -243,26 +175,15 @@ def construct_date_range( date_b : datetime.date
     return T_l
 
 
-def time_diff( date1 : [str, datetime.date]
-             , date2 : [str, datetime.date]
-             , dcf = 365.25 ) -> float:
-    """
-    computes numerical difference between date1 and date2 (date1 < date2)
+def time_diff( date_1 : [str, datetime.date], date_2 : [str, datetime.date], dcf = 365.25 ) -> float:
+    """ Computes numerical difference between date1 and date2 (date1 < date2)
 
-    :param date1: first date (lower of the two dates), str in (20180105) format
-    :param date2: second date (higher of the two), str in (20180509) format
+    :param date_1: first date (lower of the two dates), str in (20180105) format
+    :param date_2: second date (higher of the two), str in (20180509) format
     :returns: difference in numerical form
     """
 
-    if isinstance(date1, datetime.datetime):
-        return (date2 - date1).days / dcf
+    if isinstance(date_1, datetime.datetime):
+        return (date_2 - date_1).days / dcf
 
-    return (convert_str_datetime(date2) - convert_str_datetime(date1)).days / dcf
-
-
-def add_days_str(date_, days):
-    """ Adds the number of days to date_
-
-    """
-
-    return convert_datetime_str(convert_str_datetime(date_) + datetime.timedelta(days=days))
+    return (convert_str_datetime(date_2) - convert_str_datetime(date_1)).days / dcf
