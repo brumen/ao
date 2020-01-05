@@ -161,8 +161,7 @@ def mc_mult_steps( F_v     : [List, np.array]
                                    , T_diff
                                    , s_v_used
                                    , d_v_used
-                                   , rn_sim_l
-                                   , cuda_ind = cuda_ind )
+                                   , rn_sim_l )
 
         if F_ret is None:  # no return flight given
             if not keep_all_sims:
