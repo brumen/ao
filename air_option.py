@@ -565,12 +565,12 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__recompute_ind       = recompute_ind
         self.db_host               = db_host
 
-        super().__init__( mkt_date         = mkt_date
-                        , flights          = list(self.get_flights())
-                        , K                = K
-                        , rho              = rho
-                        , simplify_compute = simplify_compute
-                        , underlyer        = underlyer )
+        AirOptionFlights.__init__( mkt_date         = mkt_date
+                                 , flights          = list(self.get_flights())
+                                 , K                = K
+                                 , rho              = rho
+                                 , simplify_compute = simplify_compute
+                                 , underlyer        = underlyer )
 
     def get_flights(self):
         """ Returns the flights from SkyScanner.
