@@ -116,7 +116,6 @@ def mc_mult_steps( F_v     : [List, np.array]
                  , nb_sim  = 1000
                  , model    = 'n'
                  , F_ret    = None
-                 , cuda_ind = False
                  , keep_all_sims = False  ):  # -> [np.array, Dict[np.array]]:
     """ Multi-step monte-carlo integration of the ticket prices for one way Air options.
 
@@ -129,7 +128,6 @@ def mc_mult_steps( F_v     : [List, np.array]
     :param nb_sim: number of simulations
     :param model: model used for simulation, 'ln' for log-normal, or 'n' for normal
     :param F_ret: a sumulated list of return values - size (nb_sim, 1)
-    :param cuda_ind: indicator whether to use cuda (True/False, default False)
     :param keep_all_sims: keeps all simulations for each sim_times
     :returns: matrix of simulation values in the shape [simulation, fwd] if keep_all_sims = False,
               or dictionary, where keys are simulation times and values are simulations for those times.
@@ -165,7 +163,7 @@ def mc_mult_steps( F_v     : [List, np.array]
 
         if F_ret is None:  # no return flight given
             if not keep_all_sims:
-                F_sim         = np.maximum(F_sim_next, F_sim)
+                F_sim = np.maximum(F_sim_next, F_sim)
             else:
                 yield (T_curr, np.maximum(F_sim_next, F_prev))
                 F_prev = F_sim_next
@@ -206,7 +204,6 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
                      , T_v_exp : Tuple[np.array, np.array]
                      , nb_sim        = 1000
                      , model         = 'n'
-                     , cuda_ind      = False
                      , keep_all_sims = False ):
     """ Simulates ticket prices for a return flight.
 
@@ -239,8 +236,7 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
                                           , rho_m_ret
                                           , T_v_exp_ret
                                           , nb_sim   = nb_sim
-                                          , model    = model
-                                          , cuda_ind = cuda_ind ))[0]
+                                          , model    = model ))[0]
 
     return mc_mult_steps( F_v_dep
                         , s_v_dep
@@ -249,7 +245,6 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
                         , rho_m_dep
                         , T_v_exp_dep
                         , nb_sim   = nb_sim
-                        , cuda_ind = cuda_ind
                         , model    = model
                         , F_ret    = np.amax( F_ret_realized, axis = 1 ).reshape((nb_sim, 1))  # simulations in columns
                         , keep_all_sims=keep_all_sims)
