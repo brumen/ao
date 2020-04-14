@@ -441,7 +441,6 @@ class AirOptionFlights:
                       , self._F_mat_v
                       , nb_sim   = nb_sim
                       , model    = underlyer
-                      , cuda_ind = cuda_ind
                       , keep_all_sims= keep_all_sims)
 
     def air_option(self
