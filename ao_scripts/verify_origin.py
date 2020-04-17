@@ -2,13 +2,13 @@
 
 import pandas as pd
 
-from typing import List
+from typing import List, Union, Tuple
 
 from mysql_connector_env import MysqlConnectorEnv
 from iata.codes          import get_city_code, get_city_name
 
 
-def get_airports(airport_partial_name: str) -> tuple:
+def get_airports(airport_partial_name: str) -> Union[Tuple, None]:
     """
     Returns the list of airports from term.
 

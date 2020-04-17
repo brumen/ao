@@ -4,7 +4,7 @@ import datetime
 import logging
 import json
 
-from typing          import Tuple
+from typing          import Dict, Union
 from dateutil.parser import parse
 
 from werkzeug.datastructures import ImmutableMultiDict
@@ -17,9 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def validate_dates(date_ : str) -> datetime.date:
-    """
-    Validates whether date_ can be converted from format ('1/2/2017')
-    to a datetime.date format and converts it. Otherwise return None.
+    """ Validates whether date_ can be converted from format ('1/2/2017')
+        to a datetime.date format and converts it. Otherwise return None.
 
     :param date_: date in a format that can be converted to / format ('1/2/2017')
     :returns: date in datetime.date format, or None if not given in any form.
@@ -31,7 +30,7 @@ def validate_dates(date_ : str) -> datetime.date:
         return None
 
 
-def validate_strike(strike_i) -> float:
+def validate_strike(strike_i) -> Union[float, None]:
     """
     Tests whether strike_i is a float and returns appopriately
 
@@ -46,7 +45,7 @@ def validate_strike(strike_i) -> float:
         return None
 
 
-def validate_and_get_data(form : ImmutableMultiDict ) -> [Tuple, None]:
+def validate_and_get_data(form : ImmutableMultiDict ) -> Union[Dict, None]:
     """ Validates the data and constructs the input for the Air Option pricer.
 
     :param form: Input form from the webpage.
@@ -111,10 +110,9 @@ def validate_and_get_data(form : ImmutableMultiDict ) -> [Tuple, None]:
 
 
 def compute_option( form : ImmutableMultiDict
-                  , recompute_ind = False ) -> dict:
-    """
-    Interface to the compute_option_val function from air_option, to
-    be called from the flask interface
+                  , recompute_ind = False ) -> Dict:
+    """ Interface to the compute_option_val function from air_option, to
+        be called from the flask interface
 
     :param form: "Dict" of parameters passed from the browser
     :param recompute_ind: indicator whether to do a recomputation or not

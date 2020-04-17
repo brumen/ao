@@ -25,17 +25,19 @@ ao_rester.debug = True
 ao_rester.use_debugger = False
 
 
-def time_now():
-    """
-    Returns local time in the string format.
+def time_now() -> str:
+    """ Returns local time in the string format.
 
     :returns: local time separated by underscores.
-    :rtype: str
     """
 
     lt = localtime()
-    return '_'.join([ str(lt.tm_year), str(lt.tm_mon), str(lt.tm_mday)
-                    , str(lt.tm_hour), str(lt.tm_min), str(lt.tm_sec)])
+    return '_'.join([ str(lt.tm_year)
+                    , str(lt.tm_mon)
+                    , str(lt.tm_mday)
+                    , str(lt.tm_hour)
+                    , str(lt.tm_min)
+                    , str(lt.tm_sec) ] )
 
 
 @ao_rester.route('/verify_airline', methods = ['GET'])
