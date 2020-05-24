@@ -34,8 +34,8 @@ DCF = 365.
 # api keys
 skyscanner_api_key    = 'pe941949487693197945430744449137'
 hotwire_api_key       = "vxkjbx6j7jzvpt97grskk5bu"
-brumen_mysql_pass     = 'c2D779Mu'
-airoptions_gmail_pass = 'MorningMadnessIsHere'
+brumen_mysql_pass     = 'PASSWORD2'
+airoptions_gmail_pass = 'PASSWORD1'
 airoptions_gmail_acct = 'airoptions.llc@gmail.com'
 
 # times of days 
