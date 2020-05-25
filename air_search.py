@@ -3,6 +3,8 @@
 import time
 import datetime
 
+from typing import Tuple, Union, List
+
 from requests              import ConnectionError
 from skyscanner.skyscanner import Flights
 from skyscanner.skyscanner import FlightsCache
@@ -14,29 +16,22 @@ from   ao_codes            import COUNTRY, CURRENCY, LOCALE
 from   mysql_connector_env import MysqlConnectorEnv
 
 
-def get_itins( origin_place    = 'SIN'
-             , dest_place      = 'KUL'
-             , outbound_date   = None
-             , includecarriers = None
-             , cabinclass      = 'Economy'
-             , adults          = 1
-             , use_cache       = False
-             , nb_tries        = 1 ) -> dict:
-    """
-    Returns itineraries for the selection from the Skyscanner API.
+def get_itins( origin_place    : str = 'SIN'
+             , dest_place      : str = 'KUL'
+             , outbound_date   : Union[None, datetime.date] = None
+             , includecarriers : Union[List[str], None] = None
+             , cabinclass      : str = 'Economy'
+             , adults          : int = 1
+             , use_cache       : bool = False
+             , nb_tries        : int = 1 ) -> dict:
+    """ Returns itineraries for the selection from the Skyscanner API.
 
     :param origin_place:  IATA code of the flight origin airport
-    :type origin_place:   str
     :param dest_place:    IATA code of the flight destination airport
-    :type dest_place:     str
     :param outbound_date: date for flights to fetch
-    :type outbound_date:  datetime.date
     :param includecarriers: IATA code of the airlines to use, if None, all airlines
-    :type includecarriers: list[str] or None
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
-    :type cabinclass:     str
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
-    :type nb_tries:       int
     :returns:             Resulting flights from SkyScanner, dictionary structure:
                           'Itineraries'
                           'Currencies'
@@ -172,9 +167,8 @@ def insert_into_flights_live( origin_place
         mysql_conn.commit()
 
 
-def extract_Fv_flights_from_results(result):
-    """
-    Extracts the flight forward prices and flight data from the results provided
+def extract_Fv_flights_from_results(result) -> Tuple:
+    """ Extracts the flight forward prices and flight data from the results provided
 
     :param result: result of output from SkyScanner, dictionary structure:
                           'Itineraries'
@@ -189,7 +183,6 @@ def extract_Fv_flights_from_results(result):
                           'Status'
     :type result: dict
     :returns:
-    :rtype: tuple ( TODO  )
     """
 
     F_v = []
