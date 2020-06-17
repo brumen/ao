@@ -11,7 +11,7 @@ import pandas as pd
 
 from typing      import List, Tuple
 
-from ao_db               import SQLITE_FILE, run_db_mysql
+from ao_db               import run_db_mysql
 from ao_codes            import LARGE_DRIFT
 from mysql_connector_env import MysqlConnectorEnv
 
@@ -192,22 +192,22 @@ def compute_partial_drift_vol( date_l  : List[datetime.date]
           , np.sum(price_l)
 
 
-def insert_into_db_function(PARAMS):
-
-    # TODO: TO FINISH
-
-    if insert_into_db and (drift_len != 0):  # insert only if there is anything to insert
-        with MysqlConnectorEnv(host='localhost') as conn:
-            conn.cursor().executemany(
-                """INSERT INTO params (as_of, orig, dest, carrier, drift, vol avg_price, reg_id)
-                   VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
-                , (as_of_date, orig, dest, carrier, drift, vol, avg_price, REG_ID))  # TODO: MISSING HERE
-            conn.commit()
-
-        with sqlite3.connect(SQLITE_FILE) as conn_ao:
-            conn_ao.execute("INSERT INTO params VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, '{9}', '{10}')"\
-                            .format(as_of_date, orig, dest, '1', carrier, drift, vol, avg_price, dep_season, dep_hour, dep_day))
-            conn_ao.commit()
+# def insert_into_db_function(PARAMS):
+#
+#     # TODO: TO FINISH
+#
+#     if insert_into_db and (drift_len != 0):  # insert only if there is anything to insert
+#         with MysqlConnectorEnv(host='localhost') as conn:
+#             conn.cursor().executemany(
+#                 """INSERT INTO params (as_of, orig, dest, carrier, drift, vol avg_price, reg_id)
+#                    VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
+#                 , (as_of_date, orig, dest, carrier, drift, vol, avg_price, REG_ID))  # TODO: MISSING HERE
+#             conn.commit()
+#
+#         with sqlite3.connect(SQLITE_FILE) as conn_ao:
+#             conn_ao.execute("INSERT INTO params VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, '{9}', '{10}')"\
+#                             .format(as_of_date, orig, dest, '1', carrier, drift, vol, avg_price, dep_season, dep_hour, dep_day))
+#             conn_ao.commit()
 
 
 def all_vols_by_airline( carrier : str

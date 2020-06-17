@@ -1,17 +1,15 @@
 # Air Option database construction functions
 
-import sqlite3
 import time
 import logging
 import datetime
-from typing import List, Tuple  # for python3 typing
+from typing import List, Tuple
 
 # ao modules
 import ao_codes
 import air_search
 import ds
 
-from ao_codes            import SQLITE_FILE
 from mysql_connector_env import MysqlConnectorEnv
 
 
