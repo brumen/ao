@@ -16,3 +16,6 @@ void max2m( PyObject *m1
           , PyObject *res
           , int n_rows
           , int n_cols);
+
+void vm_add_simple_py(PyObject *v, PyObject *m, int n_rows);
+void vm_add_py(PyObject *v, PyObject *m, int n_rows);
