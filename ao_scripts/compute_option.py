@@ -16,7 +16,7 @@ from iata.codes import get_airline_code, get_city_code
 logger = logging.getLogger(__name__)
 
 
-def validate_dates(date_ : str) -> datetime.date:
+def validate_dates(date_ : str) -> Union[datetime.date, None]:
     """ Validates whether date_ can be converted from format ('1/2/2017')
         to a datetime.date format and converts it. Otherwise return None.
 

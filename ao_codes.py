@@ -1,10 +1,8 @@
-# codes used for the modules 
+# codes used for the modules
 
 import os
 import datetime
-
-import config
-import ds 
+import ds
 
 # mysql database setup
 DB_HOST           = 'odroid.local'  # db for service
@@ -12,12 +10,8 @@ DB_HOST_CALIBRATE = 'prasic.local'  # db for calibration
 DATABASE          = 'ao'
 DB_USER           = 'brumen'
 
-# original sqlite db
-SQLITE_FILE       = os.path.join(config.work_dir, 'ao.db')
-SQLITE_FILE_CLONE = SQLITE_FILE + '.clone'
-
 # Common properties
-COUNTRY = 'US'
+COUNTRY  = 'US'
 CURRENCY = 'USD'
 LOCALE   = 'en-US'
 
@@ -33,12 +27,12 @@ DCF = 365.
 
 # api keys
 skyscanner_api_key    = 'pe941949487693197945430744449137'
-hotwire_api_key       = "vxkjbx6j7jzvpt97grskk5bu"
+hotwire_api_key       = 'vxkjbx6j7jzvpt97grskk5bu'
 brumen_mysql_pass     = 'PASSWORD2'
 airoptions_gmail_pass = 'PASSWORD1'
 airoptions_gmail_acct = 'airoptions.llc@gmail.com'
 
-# times of days 
+# times of days
 # morning = '06:00:00', '11:00:00'
 morning   = '06:00:00', '10:40:00'
 # afternoon = '11:00:00', '18:00:00'
@@ -65,10 +59,12 @@ weekend_days = [5, 6]
 livedb_delay = datetime.timedelta(hours=1)
 
 # working directory
-compute_dir = os.path.join(config.tmp_dir , 'inquiry/compute'    )
-inquiry_dir = os.path.join(config.tmp_dir , 'inquiry'            )
-error_log   = os.path.join(config.log_dir , 'logger/ao.log'      )
-debug_dir   = os.path.join(config.log_dir , 'debug'              )
+tmp_dir = 'tmp'
+log_dir = 'log'
+compute_dir = os.path.join(tmp_dir , 'inquiry/compute'    )
+inquiry_dir = os.path.join(tmp_dir , 'inquiry'            )
+error_log   = os.path.join(log_dir , 'logger/ao.log'      )
+debug_dir   = os.path.join(log_dir , 'debug'              )
 
 # reserves, taxes
 reserves             = 0.12  # 10% reserves, 15, but
