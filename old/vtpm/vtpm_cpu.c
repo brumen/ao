@@ -1,6 +1,6 @@
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL opd_xmm
-#define XMM
+#define AVX2
 
 #include <stdint.h>
 #include <stdio.h>
@@ -12,7 +12,8 @@
 #include <emmintrin.h>
 #endif
 
-#define PO PyObject 
+#define PO  PyObject
+#define PAO PyArrayObject
 
 #include <python3.5m/Python.h>
 #include <numpy/ndarraytypes.h>
@@ -46,28 +47,13 @@
 #define mmax _mm256_max_pd
 #endif
 
-#define cp(name) PyArrayObject *npy_## name = (PyArrayObject *) (name)
-
-void vm_add(double *x, double y, int nSize) {
-  // computes x += y
-  // nSize has to be divisible by 4
-  size_t idx;
-  reg x_xmm, y_xmm;
-  y_xmm = mset(y);  
-  for (idx=0; idx<nSize; idx += DOUBLE_INCR) {
-    x_xmm = mloa(x + idx);
-    x_xmm = madd(x_xmm, y_xmm);
-    msto(x+idx, x_xmm);
-  }
-}
-
 
 void vm_mul(double *x, double y, int nSize) {
   // computes x *= y
   // nSize has to be divisible by 4
   size_t idx;
   reg x_xmm, y_xmm;
-  y_xmm = mset(y);  
+  y_xmm = mset(y);
   for (idx=0; idx<nSize; idx += DOUBLE_INCR) {
     x_xmm = mloa(x + idx);
     x_xmm = mmul(x_xmm, y_xmm);
@@ -83,16 +69,19 @@ void vm_mul_omp(double *v, double *m, int n_rows, int n_cols) {
 }
 
 void vm_mul_py(PO *v, PO *m, int n_rows, int n_cols) {
-  // compute m *= v, where v is a column vector 
-  cp(v); cp(m);
+  // compute m *= v, where v is a column vector
+
+  PAO *npy_v = (PAO *) v;
+  PAO *npy_m = (PAO *) m;  /* PyArrayObject */
+
   vm_mul_omp((double *) npy_v->data, (double *) npy_m->data, n_rows, n_cols);
 }
 
 
-// vm_ao doing the work 
+// vm_ao doing the work
 void vm_ao_do(double *prev, double a1, double m1, double *sim, double *next,
 	      int n_cols) {
-  // computes next = prev + a1 + m1 * sim, for the entire row 
+  // computes next = prev + a1 + m1 * sim, for the entire row
   // n_cols has to be divisible by 4
   size_t idx;
   reg prev_xmm, a1_xmm, m1_xmm, sim_xmm, next_xmm;
@@ -123,17 +112,27 @@ void vm_ao_omp(double *prev, double *a1, double *m1, double *sim, double *next,
 
 void vm_ao(PO *prev, PO *a1, PO *m1, PO *sim, PO *next, int n_rows, int n_cols) {
   // computes res = prev + a1 + m1 * sim
-  // on columns 
-  cp(prev); cp(a1); cp(m1); cp(next); cp(sim);
-  vm_ao_omp((double *) npy_prev->data, (double *) npy_a1->data,
-	    (double *) npy_m1->data, (double *) npy_sim->data,
-	    (double *) npy_next->data, n_rows, n_cols);
+  // on columns
+
+  PAO *npy_prev = (PAO *) prev;
+  PAO *npy_a1   = (PAO *) a1;
+  PAO *npy_m1   = (PAO *) m1;
+  PAO *npy_next = (PAO *) next;
+  PAO *npy_sim  = (PAO *) sim;
+
+  vm_ao_omp( (double *) npy_prev->data
+           , (double *) npy_a1->data
+           , (double *) npy_m1->data
+           , (double *) npy_sim->data
+           , (double *) npy_next->data
+           , n_rows
+           , n_cols );
 }
 
 
 // maximum of two matrices
 void max2m_do(double *m1, double *m2, double *res, int n_cols) {
-  // computes next = prev + a1 + m1 * sim, for the entire row 
+  // computes next = prev + a1 + m1 * sim, for the entire row
   // n_cols has to be divisible by 4
   size_t idx;
   reg m1_xmm, m2_xmm, res_xmm;
@@ -158,7 +157,13 @@ void max2m_omp(double *m1, double *m2, double *res, int n_rows, int n_cols) {
 
 void max2m(PO *m1, PO *m2, PO *res, int n_rows, int n_cols) {
   // computes np.maximum(m1, m2)
-  cp(m1); cp(m2); cp(res);
-  max2m_omp((double *) npy_m1->data, (double *) npy_m2->data,
-	    (double *) npy_res->data, n_rows, n_cols);
+  PAO *npy_m1  = (PAO *) m1;
+  PAO *npy_m2  = (PAO *) m2;
+  PAO *npy_res = (PAO *) res;
+
+  max2m_omp( (double *) npy_m1->data
+           , (double *) npy_m2->data
+           , (double *) npy_res->data
+           , n_rows
+           , n_cols);
 }
