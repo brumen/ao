@@ -1,6 +1,9 @@
 #! /bin/bash
 
 while true; do 
-      /home/brumen/work/ao/scripts/count_acc > /home/brumen/public_html/stats_used
-      sleep 5
+    # statistic of page usage
+    /home/brumen/work/ao/scripts/count_acc > /home/brumen/work/ao/ao_page/stats_used
+    # inquiries sent
+    ls /home/brumen/work/ao/inquiry/inquiry_solo/ > /home/brumen/work/ao/ao_page/inquiries
+    sleep 5
 done
