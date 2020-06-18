@@ -6,15 +6,12 @@ import functools
 
 from typing import List, Tuple, Union
 
-import mc
-import ds
-import ao_codes
-
-from vols.vols   import corr_hyp_sec_mat
-from air_flights import get_flight_data
-from ao_codes    import MIN_PRICE
-
-from ao_params import get_drift_vol_from_db
+from ao.mc          import mc_mult_steps, mc_mult_steps_ret
+from ao.ds          import construct_date_range
+from ao.vols.vols   import corr_hyp_sec_mat
+from ao.air_flights import get_flight_data
+from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
+from ao.ao_params   import get_drift_vol_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +77,13 @@ class AirOptionFlights:
         :returns: list of simulated dates
         """
 
-        T_l = ds.construct_date_range(date_start, date_end)  # in date format
+        date_range = construct_date_range(date_start, date_end)
 
         if simplify_compute == 'all_sim_dates':
-            return [(date_sim - date_today_dt).days / dcf for date_sim in T_l]
+            return [(date_sim - date_today_dt).days / dcf for date_sim in date_range]
 
         # elif simplify_compute == 'take_last_only':
-        return [(T_l[-1] - date_today_dt).days / dcf]
+        return [(date_range[-1] - date_today_dt).days / dcf]
 
     @functools.lru_cache(maxsize=128)
     def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
@@ -388,11 +385,11 @@ class AirOptionFlights:
 
         # markups to the option value
         F_v = self._F_v
-        percentage_markup = ao_codes.reserves + ao_codes.tax_rate
+        percentage_markup = reserves + tax_rate
         F_v_max = np.max(F_v) if type(F_v) is not tuple else max(np.max(F_v[0]), np.max(F_v[1]))
 
         # minimal payoff
-        min_payoff = max(MIN_PRICE, F_v_max / ao_codes.ref_base_F * MIN_PRICE)
+        min_payoff = max(MIN_PRICE, F_v_max / ref_base_F * MIN_PRICE)
 
         if not keep_all_sims:
             return max(min_payoff, (1. + percentage_markup) * opt_val_final)
@@ -431,7 +428,7 @@ class AirOptionFlights:
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
         # which monte-carlo method to use.
-        mc_used = mc.mc_mult_steps if not return_flight_ind else mc.mc_mult_steps_ret
+        mc_used = mc_mult_steps if not return_flight_ind else mc_mult_steps_ret
 
         return mc_used( F_v
                       , self._s_v

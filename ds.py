@@ -112,20 +112,24 @@ def process_mm( m     : cal.monthcalendar
               , year  : int
               , month : int
               , day_b : int
-              , day_e : int ) -> List[datetime.date] :
+              , day_e : int ) -> List[datetime.date]:
     """ Process the month matrix between day_b and day_e,
     A helper function for construct_date_range below.
 
+    :param m: calendar month
+    :param year: year TODO: FINISH HERE
+    :param month:
+    :param day_b: begin day
+    :param day_e: end day
     """
 
-    T_l = []
-
+    date_list = []
     for row in m:
         for day in row:
             if (day >= day_b) and (day <= day_e):
-                T_l.append(datetime.date(year, month, day))
+                date_list.append(datetime.date(year, month, day))
 
-    return T_l
+    return date_list
 
 
 def construct_date_range( date_b : datetime.date
@@ -135,7 +139,7 @@ def construct_date_range( date_b : datetime.date
 
     :param date_b: begin date (as in 20180317)
     :param date_e: end date (same as date_b
-    :returns:      list of dates between date_b and date_e
+    :returns: list of dates between date_b and date_e
     """
 
     year_b, month_b, day_b = date_b.year, date_b.month, date_b.day

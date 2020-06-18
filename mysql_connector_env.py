@@ -1,7 +1,7 @@
 import mysql.connector
 
 # DB_HOST is where the params for pricing are held, DB_HOST_CALIBRATE is where the total db is held
-from ao_codes import DB_HOST, DATABASE, DB_USER
+from ao.ao_codes import DB_HOST, DATABASE, DB_USER
 
 
 class MysqlConnectorEnv:
@@ -24,12 +24,15 @@ class MysqlConnectorEnv:
         self.user     = user
         self.password = password
 
+        # cached value
+        self._connection = None
+
     def __enter__(self):
-        self.connection = mysql.connector.connect( host     = self.host
-                                                 , database = self.database
-                                                 , user     = self.user
-                                                 , password = self.password )
-        return self.connection
+        self._connection = mysql.connector.connect( host     = self.host
+                                                   , database = self.database
+                                                   , user     = self.user
+                                                   , password = self.password )
+        return self._connection
 
     def __exit__(self, *args):
-        self.connection.close()
+        self._connection.close()

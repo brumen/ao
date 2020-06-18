@@ -2,7 +2,7 @@
 
 import os
 import datetime
-import ds
+import ao.ds as ds
 
 # mysql database setup
 DB_HOST           = 'odroid.local'  # db for service

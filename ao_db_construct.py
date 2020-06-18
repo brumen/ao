@@ -1,8 +1,8 @@
 # Historical functions that may be used for repair
 
 import sqlite3
-from   mysql_connector_env   import MysqlConnectorEnv
-from   ao_codes              import SQLITE_FILE
+from   ao.mysql_connector_env   import MysqlConnectorEnv
+from   ao.ao_codes              import SQLITE_FILE
 import aiomysql
 
 

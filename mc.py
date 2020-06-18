@@ -1,9 +1,8 @@
 # specialized monte carlo for AirOptions
-
 import numpy as np
-import scipy.integrate
 
-from typing import Tuple, List, Callable
+from typing          import Tuple, List, Callable
+from scipy.integrate import quad
 
 
 def integrate_vol_drift( sd_fct  : Callable[[float], float]
@@ -22,13 +21,13 @@ def integrate_vol_drift( sd_fct  : Callable[[float], float]
     """
 
     if drift_vol_ind == 'vol':  # vol integration
-        return np.sqrt(scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))**2
-                                           , T_start
-                                           , T_end)[0] / (T_end - T_start))
+        return np.sqrt(quad( lambda x: sd_fct(ttm-(x-T_start))**2
+                           , T_start
+                           , T_end)[0] / (T_end - T_start))
     # drift integration
-    return scipy.integrate.quad( lambda x: sd_fct(ttm-(x-T_start))
-                               , T_start
-                               , T_end)[0] / (T_end - T_start)
+    return quad( lambda x: sd_fct(ttm-(x-T_start))
+               , T_start
+               , T_end)[0] / (T_end - T_start)
 
 
 def ln_step( F_sim_prev : np.array

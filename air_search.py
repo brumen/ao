@@ -1,4 +1,4 @@
-# air option search and compute 
+# air option search and compute
 
 import time
 import datetime
@@ -10,10 +10,10 @@ from skyscanner.skyscanner import Flights
 from skyscanner.skyscanner import FlightsCache
 
 # AirOption files
-import ds
-import ao_codes
-from   ao_codes            import COUNTRY, CURRENCY, LOCALE
-from   mysql_connector_env import MysqlConnectorEnv
+import ao.ds as ds
+import ao.ao_codes
+from   ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay
+from   ao.mysql_connector_env import MysqlConnectorEnv
 
 
 def get_itins( origin_place    : str = 'SIN'
@@ -57,7 +57,7 @@ def get_itins( origin_place    : str = 'SIN'
 
     if includecarriers is not None:
         params_all['includecarriers'] = includecarriers
-    
+
     if not use_cache:
         flights_service = Flights(ao_codes.skyscanner_api_key)
         query_fct = flights_service.get_result
@@ -68,7 +68,7 @@ def get_itins( origin_place    : str = 'SIN'
         # query_fct = flights_service.get_cheapest_price_by_date
         # query_fct = flights_service.get_grid_prices_by_date
         params_all['market'] = COUNTRY  # add this field
-        
+
     try:
         return query_fct(**params_all).parsed
 

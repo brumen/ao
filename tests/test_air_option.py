@@ -1,15 +1,15 @@
 # testing framework for air options
 
-import numpy    as np
+import numpy as np
 import datetime
 from unittest import TestCase
 
+import ao.ds          as ds
+import ao.air_option  as airo
+import ao.ao_estimate as airoe
 
-import ds
-import air_option  as ao
-import ao_estimate as aoe
 
-from air_option import AirOptionFlights, AirOptionSkyScanner, AirOptionMock
+from ao.air_option import AirOptionFlights, AirOptionMock
 
 
 class TestAirOptionFlights(TestCase):
@@ -20,34 +20,32 @@ class TestAirOptionFlights(TestCase):
 
         flights = [(100., datetime.date(2019, 7, 15), 'UA70'), (200., datetime.date(2019, 7, 20), 'UA71')]
 
-        aof = AirOptionFlights( datetime.date(2019, 6, 28)
+        airof = AirOptionFlights( datetime.date(2019, 6, 28)
                               , flights
                               , K=200. )
 
-        res1 = aof.PV()  # air option value
-        aof_pv01 = aof.PV01()
-        self.assertGreater(res1, 0.)
+        airof_pv01 = airof.PV01()  # TODO: DO A TEST w/ this
+        self.assertGreater(airof.PV(), 0.)  # air option value > 0 test, silly test
 
         flights_ret = [(150., datetime.date(2019, 7, 22), 'UA72'), (250., datetime.date(2019, 7, 25), 'UA73')]
 
-        aof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
+        airof2 = AirOptionFlights(datetime.date(2019, 6, 28), (flights, flights_ret), K=200.)
 
-        res2 = aof2.PV()
-        aof2_pv01 = aof2.PV01()
-        self.assertGreater(res2, 0.)
+        airof2_pv01 = airof2.PV01()
+        self.assertGreater(airof2.PV(), 0.)
 
         # option times
-        # option_range_1 = aof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        # option_range_1 = airof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         # call w/ option_times
-        option_range_2 = aof.PV(option_maturities=(datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
-        option_range_3 = aof2.PV(option_maturities= (datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
+        option_range_2 = airof.PV(option_maturities=(datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
+        option_range_3 = airof2.PV(option_maturities= (datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
 
+        # TODO: MORE HERE!!!
         self.assertTrue(True)
 
     def test_extreme(self):
         """ Tests if AirOptionFlights runs with multiple flights.
-
         """
 
         nb_dep_flights = 50
@@ -59,11 +57,11 @@ class TestAirOptionFlights(TestCase):
                      , [datetime.date(2019, 10, 1) + datetime.timedelta(days=day_diff) for day_diff in range(nb_dep_flights)]
                      , ['UA' + str(flight_nb) for flight_nb in range(nb_dep_flights)] ))
 
-        aof = AirOptionFlights( datetime.date(2019, 6, 1)
+        airof = AirOptionFlights( datetime.date(2019, 6, 1)
                               , (dep_flights, ret_flights)
                               , K=300. )
 
-        res1 = aof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
+        res1 = airof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
 
         self.assertTrue(True)
 
@@ -74,12 +72,12 @@ class TestAirOptionMock(TestCase):
         """ Checking if the mock air option computation works.
         """
 
-        aom = AirOptionMock( datetime.date(2019, 7, 2)
+        airom = AirOptionMock( datetime.date(2019, 7, 2)
                            , origin = 'SFO'
                            , dest = 'EWR'
                            , K = 1600.)
 
-        self.assertGreaterEqual(aom.PV(), 0.)
+        self.assertGreaterEqual(airom.PV(), 0.)
 
 
 class TestAirOption(TestCase):
@@ -103,7 +101,7 @@ class TestAirOption(TestCase):
         self.io_dr = ds.construct_date_range( self.outDate
                                             , self.outDatePlusOne)
 
-    def test_ao_2( self
+    def test_airo_2( self
                  , nb_sim = 50000):
         """
         tests the air option
@@ -138,7 +136,7 @@ class TestAirOption(TestCase):
 
         """
 
-        res = ao.obtain_flights( 'EWR'
+        res = airo.obtain_flights( 'EWR'
                                , 'SFO'
                                , 'UA'
                                , self.io_dr
@@ -146,7 +144,7 @@ class TestAirOption(TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_26(self, nb_sim=10000):
+    def test_airo_26(self, nb_sim=10000):
         """
         tests the air option
         """
@@ -165,7 +163,7 @@ class TestAirOption(TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_27( self
+    def test_airo_27( self
                   , nb_sim=10000):
         """
         tests the air option
@@ -177,7 +175,7 @@ class TestAirOption(TestCase):
         T_l = np.linspace(1./365., 180./365., 2)
         d_v = 0.2 * np.ones(len(tickets))
 
-        res = ao.air_option( tickets
+        res = airo.air_option( tickets
                            , s_v
                            , d_v
                            , T_l
@@ -194,7 +192,7 @@ class TestAirOption(TestCase):
 
         """
 
-        print(aoe.all_vols_by_airline(airline, use_cache=True))
+        print(airoe.all_vols_by_airline(airline, use_cache=True))
         self.assertTrue(True)
 
     def test_simple_return(self):
@@ -203,7 +201,7 @@ class TestAirOption(TestCase):
 
         """
 
-        v1 = ao.compute_option_val( origin_place          = 'SFO'
+        v1 = airo.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
                                   , option_start_date     = self.optionOutDateStart
                                   , option_end_date       = self.optionOutDateEnd
@@ -232,7 +230,7 @@ class TestAirOption(TestCase):
 
         """
 
-        v1 = ao.compute_option_val( origin_place          = 'SFO'
+        v1 = airo.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
                                   , option_start_date     = self.optionOutDateStart
                                   , option_end_date       = self.optionOutDateEnd
@@ -261,7 +259,7 @@ class TestAirOption(TestCase):
 
         """
 
-        v1 = ao.compute_option_val( origin_place          = 'SFO'
+        v1 = airo.compute_option_val( origin_place          = 'SFO'
                                   , dest_place            = 'EWR'
                                   , option_start_date     = datetime.date(2018, 2, 25)
                                   , option_end_date       = datetime.date(2018, 5, 15)
@@ -284,11 +282,11 @@ class TestAirOption(TestCase):
         print(v1)
         self. assertTrue(True)
 
-    def test_ao_new2( self
+    def test_airo_new2( self
                     , simplify_compute = 'take_last_only'
                     , cuda_ind         = False ):
 
-        v1 = ao.compute_option_val( option_start_date   = self.optionOutDateStart
+        v1 = airo.compute_option_val( option_start_date   = self.optionOutDateStart
                                   , option_end_date     = self.optionOutDateEnd
                                   , outbound_date_start = self.outDate
                                   , outbound_date_end   = self.outDatePlusOne
@@ -301,7 +299,7 @@ class TestAirOption(TestCase):
 
         self.assertTrue(True)
 
-    def test_ao_rho(self):
+    def test_airo_rho(self):
         """
         tests the effect of correlation
 
@@ -310,7 +308,7 @@ class TestAirOption(TestCase):
         K          = 1000.
         impact_rho = {}
         for rho in rho_l:
-            k1 = ao.compute_option_val( outbound_date_start = self.outDate
+            k1 = airo.compute_option_val( outbound_date_start = self.outDate
                                       , outbound_date_end   = self.outDatePlusOne
                                       , option_start_date   = self.optionOutDateStart
                                       , option_end_date     = self.optionOutDateEnd
@@ -324,3 +322,7 @@ class TestAirOption(TestCase):
             impact_rho[rho] = k1[1]
 
         self.assertTrue(True)
+
+
+if __name__ == "__main__":
+    unittest.main()

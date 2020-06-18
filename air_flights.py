@@ -6,12 +6,12 @@ import datetime
 import numpy as np
 import logging
 
-import ds
-import ao_codes
-import air_search
-import ao_params
+import ao.ds         as ds
+import ao.ao_codes   as ao_codes
+import ao.air_search as air_search
+import ao.ao_params  as ao_params
 
-from ao_codes import MAX_TICKET
+from ao.ao_codes import MAX_TICKET
 
 
 logger = logging.getLogger(__name__)
