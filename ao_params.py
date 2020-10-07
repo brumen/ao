@@ -25,7 +25,7 @@ def get_drift_vol_from_db( dep_date : datetime.date
     :param orig: IATA code of the origin airport ('EWR')
     :param dest: IATA code of the destination airport ('SFO')
     :param carrier: airline carrier, e.g. 'UA'
-    :param correct_drift: correct the drift, if negative make it positive 500, or so.
+    :param default_drift_vol: correct the drift, if negative make it positive 500, or so.
     :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
     :param db_host: database host, e.g. 'localhost'
     """
@@ -166,13 +166,13 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
                 weekday_ranks_str = ','.join([ "'" + x + "'"
                                                for x in weekday_ranks ])
 
-                mysql_conn_c.execute("""DELETE FROM reg_ids_temp; 
+                mysql_conn_c.execute("""DELETE FROM reg_ids_temp;
                                         INSERT INTO reg_ids_temp
-                                        SELECT reg_id 
-                                        FROM reg_ids 
+                                        SELECT reg_id
+                                        FROM reg_ids
                                         WHERE month IN ({0}) AND weekday_ind = '{1}'
                                         ORDER BY ABS(month - {2}) ASC, FIELD(tod, {3}) ASC, FIELD(weekday_ind, {4}) ASC;
-    
+
                                         SET @reg_id_ord = (SELECT GROUP_CONCAT(reg_id) FROM reg_ids_temp);""".format( month_ranks_str
                                                                                                                     , dep_date_weekday
                                                                                                                     , dep_date_month
@@ -207,7 +207,7 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
                                                   , fwd_value
                                                   , avg_price)
                 drift_vol_l.append(drift_vol_corr)
-            
+
     return drift_vol_l
 
 

@@ -547,6 +547,7 @@ class AirOptionSkyScanner(AirOptionFlights):
         :param db_host: database host, where the market & flight data is located.
         """
 
+        self.mkt_date = mkt_date
         self.__origin = origin
         self.__dest   = dest
         self.__outbound_date_start = outbound_date_start
@@ -561,12 +562,12 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__recompute_ind       = recompute_ind
         self.db_host               = db_host
 
-        AirOptionFlights.__init__( mkt_date         = mkt_date
-                                 , flights          = list(self.get_flights())
-                                 , K                = K
-                                 , rho              = rho
-                                 , simplify_compute = simplify_compute
-                                 , underlyer        = underlyer )
+        super().__init__( mkt_date
+                        , list(self.get_flights())
+                        , K                = K
+                        , rho              = rho
+                        , simplify_compute = simplify_compute
+                        , underlyer        = underlyer )
 
     def get_flights(self):
         """ Returns the flights from SkyScanner.
@@ -616,3 +617,10 @@ class AirOptionMock(AirOptionSkyScanner):
             yield ( np.random.random() * 100 + 100
                   , self.mkt_date + datetime.timedelta(days=flight_nb)
                   , 'UA' + str(flight_nb) )
+
+    @functools.lru_cache(maxsize=128)
+    def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
+        """ Fake drift/vol, just for testing.
+        """
+
+        return 100., 100.
