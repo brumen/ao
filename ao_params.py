@@ -4,12 +4,9 @@ import datetime
 from typing import List, Tuple
 
 # air options modules
-from ao.ds import convert_datedash_date
-import ao.ao_codes as ao_codes  # TODO: CHANGE THIS
-
+from ao.ds                  import convert_datedash_date
 from ao.mysql_connector_env import MysqlConnectorEnv
-
-from ao.ao_codes import day_str as all_ranks
+from ao.ao_codes            import day_str as all_ranks, get_tod, get_weekday_ind
 
 
 def get_drift_vol_from_db( dep_date : datetime.date
@@ -108,11 +105,11 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
 
     flight_dep_time_l    = [ x.split('T')
                              for x in flight_dep_l ]  # list of dep. dates/times in form ('2017-06-06', '06:00:00')
-    flight_dep_tod_l     = [ ao_codes.get_tod(x[1])
+    flight_dep_tod_l     = [ get_tod(x[1])
                              for x in flight_dep_time_l ]  # list of 'morning' for all flights desired
     flight_dep_month_l   = [ convert_datedash_date(d_t[0]).month
                              for d_t in flight_dep_time_l ]  # months extracted
-    flight_dep_weekday_l = [ ao_codes.get_weekday_ind(convert_datedash_date(d_t[0]).day)
+    flight_dep_weekday_l = [ get_weekday_ind(convert_datedash_date(d_t[0]).day)
                              for d_t in flight_dep_time_l ]
     # month == integer
     # tod == text 'night'
@@ -193,9 +190,8 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
                     drift_vol_corr = correct_drift_vol( drift_prelim
                                                       , vol_prelim
                                                       , default_drift_vol
-                                                      , correct_drift
-                                                      , fwd_value
-                                                      , avg_price)
+                                                      , avg_price
+                                                      , fwd_value)
                     drift_vol_l.append(drift_vol_corr)
 
             else:  # drift... has 1 entry
@@ -203,9 +199,8 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
                 drift_vol_corr = correct_drift_vol( drift_prelim
                                                   , vol_prelim
                                                   , default_drift_vol
-                                                  , correct_drift
-                                                  , fwd_value
-                                                  , avg_price)
+                                                  , avg_price
+                                                  , fwd_value)
                 drift_vol_l.append(drift_vol_corr)
 
     return drift_vol_l

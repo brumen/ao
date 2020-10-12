@@ -382,8 +382,7 @@ def get_flight_data( flights_include     = None
                                            , adults                = adults
                                            , insert_into_livedb    = insert_into_livedb
                                            , io_ind                = 'out'
-                                           , correct_drift         = correct_drift
-                                           , publisher_ao          = publisher_ao )
+                                           , correct_drift         = correct_drift )
 
         if not obtained_flights:  # if None, flights are not obtained.
             return None

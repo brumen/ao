@@ -3,7 +3,7 @@
 import time
 import datetime
 
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Dict
 
 from requests              import ConnectionError
 from skyscanner.skyscanner import Flights
@@ -11,26 +11,28 @@ from skyscanner.skyscanner import FlightsCache
 
 # AirOption files
 import ao.ds as ds
-import ao.ao_codes
+import ao.ao_codes as ao_codes
 from   ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay
 from   ao.mysql_connector_env import MysqlConnectorEnv
 
 
-def get_itins( origin_place    : str = 'SIN'
-             , dest_place      : str = 'KUL'
-             , outbound_date   : Union[None, datetime.date] = None
+def get_itins( origin_place    : str
+             , dest_place      : str
+             , outbound_date   : datetime.date
              , includecarriers : Union[List[str], None] = None
-             , cabinclass      : str = 'Economy'
-             , adults          : int = 1
-             , use_cache       : bool = False
-             , nb_tries        : int = 1 ) -> dict:
+             , cabinclass      : str                    = 'Economy'
+             , adults          : int                    = 1
+             , use_cache       : bool                   = False
+             , nb_tries        : int                    = 1 ) -> Union[Dict, None]:
     """ Returns itineraries for the selection from the Skyscanner API.
 
-    :param origin_place:  IATA code of the flight origin airport
-    :param dest_place:    IATA code of the flight destination airport
+    :param origin_place:  IATA code of the flight origin airport (e.g. 'SIN', or 'SFO')
+    :param dest_place:    IATA code of the flight destination airport (e.g. 'KUL', or 'EWR')
     :param outbound_date: date for flights to fetch
     :param includecarriers: IATA code of the airlines to use, if None, all airlines
     :param cabinclass:    one of the following: Economy*, PremiumEconomy, Business, First
+    :param adults: number of adults to get
+    :param use_cache: whether to use Skyscanner cache for ticket pricer. This is not the local db, just cache part of Skyscanner
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
     :returns:             Resulting flights from SkyScanner, dictionary structure:
                           'Itineraries'
@@ -203,12 +205,12 @@ def extract_Fv_flights_from_results(result) -> Tuple:
 def get_ticket_prices( origin_place  : str
                      , dest_place    : str
                      , outbound_date : datetime.date
-                     , include_carriers   = None
-                     , cabinclass         = 'Economy'
-                     , adults             = 1
-                     , use_cache          = False
-                     , insert_into_livedb = False
-                     , host = 'localhosts'):
+                     , include_carriers         = None
+                     , cabinclass    : str      = 'Economy'
+                     , adults        : int      = 1
+                     , use_cache     : bool     = False
+                     , insert_into_livedb :bool = False
+                     , host : str               = 'localhost'):
     """
     Returns the ticket prices for a flight
 
@@ -220,7 +222,7 @@ def get_ticket_prices( origin_place  : str
     :param adults: number of adult tickets booked
     :param: use_cache:
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
-    :param host: mysql host server.
+    :param host: mysql host server name.
     :returns: TODO
     :rtype:
     """

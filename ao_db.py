@@ -6,11 +6,11 @@ import datetime
 from typing import List, Tuple
 
 # ao modules
-import ao_codes
-import air_search
-import ds
+import ao.ao_codes as ao_codes
+import ao.ds       as ds
 
-from mysql_connector_env import MysqlConnectorEnv
+from ao.air_search import get_itins
+from ao.mysql_connector_env import MysqlConnectorEnv
 
 
 logger = logging.getLogger(__name__)
@@ -135,11 +135,11 @@ def accumulate_flights( origin_place
         return acc_flight_l
 
     # fetch flights
-    flights = air_search.get_itins( origin_place    = origin_place
-                                  , dest_place      = dest_place
-                                  , outbound_date   = outbound_date
-                                  , includecarriers = includecarriers
-                                  , adults          = 1 )
+    flights = get_itins( origin_place    = origin_place
+                       , dest_place      = dest_place
+                       , outbound_date   = outbound_date
+                       , includecarriers = includecarriers
+                       , adults          = 1 )
 
     segments = flights['Segments']
     if not segments:  # if segments is empty

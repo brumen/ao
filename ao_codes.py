@@ -5,7 +5,7 @@ import datetime
 import ao.ds as ds
 
 # mysql database setup
-DB_HOST           = 'odroid.local'  # db for service
+DB_HOST           = 'localhost'  # 'odroid.local'  # db for service
 DB_HOST_CALIBRATE = 'prasic.local'  # db for calibration
 DATABASE          = 'ao'
 DB_USER           = 'brumen'
