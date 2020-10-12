@@ -10,10 +10,9 @@ from skyscanner.skyscanner import Flights
 from skyscanner.skyscanner import FlightsCache
 
 # AirOption files
-import ao.ds as ds
-import ao.ao_codes as ao_codes
-from   ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay
-from   ao.mysql_connector_env import MysqlConnectorEnv
+from ao.ds                  import convert_date_datedash, d2s
+from ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay, get_tod
+from ao.mysql_connector_env import MysqlConnectorEnv
 
 
 def get_itins( origin_place    : str
@@ -52,7 +51,7 @@ def get_itins( origin_place    : str
                      , locale           = LOCALE
                      , originplace      = origin_place + '-sky'
                      , destinationplace = dest_place + '-sky'
-                     , outbounddate     = ds.convert_date_datedash(outbound_date)
+                     , outbounddate     = convert_date_datedash(outbound_date)
                      , cabinclass       = cabinclass
                      , adults           = adults
                      , stops            = 0 )  # only direct flights
@@ -61,10 +60,10 @@ def get_itins( origin_place    : str
         params_all['includecarriers'] = includecarriers
 
     if not use_cache:
-        flights_service = Flights(ao_codes.skyscanner_api_key)
+        flights_service = Flights(skyscanner_api_key)
         query_fct = flights_service.get_result
     else:
-        flights_service = FlightsCache(ao_codes.skyscanner_api_key)
+        flights_service = FlightsCache(skyscanner_api_key)
         query_fct = flights_service.get_cheapest_price_by_route
         # query_fct = flights_service.get_cheapest_quotes
         # query_fct = flights_service.get_cheapest_price_by_date
@@ -107,14 +106,11 @@ def find_carrier(carrier_l, carrier_id):
     return None  # None indicates failure
 
 
-def get_cached_flights(flights_in_ldb):
-    """
-    Obtains the flight data from the local database
+def get_cached_flights(flights_in_ldb) -> Tuple:
+    """ Obtains the flight data from the local database
 
     :param flights_in_ldb: flights as obtained from a local database.
-    :type flights_in_ldb: TODO:
-    :returns: F_v, flights_v_str, reorg_flights_v
-    :rtype: TODO
+    :returns: F_v, flights_v_str
     """
 
     # construct F_v, flights_v, reorg_flights_v
@@ -129,36 +125,37 @@ def get_cached_flights(flights_in_ldb):
                               dep_date_str + 'T' + dep_time_str,
                               fl[4].isoformat(), fl[5], fl[6] + fl[7]))
 
-    return F_v, flights_v_str, reorganize_ticket_prices(flights_v_str)
+    return F_v, flights_v_str
 
 
-def insert_into_flights_live( origin_place
-                            , dest_place
-                            , flights_v
+def insert_into_flights_live( origin : str
+                            , dest   : str
+                            , flights
                             , cabinclass ):
     """
     Inserts the flights given in flights_v into the flights_live database
 
-    :param origin_place: IATA code of the origin airport
-    :type origin_place: str
-    :param dest_place: IATA code of the destination airport
-    :type dest_place: TODO
+    :param origin: IATA code of the origin airport
+    :param dest: IATA code of the destination airport
+    :param flights: flights to be insterted
+    :param cabinclass: cabin class ('economy',...)
     """
 
     # construct ins_fl_l
     lt = time.localtime()
-    as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
-            str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
+    as_of = str(lt.tm_year) + '-' + str(d2s(lt.tm_mon)) + '-' + str(d2s(lt.tm_mday)) + 'T' + \
+            str(d2s(lt.tm_hour)) + ':' + str(d2s(lt.tm_min)) + ':' + str(d2s(lt.tm_sec))
+
     live_flight_l = []
 
-    for it in flights_v:
+    for it in flights:
 
         dep_date, dep_time = it[1].split('T')
         # arr_date = it[2]
         carrier = it[4][:2]  # first 2 letters of this string
         flight_nb = it[4][3:]  # next letters for flight_nb
         live_flight_l.append(
-            (as_of, origin_place, dest_place, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
+            (as_of, origin, dest, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
 
     insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
                                               arr_date, carrier, flight_nb, cabin_class) 
@@ -189,8 +186,11 @@ def extract_Fv_flights_from_results(result) -> Tuple:
 
     F_v = []
     flights_v = []
+
     for itinerary, leg in zip(result['Itineraries'], result['Legs']):
+
         flight_num_all = leg['FlightNumbers']
+
         if len(flight_num_all) == 1:  # indicator if the flight is direct, the other test case is missing
             carrier = find_carrier(result['Carriers'], leg['Carriers'][0])  # carriers = all carriers, leg['carriers'] are id of carrier
             price = itinerary['PricingOptions'][0]['Price']  # TODO: THIS PRICE CAN BE DIFFERENT
@@ -210,7 +210,7 @@ def get_ticket_prices( origin_place  : str
                      , adults        : int      = 1
                      , use_cache     : bool     = False
                      , insert_into_livedb :bool = False
-                     , host : str               = 'localhost'):
+                     , host : str               = 'localhost') -> Union[None, Tuple]:
     """
     Returns the ticket prices for a flight
 
@@ -220,11 +220,10 @@ def get_ticket_prices( origin_place  : str
     :param include_carriers: IATA code of a _SINGLE_ airline code
     :param cabinclass: cabin class of the flight ticket (one of 'Economy', 'Business')
     :param adults: number of adult tickets booked
-    :param: use_cache:
+    :param: use_cache: bool indicator to signal to SkyScanner api to use cache.
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
     :param host: mysql host server name.
-    :returns: TODO
-    :rtype:
+    :returns: None if no results, otherwise a tuple of forward prices, and itineraries.
     """
 
     # first check the local database
@@ -232,7 +231,7 @@ def get_ticket_prices( origin_place  : str
     SELECT as_of, flight_id, dep_date, dep_time, arr_date, price, carrier, flight_nb 
     FROM flights_live 
     WHERE orig = '{0}' AND dest = '{1}' AND dep_date = '{2}' AND cabin_class = '{3}' AND as_of > '{4}' 
-    """.format(origin_place, dest_place, outbound_date, cabinclass, (datetime.datetime.now() - ao_codes.livedb_delay).isoformat())
+    """.format(origin_place, dest_place, outbound_date, cabinclass, (datetime.datetime.now() - livedb_delay).isoformat())
 
     if include_carriers is not None:
         flights_live_local += "  AND carrier = '{0}'".format(include_carriers)  # include_carriers is only 1 in this case
@@ -257,13 +256,14 @@ def get_ticket_prices( origin_place  : str
     # returns all one ways on that date
     if not result:  # nothing out
         return None
-    else:  # results are not empty
-        F_v, flights_v = extract_Fv_flights_from_results(result)
 
-        if insert_into_livedb:  # insert obtained flights into livedb
-            insert_into_flights_live(origin_place, dest_place, flights_v, cabinclass)
+    # results are not empty
+    F_v, flights_v = extract_Fv_flights_from_results(result)
 
-        return F_v, flights_v, reorganize_ticket_prices(flights_v)
+    if insert_into_livedb:  # insert obtained flights into livedb
+        insert_into_flights_live(origin_place, dest_place, flights_v, cabinclass)
+
+    return F_v, flights_v
 
 
 def reorganize_ticket_prices(itin) -> dict:
@@ -284,20 +284,20 @@ def reorganize_ticket_prices(itin) -> dict:
     # get the days from the list of
     dep_day_hour = [(x[1].split('T'), x[2].split('T'), x[3], x[0], x[4]) for x in itin]
 
-    reorgTickets = dict()
+    reorg_tickets = dict()
 
     for (date_dt, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
-        time_of_day_res = ao_codes.get_tod(hour)
+        time_of_day_res = get_tod(hour)
 
         # part to insert into dict d
-        if date_dt not in reorgTickets.keys():
-            reorgTickets[date_dt] = dict()
-        if time_of_day_res not in reorgTickets[date_dt].keys():
-            reorgTickets[date_dt][time_of_day_res] = dict()
+        if date_dt not in reorg_tickets.keys():
+            reorg_tickets[date_dt] = dict()
+        if time_of_day_res not in reorg_tickets[date_dt].keys():
+            reorg_tickets[date_dt][time_of_day_res] = dict()
         # TODO: True is to follow the flights in the app
-        reorgTickets[date_dt][time_of_day_res][hour] = (flight_id, date_dt, hour, arr_date, arr_hour, price, flight_num, True)
+        reorg_tickets[date_dt][time_of_day_res][hour] = (flight_id, date_dt, hour, arr_date, arr_hour, price, flight_num, True)
 
-    return reorgTickets
+    return reorg_tickets
 
 
 def get_all_carriers( origin_place  : str
@@ -312,10 +312,9 @@ def get_all_carriers( origin_place  : str
     :returns: flights for the route selected.
     """
 
-    all_data = get_ticket_prices( origin_place  = origin_place
-                                , dest_place    = dest_place
-                                , outbound_date = outbound_date
-                                , cabinclass    = cabinclass)
+    _, flights = get_ticket_prices( origin_place  = origin_place
+                                  , dest_place    = dest_place
+                                  , outbound_date = outbound_date
+                                  , cabinclass    = cabinclass)
 
-    return set([ flight[4][:2]
-                 for flight in all_data[1]])  # carrier names, a set
+    return set([ flight[4][:2] for flight in flights])  # carrier names, a set

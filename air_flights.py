@@ -8,10 +8,10 @@ import logging
 
 import ao.ds         as ds
 import ao.ao_codes   as ao_codes
-import ao.air_search as air_search
 import ao.ao_params  as ao_params
 
-from ao.ao_codes import MAX_TICKET
+from ao.ao_codes   import MAX_TICKET
+from ao.air_search import reorganize_ticket_prices, get_ticket_prices
 
 
 logger = logging.getLogger(__name__)
@@ -167,14 +167,15 @@ def obtain_flights( origin_place : str
         out_date_str = out_date.isoformat()
 
         yield out_date  # TODO: check this HERE
-        ticket_val, flights, reorg_flights = \
-            air_search.get_ticket_prices( origin_place       = origin_used
+        ticket_val, flights = get_ticket_prices( origin_place       = origin_used
                                         , dest_place         = dest_used
                                         , outbound_date      = out_date
                                         , include_carriers   = carrier
                                         , cabinclass         = cabinclass
                                         , adults             = adults
                                         , insert_into_livedb = insert_into_livedb)
+
+        reorg_flights = reorganize_ticket_prices(flights)
 
         # does the flight exist for that date??
         if out_date_str in reorg_flights:  # reorg_flights has string keys

@@ -9,7 +9,7 @@ import ao.air_option  as airo
 import ao.ao_estimate as airoe
 
 
-from ao.air_option import AirOptionFlights, AirOptionMock
+from ao.air_option import AirOptionFlights, AirOptionMock, AirOptionSkyScanner
 
 
 class TestAirOptionFlights(TestCase):
@@ -64,6 +64,23 @@ class TestAirOptionFlights(TestCase):
         res1 = airof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
 
         self.assertTrue(True)
+
+
+class TestAirOptionSkyscanner(TestCase):
+    """ Tests the skyscanner version of the air option.
+
+    """
+
+    def test_1(self):
+        ao_ss = AirOptionSkyScanner( datetime.date(2017, 2, 1)
+                                   , origin = 'SFO'
+                                   , dest   = 'EWR'
+                                   , outbound_date_start = datetime.date(2017, 4, 26)
+                                   , outbound_date_end   = datetime.date(2016, 4, 26)
+                                   , K                   = 100.
+                                   , carrier='UA' )
+
+        self.assertGreater(ao_ss.PV(), 0.)
 
 
 class TestAirOptionMock(TestCase):
