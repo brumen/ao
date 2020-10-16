@@ -6,6 +6,8 @@ import datetime
 import numpy as np
 import logging
 
+from typing import Union, Dict, Tuple
+
 import ao.ds         as ds
 import ao.ao_codes   as ao_codes
 import ao.ao_params  as ao_params
@@ -23,7 +25,6 @@ def find_minmax_ow(rof):
         adds fields 'min_max' to reorg_flights_v
 
     :param rof: reorganized flights
-    :type rof:  TODO HERE
     """
 
     min_max_dict = dict()  # new dict to return
@@ -66,7 +67,7 @@ def find_minmax_ow(rof):
 
 
 def find_minmax_flight_subset( reorg_flights_v
-                             , ret_ind = False ) -> dict:
+                             , ret_ind = False ) -> Union[Dict, Tuple[Dict, Dict]]:
     """
     Finds the minimum and maximum of flights in each subset of flights
 
