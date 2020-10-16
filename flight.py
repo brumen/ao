@@ -22,6 +22,7 @@ class Flight(AOORM):
     carrier        = Column(String)
 
 
+# in between table that links Flight and AOTrade.
 t_trades_flights = Table( 'trades_flights'
                         , AOORM.metadata
                         , Column('entry_id' , BigInteger, primary_key=True)
@@ -56,7 +57,8 @@ class AOTrade(AOORM):
 
 
 # example of using flights.
-# from sqlalchemy.orm import sessionmaker, create_engine
+# from sqlalchemy     import create_engine
+# from sqlalchemy.orm import sessionmaker
 # engine = create_engine('mysql://brumen@localhost/ao')
 # Session = sessionmaker(bind=engine)
 # sess = Session()

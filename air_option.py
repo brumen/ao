@@ -6,12 +6,16 @@ import functools
 
 from typing import List, Tuple, Union
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from ao.mc          import mc_mult_steps, mc_mult_steps_ret
 from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.air_flights import get_flight_data
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.ao_params   import get_drift_vol_from_db
+from ao.flight      import Flight, AOTrade
 
 logger = logging.getLogger(__name__)
 
@@ -624,3 +628,40 @@ class AirOptionMock(AirOptionSkyScanner):
         """
 
         return 100., 100.
+
+
+class AirOptionFlightsFromDB(AirOptionFlights):
+    """ Class to fetch the trade from the database.
+    """
+
+    def __init__(self
+                , mkt_date         : datetime.date
+                , ao_trade_id      : str
+                , rho              : float = 0.95
+                , simplify_compute : str   = 'take_last_only'
+                , underlyer        : str   = 'n'
+                , database         : str   = 'mysql://brumen@localhost/ao' ):
+        """ Computes the air option from the database.
+
+        :param mkt_date: market date
+        :param ao_trade_id: trade id for a particular AO trade we want.
+        :param rho: correlation between flights parameter
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :param underlyer: underlying model to use.
+        :param database: database from where the AOTrade is fetched.
+        """
+
+        engine = create_engine(database)
+        sess = sessionmaker(bind=engine)()
+        ao_trade = sess.query(AOTrade).filter_by(position_id=ao_trade_id).first()  # that's unique
+        # tr2 = tr1.flights
+        # TODO: FINISH THIS!!!!
+        flights = 1
+
+        super().__init__( mkt_date
+                        , flights
+                        , K                = ao_trade.strike
+                        , rho              = rho
+                        , simplify_compute = simplify_compute
+                        , underlyer        = underlyer)
