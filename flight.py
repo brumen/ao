@@ -1,6 +1,6 @@
 # flight class for ORM, trade access
 
-from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table
+from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table, Float, SmallInteger, Enum
 from sqlalchemy.orm             import relation
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -54,6 +54,51 @@ class AOTrade(AOORM):
     cabinclass            = Column(String)
 
     flights = relation('Flight', secondary=t_trades_flights)
+
+
+class AODriftVol(AOORM):
+    """ Class for drift & volatility.
+    """
+
+    __tablename__ = 'params'
+
+    as_of     = Column(DateTime)
+    orig      = Column(String)
+    dest      = Column(String)
+    carrier   = Column(String(2))  # TODO: CHECK IF THIS 2 MAKES SENSE
+    drift     = Column(Float)  # TODO: CHeck if Float is right, in the table it's DOUBLE
+    vol       = Column(Float)
+    avg_price = Column(Float)
+    reg_id    = Column(Integer)
+
+
+class AORegIds(AOORM):
+    """ Region Id table reference.
+    """
+
+    __tablename__ = 'reg_ids'
+
+    reg_id = Column(Integer, primary_key=True)
+    month  = Column(SmallInteger)
+    tod    = Column(Enum)  # TODO: FINISH THIS ENUMS here and in the column below.
+    weekday_ind = Column(Enum)
+
+
+class AOParam(AOORM):
+    """ Parameters for ao flights.
+    """
+
+    __tablename__ = 'params'
+
+    param_id = Column(BigInteger, primary_key=True)
+    as_of    = Column(DateTime)
+    orig     = Column(String(3))
+    dest     = Column(String(3))
+    carrier  = Column(String(2))
+    drift    = Column(Float)
+    vol      = Column(Float)
+    avg_price= Column(Float)
+    reg_id   = Column(BigInteger, ForeignKey('reg_ids.reg_id'))
 
 
 # example of using flights.
