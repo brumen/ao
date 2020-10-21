@@ -21,6 +21,16 @@ class Flight(AOORM):
     arr_date       = Column(DateTime)
     carrier        = Column(String)
 
+    @classmethod
+    def from_skyscanner(cls, ss_entry):
+        """ Constructs the object from skyscanner entry.
+        """
+
+        # TODO: correct here
+        return cls( flight_id_long = ss_entry['flight_id_long']
+                  , orig           = ss_entry['Itinerary']['origin']
+                  , dest           = ss_entry['Itinerary']['destingation'] )
+
 
 # in between table that links Flight and AOTrade.
 t_trades_flights = Table( 'trades_flights'

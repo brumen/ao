@@ -78,55 +78,30 @@ def find_dep_hour_day_inv( dep_date : datetime.date
 
     return 'night', dof
 
-    
-def update_flights_w_regs():
-    """
-    fixes the column reg_id in table flights 
 
-    """
+def find_location(loc_id : int, flights : List) -> str:
+    """ Finds the airport location as a string from loc_id (which is ID).
 
-    update_str = """
-    UPDATE flights 
-    SET reg_id = {0} 
-    WHERE (month = {1} AND tod = '{2}' and weekday_ind = '{3}')
+    :param loc_id: location id searched over flights, loc_id is Skyscanner internal.
+    :param flights: list of flights over which the location is searched.
     """
 
-    with MysqlConnectorEnv() as mysql_conn:
-
-        mysql_c = mysql_conn.cursor()
-        mysql_c.execute('SELECT reg_id, month, tod, weekday_ind FROM reg_ids')
-
-        with MysqlConnectorEnv() as mysql_conn_local:
-
-            for row in mysql_c:
-
-                update_str_curr = update_str.format(row[0], row[1], row[2], row[3])
-                # TODO: THIS IS REALLY SLOW - FIND A BETTER WAY
-                mysql_conn_local.cursor().execute(update_str_curr)
-                mysql_conn_local.commit()
+    return [place['Code'] for place in flights['Places'] if place['Id'] == loc_id][0]
 
 
-def find_location(loc_id, flights):
-    """
-    Finds the airport location as a string from loc_id (which is ID)
-
-    """
-    return [x['Code']
-            for x in flights['Places']
-            if x['Id'] == loc_id][0]
-
-
-def accumulate_flights( origin_place
-                      , dest_place
-                      , outbound_date
+def accumulate_flights( origin : str
+                      , dest   : str
+                      , outbound_date : datetime.date
                       , includecarriers = None
                       , acc_flight_l    = []
-                      , curr_depth      = 0
-                      , depth_max       = 1 ):
-    """
-    Insert flights into db.
+                      , curr_depth      : int = 0
+                      , depth_max       : int = 1 ):
+    """ Get flights from Skyscanner and insert them into db.
 
-    :param
+    :param origin: origin airport, e.g. 'SFO'
+    :param dest: destination airport, e.g. 'EWR'
+    :param outbound_date: outbound date for flights to be searched.
+    :param includecarriers:
     :param depth: current depth of the recursive search
     :param depth_max: maximum depth of the search
     """
@@ -135,8 +110,8 @@ def accumulate_flights( origin_place
         return acc_flight_l
 
     # fetch flights
-    flights = get_itins( origin_place    = origin_place
-                       , dest_place      = dest_place
+    flights = get_itins( origin_place    = origin
+                       , dest_place      = dest
                        , outbound_date   = outbound_date
                        , includecarriers = includecarriers
                        , adults          = 1 )
@@ -149,6 +124,7 @@ def accumulate_flights( origin_place
     itins   = flights['Itineraries']
     legs    = flights['Legs'       ]
 
+    # destination and origin ID.
     dest_id = int(flights['Query']['DestinationPlace'])
     orig_id = int(flights['Query']['OriginPlace'     ])
 
@@ -242,9 +218,8 @@ def commit_flights_to_live(flights_l : List):
 
 
 def commit_flights_to_db( flights_l : List[datetime.date, str, str, datetime.date, datetime.date, str, float, str]
-                        , host_db   = 'localhost' ) -> None:
-    """
-    Inserts into db the flights in the flights_l.
+                        , host_db   : str = 'localhost' ) -> None:
+    """ Inserts into db the flights in the flights_l.
 
     :param flights_l: list of (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id)
                       types of these are:
@@ -291,8 +266,8 @@ def commit_flights_to_db( flights_l : List[datetime.date, str, str, datetime.dat
         conn.commit()
 
         
-def insert_flight( origin_place  : str
-                 , dest_place    : str
+def insert_flight( origin        : str
+                 , dest          : str
                  , outbound_date : datetime.date
                  , includecarriers = None
                  , dummy           = False
@@ -300,27 +275,25 @@ def insert_flight( origin_place  : str
     """
     Finds flights between origin_place and dest_place on outbound_date and inserts them
 
-    :param origin_place:    IATA value of the origin airport (like 'EWR')
-    :param dest_place:      IATA value of dest. airport ('SFO')
+    :param origin: IATA value of the origin airport (like 'EWR')
+    :param dest: IATA value of dest. airport ('SFO')
     :param outbound_date:   date of the outbound flights one is trying to insert ('2016-10-28')
     :param includecarriers: airlines to use, can be None TODO: WHAT DOES THAT MEAN?
-    :param dummy:           whether to acutally insert into the database, or just mock it
-    :param depth:           recursive depth, i.e. if a flight is btw EWR -> ORD -> SFO,
-                            if depth = 2 it will also check EWR -> ORD and ORD -> SFO
-    :param direct_only:     whether to include only direct flights
-    :param depth_max:
-    :param existing_pairs:  TODO:
+    :param dummy: whether to acutally insert into the database, or just mock it
+    :param depth_max: recursive depth, i.e. if a flight is btw EWR -> ORD -> SFO,
+                  if depth = 2 it will also check EWR -> ORD and ORD -> SFO
+    :param depth_max: depth to which the flights are searched TODO: EXPLAIN HERE.
     """
 
-    logger.debug(' '.join([ "Inserting flight from"
-                          , origin_place
-                          , "to"
-                          , dest_place
-                          , "on"
+    logger.debug(' '.join([ 'Inserting flight from'
+                          , origin
+                          , 'to'
+                          , dest
+                          , 'on'
                           , outbound_date.isoformat() ]))
 
-    flights_to_insert = accumulate_flights( origin_place
-                                          , dest_place
+    flights_to_insert = accumulate_flights( origin
+                                          , dest
                                           , outbound_date
                                           , includecarriers = includecarriers
                                           , acc_flight_l    = []
@@ -331,29 +304,25 @@ def insert_flight( origin_place  : str
         commit_flights_to_live(flights_to_insert)
 
 
-def ao_db_fill( dep_date_l : List[datetime.date]
-              , dest_l     : List[str]
-              , dummy      = False
-              , depth_max  = 0 ):
-    """
-    Inserts into database all flights that can be found between
-    IATA codes in the dep_date_l
+def insert_flights_into_db( dep_dates : List[datetime.date]
+                          , dests     : List[str]
+                          , dummy     : bool = False
+                          , depth_max : int  = 0 ) -> None:
+    """ Inserts into database all flights that can be found between IATA codes in the dep_date_l
 
-    :param dep_date_l: list of departure dates, in the form datetime.date
-    :param dest_l:     list of IATA codes destinations, could use as iata_codes.keys()
-    :param depth_max:  depth of searches, i.e. EWR - SFO goes over DFW, then start again
+    :param dep_dates: list of departure dates, in the form datetime.date
+    :param dests: list of IATA codes destinations, could use as iata_codes.keys()
+    :param depth_max: depth of searches, i.e. EWR - SFO goes over DFW, then start again
                           from DFW, this shouldnt be larger than 2
-    :type depth_max:   int
-    :param dummy:      whether to do a database insert or just print out
-    :type dummy:       bool
-    :returns:          inserts into database what is found
-    :rtype:            None
+    :param dummy: whether to do a database insert or just print out
+    :returns: inserts into database what is found,
     """
 
-    for dep_date in dep_date_l:
-        for orig in dest_l:
-            for dest in dest_l:
-                print ("Inserting " + orig + " to " + dest + ".")
+    for dep_date in dep_dates:
+        for orig in dests:
+            for dest in dests:
+                logger.info('Inserting {0} to {1}'.format(orig, dest))
+
                 if orig == dest:
                     break
                 try:
@@ -367,6 +336,7 @@ def ao_db_fill( dep_date_l : List[datetime.date]
                                  , dep_date
                                  , depth_max     = depth_max
                                  , dummy         = dummy )
+
                 except Exception as e:
                     logger.info("Incorrect location values {0}, {1}".format(orig, dest))
                     logger.info('Error: {0}'.format(str(e)))
@@ -374,8 +344,7 @@ def ao_db_fill( dep_date_l : List[datetime.date]
 
 def perform_db_maintenance(action_list : List[str]
                           , host_db = 'localhost' ) -> None:
-    """
-    Performs the database maintanance: actions that should be undertaken
+    """ Performs the database maintenance: actions that should be undertaken
 
     :param action_list: list of actions to perform:
                            insert_flights_live_into_flights_ord_prasic
