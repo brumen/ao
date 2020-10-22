@@ -217,7 +217,7 @@ def commit_flights_to_live(flights_l : List):
         conn.commit()
 
 
-def commit_flights_to_db( flights_l : List[datetime.date, str, str, datetime.date, datetime.date, str, float, str]
+def commit_flights_to_db( flights_l : List[Tuple[datetime.date, str, str, datetime.date, datetime.date, str, float, str]]
                         , host_db   : str = 'localhost' ) -> None:
     """ Inserts into db the flights in the flights_l.
 

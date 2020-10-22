@@ -22,7 +22,8 @@ def get_itins( origin_place    : str
              , cabinclass      : str                    = 'Economy'
              , adults          : int                    = 1
              , use_cache       : bool                   = False
-             , nb_tries        : int                    = 1 ) -> Union[Dict, None]:
+             , nb_tries        : int                    = 1
+             , max_nb_tries    : int                    = 5 ) -> Union[Dict, None]:
     """ Returns itineraries for the selection from the Skyscanner API.
 
     :param origin_place:  IATA code of the flight origin airport (e.g. 'SIN', or 'SFO')
@@ -33,6 +34,7 @@ def get_itins( origin_place    : str
     :param adults: number of adults to get
     :param use_cache: whether to use Skyscanner cache for ticket pricer. This is not the local db, just cache part of Skyscanner
     :param nb_tries:      number of tries that one tries to get a connection to SkyScanner
+    :param max_nb_tries: max number of tries that it attempts.
     :returns:             Resulting flights from SkyScanner, dictionary structure:
                           'Itineraries'
                           'Currencies'
@@ -75,14 +77,15 @@ def get_itins( origin_place    : str
 
     except (ConnectionError, AttributeError):
         time.sleep(5)  # wait 5 secs
-        if nb_tries <= 5:
+        if nb_tries <= max_nb_tries:
             return get_itins( origin_place    = origin_place
                             , dest_place      = dest_place
                             , outbound_date   = outbound_date
                             , includecarriers = includecarriers
                             , cabinclass      = cabinclass
                             , adults          = adults
-                            , nb_tries        = nb_tries + 1 )
+                            , nb_tries        = nb_tries + 1
+                            , max_nb_tries    = max_nb_tries )
 
         return None  # this is handled appropriately in the get_ticket_prices
 
