@@ -1,15 +1,25 @@
 # flight class for ORM, trade access
 
+from typing import Tuple
+
 from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table, Float, SmallInteger, Enum, create_engine
 from sqlalchemy.orm             import relation, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from ao.ao_params import correct_drift_vol
 
 AOORM = declarative_base()  # common base class
 
 
 class Flight(AOORM):
     """ Description of the flight.
+
+    flight_id: identifier of the flight in the db.
+    flight_id_long: flight identifier from skyscanner.
+    dep_date: departure date of the flight
+    orig: IATA code of the origin airport ('EWR')
+    dest: IATA code of the destination airport ('SFO')
+    carrier: airline carrier, e.g. 'UA'
     """
 
     __tablename__ = 'flight_ids'
@@ -31,6 +41,33 @@ class Flight(AOORM):
         return cls( flight_id_long = ss_entry['flight_id_long']
                   , orig           = ss_entry['Itinerary']['origin']
                   , dest           = ss_entry['Itinerary']['destingation'] )
+
+    def drift_vol( self
+                 , default_drift_vol : Tuple[float, float] = (500., 501.)
+                 , fwd_value                               = None ) -> Tuple[float, float]:
+        """ Pulls the drift and vol from database for the selected flight.
+
+        :param default_drift_vol: correct the drift, if negative make it positive 500, or so.
+        :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
+        """
+
+        # the same as the function get_drift_vol_from_db in ao_params.py
+        session = create_session()
+        drift_vol_params = session.query(AOParam).filter_by(orig=self.orig, dest=self.dest, carrier=self.carrier).all()
+
+        if len(drift_vol_params) == 0:  # nothing in the list
+            return default_drift_vol
+
+        # at least one entry, check if there are many, select closest by as_of date
+        # entry in form (datetime.datetime, drift, vol, avg_price)
+        closest_date_params = sorted( drift_vol_params
+                                    , key = lambda drift_vol_param: abs((self.dep_date - drift_vol_param.as_of).days))[0]
+
+        return correct_drift_vol( closest_date_params.drift
+                                , closest_date_params.vol
+                                , default_drift_vol
+                                , closest_date_params.avg_price
+                                , fwd_value)
 
 
 # in between table that links Flight and AOTrade.

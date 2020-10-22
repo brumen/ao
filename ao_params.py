@@ -208,14 +208,16 @@ def get_drift_vol_from_db_precise( flight_dep_l : List
 
 def find_close_regid( month   : int
                     , tod     : str
-                    , weekday : str ):
+                    , weekday : str ) -> Tuple[ Tuple[int, int, int, int, int]
+                                              , Tuple[str, str, str, str]
+                                              , Tuple[str, str] ]:
+
     """ Logic how to select regid which is close to desired one
 
     :param month: month desired.
     :param tod: time of day, 'morning', 'afternoon', 'evening', 'night'
     :param weekday: weekday, can be either 'weekday' or 'weekend'
-    :returns:
-    :rtype:
+    :returns: information about reg_ids that is closest.
     """
 
     # months allowed +/- 2
@@ -224,18 +226,18 @@ def find_close_regid( month   : int
         return ((m - 1) + k) % 12 + 1
 
     # months considered
-    month_ranks = [ month
+    month_ranks = ( month
                   , rot_month(month, 1)
                   , rot_month(month, -1)
                   , rot_month(month, 2)
-                  , rot_month(month, -2)]
+                  , rot_month(month, -2) )
 
     tod_idx = all_ranks.index(tod)
-    tod_ranks = [ all_ranks[tod_idx]
+    tod_ranks = ( all_ranks[tod_idx]
                 , all_ranks[(tod_idx+1) % 4]
                 , all_ranks[(tod_idx+2) % 4]
-                , all_ranks[(tod_idx+3) % 4]]
+                , all_ranks[(tod_idx+3) % 4] )
 
-    weekday_ranks = ['weekday', 'weekend'] if weekday == 'weekday' else ['weekend', 'weekday']
+    weekday_ranks = ('weekday', 'weekend') if weekday == 'weekday' else ('weekend', 'weekday')
 
     return month_ranks, tod_ranks, weekday_ranks
