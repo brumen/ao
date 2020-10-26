@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import functools
 
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -28,10 +28,10 @@ class AirOptionFlights:
                 , mkt_date : datetime.date
                 , flights  : Union[ List[Tuple[float, datetime.date, str]]
                                   , Tuple[List[Tuple[float, datetime.date, str]], List[Tuple[float, datetime.date, str]]]]
-                , K                    = 1600.
-                , rho                  = 0.95
-                , simplify_compute     = 'take_last_only'
-                , underlyer            = 'n' ):
+                , K                : float = 1600.
+                , rho              : float = 0.95
+                , simplify_compute : str   = 'take_last_only'
+                , underlyer        : str   = 'n' ):
         """ Computes the air option for the flights.
 
         :param mkt_date: market date
@@ -236,14 +236,14 @@ class AirOptionFlights:
         return dep_sim_times_num
 
     def PV( self
-          , option_start_date     = None
-          , option_end_date       = None
-          , option_ret_start_date = None
-          , option_ret_end_date   = None
-          , option_maturities     = None
-          , nb_sim                = 1000
-          , dcf                   = 365.25
-          , cuda_ind              = False ):
+          , option_start_date     : Union[None, datetime.date] = None
+          , option_end_date       : Union[None, datetime.date] = None
+          , option_ret_start_date : Union[None, datetime.date] = None
+          , option_ret_end_date   : Union[None, datetime.date] = None
+          , option_maturities     : Union[None, datetime.date] = None
+          , nb_sim                : int                        = 1000
+          , dcf                   : float                      = 365.25
+          , cuda_ind              : bool                       = False ):
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
 
@@ -305,13 +305,13 @@ class AirOptionFlights:
 
     @functools.lru_cache(maxsize=128)
     def PV01( self
-            , option_start_date     = None
-            , option_end_date       = None
-            , option_ret_start_date = None
-            , option_ret_end_date   = None
-            , nb_sim                = 10000
-            , dcf                   = 365.25
-            , bump_value            = 0.01 ):
+            , option_start_date     : Union[None, datetime.date] = None
+            , option_end_date       : Union[None, datetime.date] = None
+            , option_ret_start_date : Union[None, datetime.date] = None
+            , option_ret_end_date   : Union[None, datetime.date] = None
+            , nb_sim                : int                        = 10000
+            , dcf                   : float                      = 365.25
+            , bump_value            : float                      = 0.01 ):
         """ Cached version of PV01 function. All parameters are the same.
 
         All dates in the params are in datetime.date format
@@ -451,11 +451,10 @@ class AirOptionFlights:
                    , rho       = 0.9
                    , cuda_ind  = False
                    , underlyer ='n'
-                   , keep_all_sims = False):
+                   , keep_all_sims = False) -> Union[float, Dict[str, float]]:
         """ Computes the value of the air option with low memory impact.
 
         :param sim_times: simulation list, same as s_v
-        :type sim_times: np.array or (np.array, np.array)
         :param K: strike price
         :param nb_sim: simulation number
         :param rho: correlation parameter, used only for now
@@ -514,40 +513,36 @@ class AirOptionSkyScanner(AirOptionFlights):
                 , origin    = 'SFO'
                 , dest      = 'EWR'
                 # next 4 - when do the (changed) flights occur
-                , outbound_date_start = None  # departing flights info.
-                , outbound_date_end   = None
-                , inbound_date_start  = None  # returning flights info
-                , inbound_date_end    = None
-                , K                   = 1600.
-                , carrier             = 'UA'
-                , rho                 = 0.95
-                , adults              = 1
-                , cabinclass          = 'Economy'
-                , simplify_compute    = 'take_last_only'
-                , underlyer           = 'n'
-                , return_flight       = False
-                , recompute_ind       = False
-                , correct_drift       = True
-                , db_host             = 'localhost' ):
+                , outbound_date_start : Union[None, datetime.date] = None
+                , outbound_date_end   : Union[None, datetime.date] = None
+                , inbound_date_start  : Union[None, datetime.date] = None
+                , inbound_date_end    : Union[None, datetime.date] = None
+                , K                   : float = 1600.
+                , carrier             : str   = 'UA'
+                , rho                 : float = 0.95
+                , adults              : int   = 1
+                , cabinclass          : str   = 'Economy'
+                , simplify_compute    : str   = 'take_last_only'
+                , underlyer           : str   = 'n'
+                , return_flight       : bool  = False
+                , recompute_ind       : bool  = False
+                , correct_drift       : bool  = True
+                , db_host             : str   = 'localhost' ):
         """ Computes the air option from the data provided.
 
         :param origin: IATA code of the origin airport ('SFO')
         :param dest: IATA code of the destination airport ('EWR')
         :param outbound_date_start: start date for outbound flights to change to
-        :type outbound_date_start: datetime.date
         :param outbound_date_end: end date for outbound flights to change to
-        :type outbound_date_end: datetime.date
         :param inbound_date_start: start date for inbound flights to change to
-        :type inbound_date_start: datetime.date
         :param inbound_date_end: end date for inbound flights to change to
-        :type inbound_date_end: datetime.date
         :param K: option strike
         :param carrier: IATA code of the carrier
         :param rho: correlation between flights parameter
         :param adults: nb. of people on this ticket
         :param cabinclass: class of flight ticket
-        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date
-        :type simplify_compute: str, options are: "take_last_only", "all_sim_dates"
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
         :param db_host: database host, where the market & flight data is located.
         """
 

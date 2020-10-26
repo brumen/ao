@@ -6,7 +6,7 @@ import datetime
 import numpy as np
 import logging
 
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, List
 
 import ao.ds         as ds
 import ao.ao_codes   as ao_codes
@@ -66,36 +66,30 @@ def find_minmax_ow(rof):
     return min_max_dict
 
 
-def find_minmax_flight_subset( reorg_flights_v
-                             , ret_ind = False ) -> Union[Dict, Tuple[Dict, Dict]]:
-    """
-    Finds the minimum and maximum of flights in each subset of flights
+def find_minmax_flight_subset( reorg_flights_v : Union[Dict, Tuple[Dict, Dict]]) -> Union[Dict, Tuple[Dict, Dict]]:
+    """ Finds the minimum and maximum of flights in each subset of flights
 
     :param reorg_flights_v: dictionary structure of flights TODO: DESCRIBE THE STRUCTURE.
-    :type reorg_flights_v: dict or tuple(dict, dict)
-    :param ret_ind:         indicator of return flight, either True/False
-    :returns:               min_max subset over flights
+    :returns: min_max subset over flights
     """
+
+    ret_ind = True if isinstance(reorg_flights_v, tuple) else False  # indicator of return flight
 
     if not ret_ind:  # outbound flight only
         return find_minmax_ow(reorg_flights_v)
 
-    else:  # return flight
-        return find_minmax_ow(reorg_flights_v[0]), find_minmax_ow(reorg_flights_v[1])
+    return find_minmax_ow(reorg_flights_v[0]), find_minmax_ow(reorg_flights_v[1])
 
 
-def obtain_flights_mat( flights
+def obtain_flights_mat( flights : List[Tuple[int, datetime.date, datetime.date, float, str]]
                       , flights_include
                       , date_today_dt : datetime.date ):
-    """
-    Constucting the flight maturity, with censoring the flights that are not included in the flights_include list
+    """ Constucting the flight maturity, with censoring the flights that are not included in the flights_include list
 
     :param flights: list of flights to be included in the construction of flights maturity
-    :type flights: list of [(id, dep, arr, price, flight_nb)...]
     :param flights_include: flights to be included in the TODO:
     :type flights_include: dict of flights as in reorg_flights,
     :param date_today_dt: today's date in datetime format
-    :type date_today_dt: datetime.date
     """
 
     flights_mat = []
@@ -205,20 +199,14 @@ def obtain_flights( origin_place : str
 def filter_prices_and_flights( price_l
                              , flights_l
                              , reorg_flights_l
-                             , flights_include):
-    """
-    fliter prices from flights_include
+                             , flights_include) -> Union[None, Tuple]:
+    """ fliter prices from flights_include
 
     :param price_l:
-    :type price_l:
     :param flights_l:
-    :type flights_l:
     :param reorg_flights_l:
-    :type reorg_flights_l:
     :param flights_include: list of flights to include TODO: WHERE???
-    :type flights_include:
     :returns:
-    :rtype:
     """
 
     F_v, flight_v = [], []
@@ -238,8 +226,8 @@ def filter_prices_and_flights( price_l
                 if flights_include[flight_date][flight_tod][flight_hour][-1]:
                     F_v.append(flight_p)
                     flight_v.append(flight_info)
-            else:  # shananigan happening
-                return [], [], [], 'Invalid'
+
+            return None  # invalid results.
 
     # reconstructed reorg_flights_v ??? WHY IS THIS NECESSARY
     for time_of_day in reorg_flights_l:
@@ -252,32 +240,30 @@ def filter_prices_and_flights( price_l
                 if reorg_flights_l[time_of_day][dep_time][6] in flights_include:
                     reorg_flight_v[time_of_day][dep_time] = reorg_flights_l[time_of_day][dep_time]
 
-    return F_v, flight_v, reorg_flight_v, 'Valid'
+    return F_v, flight_v, reorg_flight_v
 
 
-def obtain_flights_recompute( origin_place
-                            , dest_place
-                            , carrier
+def obtain_flights_recompute( origin  : str
+                            , dest    : str
+                            , carrier : str
                             , io_dr_minus
                             , flights_include
-                            , cabinclass         = 'Economy'
-                            , adults             = 1
-                            , insert_into_livedb = True
-                            , io_ind        = 'out'
-                            , correct_drift = True ):
+                            , cabinclass         : str = 'Economy'
+                            , adults             : int = 1
+                            , insert_into_livedb : bool = True
+                            , io_ind             : str = 'out'
+                            , correct_drift      : bool = True ):
     """ Get the flights for recompute method.
     IMPORTANT: cabinclass, adults, insert_into_livedb HAVE TO BE THERE, to correspond to obtain_flights fct.
 
-    :param origin_place:
-    :param io_dr_minus:     input/output date range _minus (with - sign)
-    :type io_dr_minus:
+    :param origin: origin IATA airport
+    :param dest: destination IATA airport
+    :param io_dr_minus: input/output date range _minus (with - sign)
     :param flights_include: flights to be considered for recomputation
-    :type flights_include:  TODO
     :param io_ind:          inbound/outbound indicator ('in', or 'out')
-    :type io_ind:           str
     """
 
-    origin_used, dest_used = (origin_place, dest_place) if io_ind == 'out' else (dest_place, origin_place)
+    origin_used, dest_used = (origin, dest) if io_ind == 'out' else (dest, origin)
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
     reorg_flights_v = dict()
@@ -324,45 +310,31 @@ def obtain_flights_recompute( origin_place
     return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
 
 
-def get_flight_data( flights_include     = None
-                   , origin_place        = 'SFO'
-                   , dest_place          = 'EWR'
-                   , outbound_date_start = None
-                   , outbound_date_end   = None
-                   , inbound_date_start  = None
-                   , inbound_date_end    = None
-                   , carrier             = 'UA'
-                   , cabinclass          = 'Economy'
-                   , adults              = 1
-                   , return_flight       = False
-                   , recompute_ind       = False
-                   , correct_drift       = True
-                   , insert_into_livedb  = True
-                   , publisher_ao        = None ):
-    """
-    Get flight data for the parameters specified
+def get_flight_data( flights_include     : Union[List, None] = None
+                   , origin_place        : str = 'SFO'
+                   , dest_place          : str = 'EWR'
+                   , outbound_date_start : Union[None, datetime.date] = None
+                   , outbound_date_end   : Union[None, datetime.date] = None
+                   , inbound_date_start  : Union[None, datetime.date] = None
+                   , inbound_date_end    : Union[None, datetime.date] = None
+                   , carrier             : str = 'UA'
+                   , cabinclass          : str = 'Economy'
+                   , adults              : int = 1
+                   , return_flight       : bool = False
+                   , recompute_ind       : bool = False
+                   , correct_drift       : bool = True
+                   , insert_into_livedb  : bool = True ):
+    """ Get flight data for the parameters specified
 
     :param flights_include:      if None - include all
                                  if specified, then only consider the flights in flights_include
-    :type flights_include:       list of flights # TODO: SPECIFY THIS BETTER
     :param origin_place:         IATA code of the origin airport, e.g.  'SFO'
-    :type origin_place:          string
     :param dest_place:           IATA code of the destination airport, e.g.  'SFO'
-    :type dest_place:            string
     :param outbound_date_start:  start date of the outbound flights
-    :type outbound_date_start:   datetime.date
     :param outbound_date_end:    end date of the outbound flights
-    :type outbound_date_end:     datetime.date
     :param inbound_date_start:   start date of the inbound (return) flights
-    :type inbound_date_start:    datetime.date
     :param inbound_date_end:     end date of the inbound (return) flights
-    :type inbound_date_end:      datetime.date
     :param carrier:              IATA code of the carrier, e.g. 'UA'
-    :type carrier:               string
-
-    :param publisher_ao:         publisher object (from sse) for Air options,
-    :type publisher_ao:          sse.Publisher
-
     """
 
     # outbound data range
@@ -434,12 +406,12 @@ def get_flight_data( flights_include     = None
     if valid_check:
         if not return_flight:
             return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep
-        else:
-            return (F_v_dep, F_v_ret),\
-                   (F_mat_dep, F_mat_ret),\
-                   (flights_v_dep, flights_v_ret),\
-                   (reorg_flights_v_dep, reorg_flights_v_ret),\
-                   (s_v_dep, s_v_ret),\
-                   (d_v_dep, d_v_ret)
+
+        return (F_v_dep, F_v_ret),\
+               (F_mat_dep, F_mat_ret),\
+               (flights_v_dep, flights_v_ret),\
+               (reorg_flights_v_dep, reorg_flights_v_ret),\
+               (s_v_dep, s_v_ret),\
+               (d_v_dep, d_v_ret)
 
     return None  # not valid
