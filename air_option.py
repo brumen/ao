@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import functools
 
-from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union, Dict, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -129,6 +129,7 @@ class AirOptionFlights:
     @property
     def _F_v(self) -> Union[List[float], Tuple[List[float], List[float]]]:
         """  Flights forward values. Extracts the forward values from the flights.
+        For one-way flights it's a single list, for return flights it's a tuple of lists.
         """
 
         # one-directional flights
@@ -305,10 +306,10 @@ class AirOptionFlights:
 
     @functools.lru_cache(maxsize=128)
     def PV01( self
-            , option_start_date     : Union[None, datetime.date] = None
-            , option_end_date       : Union[None, datetime.date] = None
-            , option_ret_start_date : Union[None, datetime.date] = None
-            , option_ret_end_date   : Union[None, datetime.date] = None
+            , option_start_date     : Optional[datetime.date] = None
+            , option_end_date       : Optional[datetime.date] = None
+            , option_ret_start_date : Optional[datetime.date] = None
+            , option_ret_end_date   : Optional[datetime.date] = None
             , nb_sim                : int                        = 10000
             , dcf                   : float                      = 365.25
             , bump_value            : float                      = 0.01 ):
@@ -359,13 +360,13 @@ class AirOptionFlights:
         return delta_dict
 
     def air_option_with_markup(self
-                               , sim_times : Union[np.array, Tuple[np.array, np.array]]
-                               , K         : float
-                               , rho       : Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
-                               , nb_sim    = 10000
-                               , cuda_ind  = False
-                               , underlyer = 'n'
-                               , keep_all_sims = False):
+                               , sim_times     : Union[np.array, Tuple[np.array, np.array]]
+                               , K             : float
+                               , rho           : Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
+                               , nb_sim        : int  = 10000
+                               , cuda_ind      : bool = False
+                               , underlyer     : str  = 'n'
+                               , keep_all_sims : bool = False ):
         """ Computes the value of the option sequentially, in order to minimize memory footprint.
 
         :param sim_times: simulation times of for flight tickets; or a tuple for (departure, return tickets)
@@ -404,11 +405,11 @@ class AirOptionFlights:
 
     def _air_option_sims(self
                          , sim_times : Union[np.array, Tuple[np.array, np.array]]
-                         , nb_sim    = 1000
-                         , rho       = 0.9
-                         , cuda_ind  = False
-                         , underlyer ='n'
-                         , keep_all_sims = False):
+                         , nb_sim        : int   = 1000
+                         , rho           : float = 0.9
+                         , cuda_ind      : bool  = False
+                         , underlyer     : str   = 'n'
+                         , keep_all_sims : bool = False):
         """ Only simulations used for air options.
 
         :param sim_times: simulation list, same as s_v
@@ -424,9 +425,9 @@ class AirOptionFlights:
         F_v = self._F_v
         if return_flight_ind:
             # correlation matrix for departing, returning flights
-
-            rho_m = ( corr_hyp_sec_mat(rho, range(len(F_v[0])))
-                    , corr_hyp_sec_mat(rho, range(len(F_v[1]))) )
+            dep_flights, ret_flights = F_v
+            rho_m = ( corr_hyp_sec_mat(rho, range(len(dep_flights)))
+                    , corr_hyp_sec_mat(rho, range(len(ret_flights))) )
 
         else:  # only outgoing flight
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
@@ -513,10 +514,10 @@ class AirOptionSkyScanner(AirOptionFlights):
                 , origin    = 'SFO'
                 , dest      = 'EWR'
                 # next 4 - when do the (changed) flights occur
-                , outbound_date_start : Union[None, datetime.date] = None
-                , outbound_date_end   : Union[None, datetime.date] = None
-                , inbound_date_start  : Union[None, datetime.date] = None
-                , inbound_date_end    : Union[None, datetime.date] = None
+                , outbound_date_start : Optional[datetime.date] = None
+                , outbound_date_end   : Optional[datetime.date] = None
+                , inbound_date_start  : Optional[datetime.date] = None
+                , inbound_date_end    : Optional[datetime.date] = None
                 , K                   : float = 1600.
                 , carrier             : str   = 'UA'
                 , rho                 : float = 0.95

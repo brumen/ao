@@ -3,7 +3,8 @@
 import time
 import logging
 import datetime
-from typing import List, Tuple
+
+from typing import List, Tuple, Optional
 
 # ao modules
 import ao.ao_codes as ao_codes
@@ -89,19 +90,20 @@ def find_location(loc_id : int, flights : List) -> str:
     return [place['Code'] for place in flights['Places'] if place['Id'] == loc_id][0]
 
 
-def accumulate_flights( origin : str
-                      , dest   : str
-                      , outbound_date : datetime.date
-                      , includecarriers = None
-                      , acc_flight_l    = []
-                      , curr_depth      : int = 0
-                      , depth_max       : int = 1 ):
-    """ Get flights from Skyscanner and insert them into db.
+def accumulate_flights( origin          : str
+                      , dest            : str
+                      , outbound_date   : datetime.date
+                      , includecarriers : Optional[List[str]] =  None
+                      , acc_flight_l    : List                = []
+                      , curr_depth      : int                 = 0
+                      , depth_max       : int                 = 1 ):
+    """ Get flights from Skyscanner and insert them into db. The function searches for flights recursively, i.e.
+        TODO: describe here.
 
     :param origin: origin airport, e.g. 'SFO'
     :param dest: destination airport, e.g. 'EWR'
     :param outbound_date: outbound date for flights to be searched.
-    :param includecarriers:
+    :param includecarriers: Only consider carriers specified here. If None, consider all carriers.
     :param depth: current depth of the recursive search
     :param depth_max: maximum depth of the search
     """
@@ -175,12 +177,7 @@ def accumulate_flights( origin : str
                             break
                         else:
                             # TODO: this combination might exist in the database already
-                            logger.debug(" ".join(["Inserting flight from"
-                                                  , leg_orig_2
-                                                  , "to"
-                                                  , leg_dest_2
-                                                  , "on"
-                                                  , dep_date_2]))
+                            logger.debug('Inserting flight from {0} to {1} on {2}'.format(leg_orig_2, leg_dest_2, dep_date_2))
 
                             acc_flight_l.extend(accumulate_flights( leg_orig_2
                                                                   , leg_dest_2
