@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import functools
 
-from typing import List, Tuple, Union, Dict, Optional
+from typing import List, Tuple, Union, Dict, Optional, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -15,7 +15,7 @@ from ao.vols.vols   import corr_hyp_sec_mat
 from ao.air_flights import get_flight_data
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.ao_params   import get_drift_vol_from_db
-from ao.flight      import Flight, AOTrade
+from ao.flight      import AOTrade, DEFAULT_SESSION, Flight
 
 logger = logging.getLogger(__name__)
 
@@ -626,7 +626,42 @@ class AirOptionMock(AirOptionSkyScanner):
         return 100., 100.
 
 
-class AirOptionFlightsFromDB(AirOptionFlights):
+class AirOptionFlightsExplicit(AirOptionFlights):
+    """ Class that prices the AOTrade associated with list of flights.
+
+    SOME GUIDANCE: use mkt_date: datetime.date(2016, 1, 1)
+    """
+
+    def __init__(self
+                , mkt_date         : datetime.date
+                , ao_flights       : List[Flight]
+                , strike           : float
+                , rho              : float = 0.95
+                , simplify_compute : str   = 'take_last_only'
+                , underlyer        : str   = 'n'):
+        """ Computes the air option from the database.
+
+        :param mkt_date: market date
+        :param ao_flights: flights corresponding to the AOTrade.
+        :param strike: strike for the AOTrade
+        :param rho: correlation between flights parameter
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :param underlyer: underlying model to use.
+        """
+
+        # database session
+        # TODO: FIX THE VALUE PART
+        super().__init__( mkt_date
+                        , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
+                            for ao_flight in ao_flights ]
+                        , K                = strike
+                        , rho              = rho
+                        , simplify_compute = simplify_compute
+                        , underlyer        = underlyer )
+
+
+class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
     """ Class to fetch the trade from the database.
 
     SOME GUIDANCE: use mkt_date: datetime.date(2016, 1, 1)
@@ -638,7 +673,7 @@ class AirOptionFlightsFromDB(AirOptionFlights):
                 , rho              : float = 0.95
                 , simplify_compute : str   = 'take_last_only'
                 , underlyer        : str   = 'n'
-                , database         : str   = 'mysql://brumen@localhost/ao' ):
+                , database         : Optional[str] = None):  # 'mysql://brumen@localhost/ao' ):
         """ Computes the air option from the database.
 
         :param mkt_date: market date
@@ -650,15 +685,16 @@ class AirOptionFlightsFromDB(AirOptionFlights):
         :param database: database from where the AOTrade is fetched.
         """
 
-        ao_trade = sessionmaker(bind=create_engine(database))().query(AOTrade)\
-                                                               .filter_by(position_id=ao_trade_id)\
-                                                               .first()  # AOFlight object
+        # database session
+        session = DEFAULT_SESSION if database is None else sessionmaker(bind=create_engine(database))()
 
-        # TODO: FIX THE VALUE PART
+        ao_trade = session.query(AOTrade)\
+                          .filter_by(position_id=ao_trade_id)\
+                          .first()  # AOFlight object
+
         super().__init__( mkt_date
-                        , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
-                            for ao_flight in ao_trade.flights ]
-                        , K                = ao_trade.strike
+                        , ao_trade.flights
+                        , strike           = ao_trade.strike
                         , rho              = rho
                         , simplify_compute = simplify_compute
                         , underlyer        = underlyer )
