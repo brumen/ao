@@ -628,6 +628,8 @@ class AirOptionMock(AirOptionSkyScanner):
 
 class AirOptionFlightsFromDB(AirOptionFlights):
     """ Class to fetch the trade from the database.
+
+    SOME GUIDANCE: use mkt_date: datetime.date(2016, 1, 1)
     """
 
     def __init__(self
@@ -648,16 +650,19 @@ class AirOptionFlightsFromDB(AirOptionFlights):
         :param database: database from where the AOTrade is fetched.
         """
 
-        engine = create_engine(database)
-        sess = sessionmaker(bind=engine)()
-        ao_trade = sess.query(AOTrade).filter_by(position_id=ao_trade_id).first()  # that's unique
-        # tr2 = tr1.flights
-        # TODO: FINISH THIS!!!!
-        flights = 1
+        ao_trade = sessionmaker(bind=create_engine(database))().query(AOTrade)\
+                                                               .filter_by(position_id=ao_trade_id)\
+                                                               .first()  # AOFlight object
 
+        # TODO: FIX THE VALUE PART
         super().__init__( mkt_date
-                        , flights
+                        , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
+                            for ao_flight in ao_trade.flights ]
                         , K                = ao_trade.strike
                         , rho              = rho
                         , simplify_compute = simplify_compute
-                        , underlyer        = underlyer)
+                        , underlyer        = underlyer )
+
+
+# ao1 = AirOptionFlightsFromDB(datetime.date(2016, 1, 1), 1)
+# print(ao1.PV())

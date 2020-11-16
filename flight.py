@@ -1,6 +1,8 @@
 # flight class for ORM, trade access
 
-from typing import Tuple
+import numpy as np
+
+from typing import Tuple, Optional
 
 from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table, Float, SmallInteger, Enum, create_engine
 from sqlalchemy.orm             import relation, sessionmaker
@@ -134,11 +136,51 @@ class AOParam(AOORM):
 
 
 def create_session(db : str = 'mysql://brumen@localhost/ao'):
+    """ Creates a session to the database:
+    # TODO: CHECK if this is a singleton pattern or not.
 
-    engine = create_engine(db)
-    session = sessionmaker(bind=engine)  # this is a class
+    :param db: database to create a connection to.
+    """
 
-    return session()
+    return sessionmaker(bind=create_engine(db))()
+
+
+DEFAULT_SESSION = create_session()
+
+
+def select_random_flights( nb_flights : int = 10
+                         , db : str = 'mysql://brumen@localhost/ao'
+                         , session = DEFAULT_SESSION ):
+    """ Selects random flights from the database
+
+    """
+
+    rand_flights = set(np.random.randint(1, 1000, nb_flights))  # remove duplicates
+
+    return session.query(Flight).filter(Flight.flight_id.in_(rand_flights)).all()  # all flights
+
+
+def insert_random_flights(nb_positions : int = 10
+                         , nb_flights  : Optional[int] = 10
+                         , db          : str = 'mysql://brumen@localhost/ao'
+                         , session = DEFAULT_SESSION
+                         , start_pos_id : Optional[int] = None ):
+    """ Inserts number of positions in the database.
+
+    :param nb_positions: number of positions to be inserted in the database.
+    :param nb_flights: each position has this number of flights considered.
+    :param db: database where positions are inserted.
+    """
+
+    # flights = select_random_flights(nb_flights=nb_flights, db=db)
+
+    # insert flights:
+    trades = [ AOTrade(flights=select_random_flights(nb_flights=nb_flights), strike=200., nb_adults = 1, cabinclass='Economy', position_id=pos_id)
+        for pos_id in range(start_pos_id, start_pos_id + nb_positions) ]
+    for trade in trades:
+        session.add(trade)
+    session.commit()
+
 
 # examples:
 # res1 = sess.query(Flight)
