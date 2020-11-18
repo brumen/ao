@@ -163,8 +163,7 @@ def select_random_flights( nb_flights : int = 10
 def insert_random_flights(nb_positions : int = 10
                          , nb_flights  : Optional[int] = 10
                          , db          : str = 'mysql://brumen@localhost/ao'
-                         , session = DEFAULT_SESSION
-                         , start_pos_id : Optional[int] = None ):
+                         , session = DEFAULT_SESSION ):
     """ Inserts number of positions in the database.
 
     :param nb_positions: number of positions to be inserted in the database.
@@ -172,7 +171,7 @@ def insert_random_flights(nb_positions : int = 10
     :param db: database where positions are inserted.
     """
 
-    # flights = select_random_flights(nb_flights=nb_flights, db=db)
+    start_pos_id = session.query(AOTrade).count() + 1
 
     # insert flights:
     trades = [ AOTrade(flights=select_random_flights(nb_flights=nb_flights), strike=200., nb_adults = 1, cabinclass='Economy', position_id=pos_id)

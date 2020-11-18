@@ -673,7 +673,7 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
                 , rho              : float = 0.95
                 , simplify_compute : str   = 'take_last_only'
                 , underlyer        : str   = 'n'
-                , database         : Optional[str] = None):  # 'mysql://brumen@localhost/ao' ):
+                , session         : Optional[str] = None):  # 'mysql://brumen@localhost/ao' ):
         """ Computes the air option from the database.
 
         :param mkt_date: market date
@@ -682,13 +682,13 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
                                  options are: "take_last_only", "all_sim_dates"
         :param underlyer: underlying model to use.
-        :param database: database from where the AOTrade is fetched.
+        :param session: session used for the fetching of trades database from where the AOTrade is fetched.
         """
 
         # database session
-        session = DEFAULT_SESSION if database is None else sessionmaker(bind=create_engine(database))()
+        session_used = DEFAULT_SESSION if session is None else session  # sessionmaker(bind=create_engine(database))()
 
-        ao_trade = session.query(AOTrade)\
+        ao_trade = session_used.query(AOTrade)\
                           .filter_by(position_id=ao_trade_id)\
                           .first()  # AOFlight object
 
