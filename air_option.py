@@ -4,10 +4,7 @@ import numpy as np
 import logging
 import functools
 
-from typing import List, Tuple, Union, Dict, Optional, Optional
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from typing import List, Tuple, Union, Dict, Optional
 
 from ao.mc          import mc_mult_steps, mc_mult_steps_ret
 from ao.ds          import construct_date_range
@@ -17,7 +14,9 @@ from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.ao_params   import get_drift_vol_from_db
 from ao.flight      import AOTrade, DEFAULT_SESSION, Flight
 
+logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
+logger.setLevel('INFO')
 
 
 class AirOptionFlights:
@@ -386,7 +385,7 @@ class AirOptionFlights:
                                         , underlyer = underlyer
                                         , keep_all_sims = keep_all_sims)
 
-        logger.info('Actual option value: {0}'.format(opt_val_final))
+        logger.debug('Actual option value: {0}'.format(opt_val_final))
 
         # markups to the option value
         F_v = self._F_v
@@ -661,6 +660,10 @@ class AirOptionFlightsExplicit(AirOptionFlights):
                         , underlyer        = underlyer )
 
 
+class AOTradeException(Exception):
+    pass
+
+
 class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
     """ Class to fetch the trade from the database.
 
@@ -686,11 +689,14 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
         """
 
         # database session
-        session_used = DEFAULT_SESSION if session is None else session  # sessionmaker(bind=create_engine(database))()
+        session_used = DEFAULT_SESSION if session is None else session
 
         ao_trade = session_used.query(AOTrade)\
                           .filter_by(position_id=ao_trade_id)\
                           .first()  # AOFlight object
+
+        if ao_trade is None:
+            raise AOTradeException(f'Trade number {ao_trade_id} could not be found.')
 
         super().__init__( mkt_date
                         , ao_trade.flights
