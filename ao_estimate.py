@@ -14,7 +14,10 @@ from ao.ao_db               import run_db_mysql
 from ao.ao_codes            import LARGE_DRIFT
 from ao.mysql_connector_env import MysqlConnectorEnv
 
+from ao.flight import Flight, create_session
 
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -184,29 +187,12 @@ def compute_partial_drift_vol( date_l  : List[datetime.date]
 
     drift_over_sqdate = price_diff/np.sqrt(date_diff)
 
-    return  len(price_l)\
-          , np.sum(price_diff/date_diff)\
-          , np.sum(drift_over_sqdate**2)\
-          , np.sum(drift_over_sqdate)\
-          , np.sum(price_l)
-
-
-# def insert_into_db_function(PARAMS):
-#
-#     # TODO: TO FINISH
-#
-#     if insert_into_db and (drift_len != 0):  # insert only if there is anything to insert
-#         with MysqlConnectorEnv(host='localhost') as conn:
-#             conn.cursor().executemany(
-#                 """INSERT INTO params (as_of, orig, dest, carrier, drift, vol avg_price, reg_id)
-#                    VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
-#                 , (as_of_date, orig, dest, carrier, drift, vol, avg_price, REG_ID))  # TODO: MISSING HERE
-#             conn.commit()
-#
-#         with sqlite3.connect(SQLITE_FILE) as conn_ao:
-#             conn_ao.execute("INSERT INTO params VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}, '{9}', '{10}')"\
-#                             .format(as_of_date, orig, dest, '1', carrier, drift, vol, avg_price, dep_season, dep_hour, dep_day))
-#             conn_ao.commit()
+    return ( len(price_l)
+           , np.sum(price_diff/date_diff)
+           , np.sum(drift_over_sqdate**2)
+           , np.sum(drift_over_sqdate)
+           , np.sum(price_l)
+           , )
 
 
 def all_vols_by_airline( carrier : str
@@ -223,10 +209,14 @@ def all_vols_by_airline( carrier : str
     :param correct_drift_vol: indicator whether to correct drift/volatility w/ large/small values.
     """
 
-    logger.info('Computing vols for carrier {0}'.format(carrier))
+    flight_session = create_session()
+    logger.info(f'Computing vols for carrier {carrier}')
+
     result_dict = {}
-    for orig, dest in run_db_mysql("SELECT DISTINCT orig, dest FROM flights WHERE carrier = '{0}'".format(carrier) ):  # select a subset of only those
+    for flight in flight_session.query(Flight).filter(Flight.carrier == carrier).all():
         try:
+            orig = flight.orig
+            dest = flight.dest
             result_dict[(orig, dest)] = flight_vol( orig
                                                   , dest
                                                   , carrier
@@ -236,7 +226,7 @@ def all_vols_by_airline( carrier : str
                                                   , correct_drift_vol = correct_drift_vol)
 
         except EmptyFlights:  # if fails return empty
-            logger.info('No flights between {0} and {1} for carrier {2}'.format(orig, dest, carrier))
+            logger.info(f'No flights between {orig} and {dest} for carrier {carrier}')
 
         except Exception as e:
             raise e
@@ -264,73 +254,30 @@ def all_vols( insert_into_db    = False
             for carrier, _ in run_db_mysql("SELECT DISTINCT iata_code FROM iata_codes") }
 
 
-def flight_corr( orig_l     : List[str]
-               , dest_l     : List[str]
-               , carrier_l  : List[str]
-               , dep_date_l : List[datetime.date]
-               , dcf        = 365.25
-               , host       = 'localhost'):
+def flight_corr( origins   : List[str]
+               , dests     : List[str]
+               , carriers  : List[str]
+               , dep_dates : List[datetime.date]
+               , dcf        = 365.25 ):
     """ Compute the correlation between flights in the list
 
-    :param orig_l: origin list of IATA airports, ['EWR'...]
-    :param dest_l: destination list of IATA airports ['SFO', ...]
-    :param carrier_l: list of carrier airlines (IATA codes) ['UA', 'B6'...]
-    :param host: host where the mysql server is located.
+    :param origins: origin list of IATA airports, ['EWR'...]
+    :param dests: destination list of IATA airports ['SFO', ...]
+    :param carriers: list of carrier airlines (IATA codes) ['UA', 'B6'...]
+    :param dep_dates: list of departure dates to consider
+    :param dcf: day_count factor.
     :returns:
     """
 
-    nb_flights = len(orig_l)  # they should all be the same     
-    df = dict()
-    
-    for flight_nb, orig, dest, carrier, dep_date in zip(range(nb_flights),
-                                                        orig_l, dest_l, carrier_l, dep_date_l):
-        direct_flights_morning = """
-        SELECT * 
-        FROM flights 
-        WHERE orig = {0} AND dest = {1} AND carrier = '{2}' 
-              AND dep_date = '{3}' AND direct_flight = 1
-        """.format(orig, dest, carrier, dep_date)
+    session = create_session()
 
-        with MysqlConnectorEnv(host=host) as conn_ao:
-            df[flight_nb] = pd.read_sql_query( direct_flights_morning
-                                             , conn_ao
-                                             , parse_dates = { 'as_of'   : '%Y-%m-%d'
-                                                             , 'dep_date': '%Y-%m-%dT%H:%M:%S'
-                                                             , 'arr_date': '%Y-%m-%dT%H:%M:%S' })
+    flights = session.query(Flight).filter( Flight.orig.in_(origins)
+                                          , Flight.dest.in_(dests)
+                                          , Flight.carrier.int_(carriers)
+                                          , Flight.dep_date.in_(dep_dates)).all()
 
-        # THIS BELOW CAN BE WRITTEN IN A VECTOR FORM - CORRECT CORRECT CORRECT 
-        nb_flights = len(df)
-        # construct the dates
-        price_diff = np.empty(nb_flights-1)
-        date_diff  = np.empty(nb_flights-1)
-        
-        for flight_nb in range(1, nb_flights):
-            price_diff[flight_nb-1] = df['price'][flight_nb] - df['price'][flight_nb-1]
-            date_diff[flight_nb-1] = (df['as_of'][flight_nb] - df['as_of'][flight_nb-1]).days / dcf
+    prices = np.array([flight.price for flight in flights ])
+    as_ofs = np.array([flight.as_of for flight in flights ])
 
-            drift = np.mean(price_diff/date_diff)
-            vol = np.std(price_diff/date_diff)
-
-
-def find_flight_ids( orig     : str
-                   , dest     : str
-                   , carrier  : str
-                   , min_nb_obs = 0
-                   , host       = 'localhost' ) -> pd.DataFrame :
-    """ Returns the flight ids for a flight from orig to dest on carrier.
-
-    :param orig:       IATA code of the origin airport (like 'SFO')
-    :param dest:       IATA code of the destination airport (like 'EWR')
-    :param carrier:    IATA code of the airline (like 'UA')
-    :param min_nb_obs: minimum number of observations, include only those
-    :returns:          flight_ids for the conditions specified
-    """
-
-    flight_ids_str = "SELECT flight_id FROM flight_ids WHERE orig = '{0}' AND dest='{1}' AND carrier = '{2}'".format(orig, dest, carrier)
-
-    # THIS BELOW IS NOT WORKING 
-    if min_nb_obs > 0:
-        flight_ids_str += " AND COUNT(flight_id) > {0}".format(min_nb_obs)
-
-    with MysqlConnectorEnv(host=host) as mysql_conn:
-        return pd.read_sql_query( flight_ids_str, mysql_conn)
+    # TODO: Compute correlation
+    return 0.5
