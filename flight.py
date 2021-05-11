@@ -98,7 +98,7 @@ class AOTrade(AOORM):
     outbound_date_end     = Column(DateTime)
     inbound_date_start    = Column(DateTime)
     inbound_date_end      = Column(DateTime)
-    strike                = Column(DateTime)
+    strike                = Column(Float)
     carrier               = Column(String)
     nb_adults             = Column(Integer)
     cabinclass            = Column(String)
@@ -173,9 +173,13 @@ def insert_random_flights(nb_positions : int = 10
 
     start_pos_id = session.query(AOTrade).count() + 1
 
-    # insert flights:
-    trades = [ AOTrade(flights=select_random_flights(nb_flights=nb_flights), strike=200., nb_adults = 1, cabinclass='Economy', position_id=pos_id)
-        for pos_id in range(start_pos_id, start_pos_id + nb_positions) ]
+    trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights, db = db)
+                      , strike      = 200.
+                      , nb_adults   = 1
+                      , cabinclass  = 'Economy'
+                      , position_id = pos_id )
+               for pos_id in range(start_pos_id, start_pos_id + nb_positions) ]
+
     for trade in trades:
         session.add(trade)
     session.commit()

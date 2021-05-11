@@ -20,14 +20,13 @@ def integrate_vol_drift( sd_fct  : Callable[[float], float]
     :param drift_vol_ind: indicator whether we are integrating drift or volatility ('vol' or 'drift')
     """
 
+    integr_fct = lambda x: sd_fct(ttm-(x-T_start))
+
     if drift_vol_ind == 'vol':  # vol integration
-        return np.sqrt(quad( lambda x: sd_fct(ttm-(x-T_start))**2
-                           , T_start
-                           , T_end)[0] / (T_end - T_start))
+        return np.sqrt(quad( lambda x: integr_fct(x)**2, T_start, T_end)[0] / (T_end - T_start))
+
     # drift integration
-    return quad( lambda x: sd_fct(ttm-(x-T_start))
-               , T_start
-               , T_end)[0] / (T_end - T_start)
+    return quad( integr_fct, T_start, T_end)[0] / (T_end - T_start)
 
 
 def ln_step( F_sim_prev : np.array
@@ -126,7 +125,7 @@ def mc_mult_steps( F_v     : [List, np.array]
     :param T_v_exp: expiry of the forward contracts, maturity of aiplane tickets
     :param nb_sim: number of simulations
     :param model: model used for simulation, 'ln' for log-normal, or 'n' for normal
-    :param F_ret: a sumulated list of return values - size (nb_sim, 1)
+    :param F_ret: a simulated list of return values - size (nb_sim, 1)
     :param keep_all_sims: keeps all simulations for each sim_times
     :returns: matrix of simulation values in the shape [simulation, fwd] if keep_all_sims = False,
               or dictionary, where keys are simulation times and values are simulations for those times.
@@ -215,7 +214,6 @@ def mc_mult_steps_ret( F_v     : Tuple[np.array, np.array]
     :param nb_sim: number of sims
     :param T_v_exp: expiry of forward contracts, expiry in numerical terms.
     :param model: model 'ln' or 'n' for normal
-    :param cuda_ind: whether cuda or cpu is used (cuda = True, not cuda = False)
     :param keep_all_sims: whether to keep the simulations
     :returns: matrix [time_step, simulation, fwd] or ticket prices
     """
