@@ -12,7 +12,7 @@ from ao.vols.vols   import corr_hyp_sec_mat
 from ao.air_flights import get_flight_data
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.ao_params   import get_drift_vol_from_db
-from ao.flight      import AOTrade, DEFAULT_SESSION, Flight
+from ao.flight      import AOTrade, Flight, create_session
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
@@ -649,15 +649,32 @@ class AirOptionFlightsExplicit(AirOptionFlights):
         :param underlyer: underlying model to use.
         """
 
-        # database session
-        # TODO: FIX THE VALUE PART
         super().__init__( mkt_date
-                        , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
-                            for ao_flight in ao_flights ]
+                        , [self.extract_prices(ao_flight) for ao_flight in ao_flights]
                         , K                = strike
                         , rho              = rho
                         , simplify_compute = simplify_compute
                         , underlyer        = underlyer )
+
+        # This used to be before for flights_prices
+        # , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
+        #    for ao_flight in ao_flights ]
+
+    @staticmethod
+    def extract_prices(ao_flight : Flight) -> Tuple[float, datetime.date, str]:
+        """ Gets the prices and other data from the flight.
+
+        :param ao_flight: flight information that you want info from.
+        :returns: triple of price, datetime.date and flight id.
+        """
+
+        found_prices = ao_flight.prices  # prices found in the database
+        if not found_prices:  # no prices found
+            flight_price = 200.  # TODO: Some random price for now
+        else:
+            flight_price = found_prices[-1].price  # find the last price
+
+        return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
 
 
 class AOTradeException(Exception):
@@ -676,7 +693,7 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
                 , rho              : float = 0.95
                 , simplify_compute : str   = 'take_last_only'
                 , underlyer        : str   = 'n'
-                , session         : Optional[str] = None):  # 'mysql://brumen@localhost/ao' ):
+                , session         : Optional[str] = None):
         """ Computes the air option from the database.
 
         :param mkt_date: market date
@@ -689,7 +706,7 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
         """
 
         # database session
-        session_used = DEFAULT_SESSION if session is None else session
+        session_used = create_session() if session is None else session
 
         ao_trade = session_used.query(AOTrade)\
                           .filter_by(position_id=ao_trade_id)\

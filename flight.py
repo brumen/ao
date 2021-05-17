@@ -1,16 +1,36 @@
 # flight class for ORM, trade access
 
+import datetime
+
 import numpy as np
 
 from typing import Tuple, Optional
 
 from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table, Float, SmallInteger, Enum, create_engine
-from sqlalchemy.orm             import relation, sessionmaker
+from sqlalchemy.orm             import relation, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 from ao.ao_params import correct_drift_vol
 
 AOORM = declarative_base()  # common base class
+
+
+class Prices(AOORM):
+    """ Description of the price for the flight.
+
+    as_of: date for which this price entry was entered.
+    reg_id: region id (for model computing purposes)
+    flight_id: identifier of the flight in the db.
+    prices_entry_id: primary key
+    """
+
+    __tablename__ = 'flights_ord'
+
+    prices_entry_id = Column(BigInteger, primary_key=True)
+    as_of           = Column(DateTime)
+    price           = Column(Float)
+    reg_id          = Column(Integer)
+    flight_id       = Column(BigInteger, ForeignKey('flight_ids.flight_id'))
 
 
 class Flight(AOORM):
@@ -34,16 +54,9 @@ class Flight(AOORM):
     arr_date       = Column(DateTime)
     carrier        = Column(String)
 
-    @classmethod
-    def from_skyscanner(cls, ss_entry):
-        """ Constructs the object from skyscanner entry.
-        """
+    prices = relationship('Prices')
 
-        # TODO: correct here
-        return cls( flight_id_long = ss_entry['flight_id_long']
-                  , orig           = ss_entry['Itinerary']['origin']
-                  , dest           = ss_entry['Itinerary']['destingation'] )
-
+    # TODO: REWRITE THE WHOLE THING HERE
     def drift_vol( self
                  , default_drift_vol : Tuple[float, float] = (500., 501.)
                  , fwd_value                               = None ) -> Tuple[float, float]:
@@ -145,25 +158,18 @@ def create_session(db : str = 'mysql://brumen@localhost/ao'):
     return sessionmaker(bind=create_engine(db))()
 
 
-DEFAULT_SESSION = create_session()
-
-
-def select_random_flights( nb_flights : int = 10
-                         , db : str = 'mysql://brumen@localhost/ao'
-                         , session = DEFAULT_SESSION ):
+def select_random_flights( nb_flights : int = 10, db_session = None ):
     """ Selects random flights from the database
 
     """
 
+    session = db_session if db_session is not None else create_session()
     rand_flights = set(np.random.randint(1, 1000, nb_flights))  # remove duplicates
 
     return session.query(Flight).filter(Flight.flight_id.in_(rand_flights)).all()  # all flights
 
 
-def insert_random_flights(nb_positions : int = 10
-                         , nb_flights  : Optional[int] = 10
-                         , db          : str = 'mysql://brumen@localhost/ao'
-                         , session = DEFAULT_SESSION ):
+def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 10, strike : float = 200. ):
     """ Inserts number of positions in the database.
 
     :param nb_positions: number of positions to be inserted in the database.
@@ -171,10 +177,12 @@ def insert_random_flights(nb_positions : int = 10
     :param db: database where positions are inserted.
     """
 
+    session = create_session()
+
     start_pos_id = session.query(AOTrade).count() + 1
 
-    trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights, db = db)
-                      , strike      = 200.
+    trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights, db_session=session)
+                      , strike      = strike
                       , nb_adults   = 1
                       , cabinclass  = 'Economy'
                       , position_id = pos_id )
