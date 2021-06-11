@@ -8,8 +8,8 @@ import ao.ds          as ds
 import ao.air_option  as airo
 import ao.ao_estimate as airoe
 
-
-from ao.air_option import AirOptionFlights, AirOptionMock, AirOptionSkyScanner, AirOptionsFlightsExplicitSky
+from ao.air_option        import AirOptionFlights
+from ao.air_option_derive import AirOptionMock, AirOptionSkyScanner, AirOptionsFlightsExplicitSky
 
 
 class TestAirOptionFlights(TestCase):
