@@ -163,7 +163,7 @@ def mc_mult_steps( F_v     : [List, np.array]
             if not keep_all_sims:
                 F_sim = np.maximum(F_sim_next, F_sim)
             else:
-                yield (T_curr, np.maximum(F_sim_next, F_prev))
+                yield T_curr, np.maximum(F_sim_next, F_prev)
                 F_prev = F_sim_next
 
         else:  # return flights
@@ -172,11 +172,11 @@ def mc_mult_steps( F_v     : [List, np.array]
             if not keep_all_sims:
                 F_sim = np.maximum(F_sim_next_ret, F_sim)
             else:
-                yield (T_curr, np.maximum(F_sim_next_ret, F_prev))
+                yield T_curr, np.maximum(F_sim_next_ret, F_prev)
                 F_prev = F_sim_next_ret
 
     if not keep_all_sims:
-        yield (T_curr, F_sim)  # last value in T_curr
+        yield T_curr, F_sim  # last value in T_curr
 
 
 def add_zero_to_Tl(T_list : List[float]) -> np.array:

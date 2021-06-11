@@ -9,7 +9,7 @@ import ao.air_option  as airo
 import ao.ao_estimate as airoe
 
 
-from ao.air_option import AirOptionFlights, AirOptionMock, AirOptionSkyScanner
+from ao.air_option import AirOptionFlights, AirOptionMock, AirOptionSkyScanner, AirOptionsFlightsExplicitSky
 
 
 class TestAirOptionFlights(TestCase):
@@ -81,6 +81,21 @@ class TestAirOptionSkyscanner(TestCase):
                                    , carrier='UA' )
 
         self.assertGreater(ao_ss.PV(), 0.)
+
+
+class TestAirOptionsFlightsExplicitSky(TestCase):
+    def test_1(self):
+        ao_ss = AirOptionsFlightsExplicitSky( datetime.date(2016, 9, 25)
+                                   , origin = 'SFO'
+                                   , dest   = 'EWR'
+                                   , outbound_date_start = datetime.date(2016, 10, 1)
+                                   , outbound_date_end   = datetime.date(2016, 10, 4)
+                                   , K                   = 100.
+                                   , carrier='UA' )
+
+        pv = ao_ss.PV()
+
+        self.assertGreater(pv, 0.)
 
 
 class TestAirOptionMock(TestCase):

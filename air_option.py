@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
 
 
+class AOTradeException(Exception):
+    pass
+
+
 class AirOptionFlights:
     """ Handles the air option for a particular set of flights.
     """
@@ -656,10 +660,6 @@ class AirOptionFlightsExplicit(AirOptionFlights):
                         , simplify_compute = simplify_compute
                         , underlyer        = underlyer )
 
-        # This used to be before for flights_prices
-        # , [ (np.random.normal(200., 20., 1)[0], ao_flight.dep_date.date(), ao_flight.flight_id_long)
-        #    for ao_flight in ao_flights ]
-
     @staticmethod
     def extract_prices(ao_flight : Flight) -> Tuple[float, datetime.date, str]:
         """ Gets the prices and other data from the flight.
@@ -677,8 +677,74 @@ class AirOptionFlightsExplicit(AirOptionFlights):
         return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
 
 
-class AOTradeException(Exception):
-    pass
+class AirOptionsFlightsExplicitSky(AirOptionFlightsExplicit):
+    """ Computes the air option from the data in the database, in particular
+    flights between outbound_start and outbound_end, for the particular origin and destination.
+    """
+
+    def __init__( self
+                , mkt_date  : datetime.date
+                , origin    : str = 'SFO'
+                , dest      : str = 'EWR'
+                # next 4 - when do the (changed) flights occur
+                , outbound_date_start : Optional[datetime.date] = None
+                , outbound_date_end   : Optional[datetime.date] = None
+                , inbound_date_start  : Optional[datetime.date] = None
+                , inbound_date_end    : Optional[datetime.date] = None
+                , K                   : float = 1600.
+                , carrier             : str   = 'UA'
+                , rho                 : float = 0.95
+                , adults              : int   = 1
+                , cabinclass          : str   = 'Economy'
+                , simplify_compute    : str   = 'take_last_only'
+                , underlyer           : str   = 'n'
+                , return_flight       : bool  = False
+                , recompute_ind       : bool  = False
+                , correct_drift       : bool  = True
+                , db_host             : str   = 'localhost' ):
+        """
+        :param origin: IATA code of the origin airport ('SFO')
+        :param dest: IATA code of the destination airport ('EWR')
+        :param outbound_date_start: start date for outbound flights to change to
+        :param outbound_date_end: end date for outbound flights to change to
+        :param inbound_date_start: start date for inbound flights to change to
+        :param inbound_date_end: end date for inbound flights to change to
+        :param K: option strike
+        :param carrier: IATA code of the carrier
+        :param rho: correlation between flights parameter
+        :param adults: nb. of people on this ticket
+        :param cabinclass: class of flight ticket
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :param db_host: database host, where the market & flight data is located.
+        """
+
+        super().__init__( mkt_date
+                        , self._get_flights(origin, dest, outbound_date_start, outbound_date_end, carrier)  # List[Flight]
+                        , K
+                        , rho
+                        , simplify_compute = simplify_compute
+                        , underlyer = underlyer)
+
+    @staticmethod
+    def _get_flights( origin              : str
+                    , dest                : str
+                    , outbound_date_start : datetime.date
+                    , outbound_date_end   : datetime.date
+                    , carrier             : str
+                    , cabinclass          : str = 'economy'
+                    , adults              : int = 1) -> List[Flight]:
+        """ Get flights corresponding to the data that exist in the db.
+
+        :param origin:
+        """
+
+        session = create_session()
+
+        return session.query(Flight)\
+                      .filter_by(orig=origin, dest=dest, carrier=carrier)\
+                      .filter(Flight.dep_date.between(outbound_date_start, outbound_date_end))\
+                      .all()
 
 
 class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
@@ -723,5 +789,9 @@ class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
                         , underlyer        = underlyer )
 
 
-# ao1 = AirOptionFlightsFromDB(datetime.date(2016, 1, 1), 1)
-# print(ao1.PV())
+def main():
+    """ Example usage of some of the functions.
+    """
+
+    ao1 = AirOptionFlightsFromDB(datetime.date(2016, 1, 1), 1)
+    print(ao1.PV())
