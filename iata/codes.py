@@ -1,64 +1,71 @@
 # To handle IATA retrival from the database
 
-from mysql_connector_env import MysqlConnectorEnv
+from typing import List
+
+from sqlalchemy                 import Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+
+from ao.flight import create_session
+
+AOORM = declarative_base()  # common base class
 
 
-def get_airline_code( airline_name : str
-                    , host         = 'localhost' ):
-    """ Returns all the airline codes associated w/ airline
-
-    :param airline: partial airline name, can be Adria, or ria.
-    :param host: computer host where the database is.
+class IATACodes(AOORM):
+    """ Iata codes for airline names.
     """
 
-    with MysqlConnectorEnv(host=host) as connection:
-        iata_c = connection.cursor()
-        iata_c.execute("SELECT iata_code FROM iata_codes WHERE airline_name LIKE '%{0}%'".format(airline_name))
+    __tablename__ = 'iata_codes'
 
-        all_codes = iata_c.fetchall()
-        if not all_codes:  # all_codes is None
-            return None
-
-        return [airline_code[0] for airline_code in all_codes]
+    airline_name     = Column(String, primary_key=True)
+    iata_code        = Column(String)
+    three_digit_code = Column(Integer)
+    icao             = Column(String)
+    country          = Column(String)
 
 
-def get_airline_name( iata_code : str
-                    , host      = 'localhost'):
+class IATACity(AOORM):
+    """ Iata codes for airport name
+    """
 
-    with MysqlConnectorEnv(host=host) as connection:
-        iata_c = connection.cursor()
-        iata_c.execute("SELECT airline_name FROM iata_codes WHERE iata_code LIKE '%{0}%'".format(iata_code))
+    __tablename__ = 'iata_cities'
 
-        all_airline_codes = iata_c.fetchall()
-        if not all_airline_codes:
-            return None
-
-        return [airline_name[0] for airline_name in all_airline_codes]
+    city_code  = Column(String, primary_key=True)
+    city_state = Column(String)
+    city_name  = Column(String)
 
 
-def get_city_code(city_name : str
-                 , host     = 'localhost' ):
+def get_airline_code( airline_name : str, session=None ) -> List[str]:
+    """ Returns all the airline codes associated w/ airline
 
-    with MysqlConnectorEnv(host=host) as connection:
-        iata_c = connection.cursor()
-        iata_c.execute("SELECT city_code FROM iata_cities WHERE city_name LIKE '%{0}%'".format(city_name))
+    :param airline_name: partial airline name, can be Adria, or ria.
+    :param session: computer host where the database is.
+    """
 
-        all_city_codes = iata_c.fetchall()
-        if not all_city_codes:
-            return None
+    session_used = session if session else create_session()
 
-        return [city_code[0] for city_code in all_city_codes]
+    return [x.iata_code
+            for x in session_used.query(IATACodes).filter(IATACodes.airline_name.like(f'%{airline_name}%')).all()]
 
 
-def get_city_name( city_code : str
-                 , host      = 'localhost' ):
+def get_airline_name( iata_code : str, session = None):
 
-    with MysqlConnectorEnv(host=host) as connection:
-        iata_c = connection.cursor()
-        iata_c.execute("SELECT city_name FROM iata_cities WHERE city_code LIKE '%{0}%'".format(city_code))
+    session_used = session if session else create_session()
 
-        all_city_names = iata_c.fetchall()
-        if not all_city_names:
-            return None
+    return [x.airline_name
+            for x in session_used.query(IATACodes).filter(IATACodes.iata_code.like(f'%{iata_code}%')).all()]
 
-        return [city_name[0] for city_name in all_city_names]
+
+def get_city_code(city_name : str, session=None ):
+
+    session_used = session if session else create_session()
+
+    return [x.city_code
+            for x in session_used.query(IATACity).filter(IATACity.city_name.like(f'%{city_name}%')).all()]
+
+
+def get_city_name( city_code : str, session=None):
+
+    session_used = session if session else create_session()
+
+    return [x.city_name
+            for x in session_used.query(IATACity).filter(IATACity.city_code.like(f'%{city_code}%')).all()]
