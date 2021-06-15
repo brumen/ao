@@ -9,8 +9,8 @@ from dateutil.parser import parse
 
 from werkzeug.datastructures import ImmutableMultiDict
 
-from air_option import AirOptionMock
-from iata.codes import get_airline_code, get_city_code
+from ao.air_option_derive import AirOptionMock
+from ao.iata.codes import get_airline_code, get_city_code
 
 # logger declaration
 logger = logging.getLogger(__name__)
@@ -26,7 +26,17 @@ def validate_dates(date_ : str) -> Union[datetime.date, None]:
 
     try:
         return parse(date_).date()
-    except Exception:
+
+    except TypeError as te:
+        logger.error(f'{date_} in incorrect type: {str(te)}')
+        return None
+
+    except ValueError as ve:
+        logger.error(f'Could not convert {date_} to date format: {str(ve)}')
+        return None
+
+    except Exception as e:
+        logger.error(f'Unknown exception: {e}')
         return None
 
 
@@ -41,7 +51,17 @@ def validate_strike(strike_i) -> Union[float, None]:
 
     try:
         return float(strike_i)
-    except Exception:
+
+    except ValueError as ve:
+        logger.error(f'Could not convert {strike_i} to float format: {str(ve)}')
+        return None
+
+    except TypeError as te:
+        logger.error(f'Strike {strike_i} is not given in the floating point format: {str(te)}')
+        return None
+
+    except Exception as e:
+        logger.error(f'Unknown exception: {e}')
         return None
 
 
@@ -140,4 +160,4 @@ def compute_option( form : ImmutableMultiDict
 
         # finally compute option
         yield { 'finished': True
-              , 'result'  : ao() }
+              , 'result'  : ao.PV() }

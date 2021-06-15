@@ -4,8 +4,8 @@ import pandas as pd
 
 from typing import List, Union, Tuple
 
-from mysql_connector_env import MysqlConnectorEnv
-from iata.codes          import get_city_code, get_city_name
+from ao.mysql_connector_env import MysqlConnectorEnv
+from ao.iata.codes          import get_city_code, get_city_name
 
 
 def get_airports(airport_partial_name: str) -> Union[Tuple, None]:

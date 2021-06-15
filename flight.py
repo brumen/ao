@@ -179,14 +179,13 @@ def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 
 
     session = create_session()
 
-    start_pos_id = session.query(AOTrade).count() + 1
+    # start_pos_id = session.query(AOTrade).count() + 1
 
     trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights, db_session=session)
                       , strike      = strike
                       , nb_adults   = 1
-                      , cabinclass  = 'Economy'
-                      , position_id = pos_id )
-               for pos_id in range(start_pos_id, start_pos_id + nb_positions) ]
+                      , cabinclass  = 'Economy' )
+               for _ in range(nb_positions) ]
 
     for trade in trades:
         session.add(trade)
@@ -206,3 +205,8 @@ def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 
 #      and op.position_id = tf.trade_id
 #      and tf.flight_id = fid.flight_id
 #      and fo.flight_id = tf.flight_id
+
+
+# deleting trades:
+# trade1 = sess.query(AOTrade).filter_by(position_id=3)
+# sess.delete(trade1)

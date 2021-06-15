@@ -256,6 +256,15 @@ class AirOptionFlights:
         :param cuda_ind: indicator whether to use cuda
         """
 
+        if not self.return_flight:
+            if not self.flights:  # one-way flight
+                return 0.
+
+        else:  # return flights
+            dep_flights, ret_flights = self.flights
+            if (not dep_flights) or (not ret_flights):
+                return 0.
+
         # extract forwards, etc. (sim_times might be overwritten below)
         sim_times = self.__dep_ret_sim_times_num(option_start_date, option_end_date, option_ret_start_date, option_ret_end_date)
 
