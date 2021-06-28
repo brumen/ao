@@ -11,6 +11,8 @@ from sqlalchemy.orm             import relation, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 from ao.ao_params import correct_drift_vol
+from ao.air_option import AirOptionFlights
+
 
 AOORM = declarative_base()  # common base class
 
@@ -118,6 +120,58 @@ class AOTrade(AOORM):
 
     flights = relation('Flight', secondary=t_trades_flights)
 
+    # cached value  TODO: perhaps a better way
+    __aof = None
+
+    def _aof(self, mkt_date : datetime.date) -> AirOptionFlights:
+        """ AirOptionsFlight object extracted from it.
+
+        :return:
+        """
+
+        if self.__aof:
+            return self.__aof
+
+        unpack_flights = []
+        for flight in self.flights:
+            price = flight.prices[-1].price
+            fwd_date = flight.dep_date.date()
+            flight_nb = flight.flight_id
+
+            unpack_flights.append((price, fwd_date, flight_nb))
+
+        self.__aof = AirOptionFlights(mkt_date, flights=unpack_flights, K=self.strike)
+        return self.__aof
+
+    def PV(self, mkt_date : datetime.date) -> float:
+        """ Computes the present value of the AO trade.
+
+        :return:
+        """
+
+        ao = self._aof(mkt_date)
+
+        return ao.PV( option_start_date = self.option_start_date
+                    , option_end_date   = self.option_end_date
+                    , option_ret_start_date = self.option_ret_start_date
+                    , option_ret_end_date   = self.option_ret_end_date
+                    , )
+
+    def PV01(self, mkt_date : datetime.date) -> float:
+        """ Computes the PV01
+
+        :param mkt_date:
+        :return:
+        """
+
+        ao = self._aof(mkt_date)
+
+        return ao.PV01(option_start_date=self.option_start_date
+                       , option_end_date = self.option_end_date
+                       , option_ret_start_date = self.option_ret_start_date
+                       , option_ret_end_date = self.option_ret_end_date
+                       , )
+
 
 class AORegIds(AOORM):
     """ Region Id table reference.
@@ -198,15 +252,10 @@ def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 
 # tr2 = tr1.flights
 # print(tr2)
 
-# typical query which implements AOTrade:
-# select fid.flight_id_long, fo.price
-# from flight_ids fid, option_positions op, trades_flights tf, flights_ord fo
-# where op.origin = 'SFO' and op.dest = 'EWR'
-#      and op.position_id = tf.trade_id
-#      and tf.flight_id = fid.flight_id
-#      and fo.flight_id = tf.flight_id
-
-
 # deleting trades:
-# trade1 = sess.query(AOTrade).filter_by(position_id=3)
+sess = create_session()
+trade1 = sess.query(AOTrade).filter_by(position_id=8)[0]
+print(trade1.PV(datetime.date(2016, 1, 1)))
+print(trade1.PV01(datetime.date(2016, 1, 1)))
+
 # sess.delete(trade1)
