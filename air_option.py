@@ -10,6 +10,7 @@ from ao.mc          import mc_mult_steps, mc_mult_steps_ret
 from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
+from ao.delta_dict  import DeltaDict
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
@@ -317,7 +318,7 @@ class AirOptionFlights:
             , option_ret_end_date   : Optional[datetime.date] = None
             , nb_sim                : int                        = 10000
             , dcf                   : float                      = 365.25
-            , bump_value            : float                      = 0.01 ):
+            , bump_value            : float                      = 0.01 ) -> DeltaDict:
         """ Cached version of PV01 function. All parameters are the same.
 
         All dates in the params are in datetime.date format
@@ -348,12 +349,14 @@ class AirOptionFlights:
                 dep_ret_ind, flight_idx = self.__find_flight_by_number(flight_nb)
                 self.flights[dep_ret_ind][flight_idx] = new_flight_elt
 
-            delta_dict[flight_nb] = self.PV( option_start_date     = option_start_date
-                                           , option_end_date       = option_end_date
-                                           , option_ret_start_date = option_ret_start_date
-                                           , option_ret_end_date   = option_ret_end_date
-                                           , nb_sim                = nb_sim
-                                           , dcf                   = dcf) - pv
+            delta_diff = self.PV( option_start_date     = option_start_date
+                                , option_end_date       = option_end_date
+                                , option_ret_start_date = option_ret_start_date
+                                , option_ret_end_date   = option_ret_end_date
+                                , nb_sim                = nb_sim
+                                , dcf                   = dcf) - pv
+
+            delta_dict[flight_nb] = delta_diff / bump_value
 
             # setting the flight element back, after it was bumped above.
             if not self.return_flight:
@@ -362,7 +365,7 @@ class AirOptionFlights:
                 dep_ret_ind, flight_idx = self.__find_flight_by_number(flight_nb)
                 self.flights[dep_ret_ind][flight_idx] = flight_elt
 
-        return delta_dict
+        return DeltaDict(delta_dict)
 
     def air_option_with_markup(self
                                , sim_times     : Union[np.array, Tuple[np.array, np.array]]

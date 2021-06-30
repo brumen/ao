@@ -12,6 +12,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from ao.ao_params import correct_drift_vol
 from ao.air_option import AirOptionFlights
+from ao.delta_dict import DeltaDict
 
 
 AOORM = declarative_base()  # common base class
@@ -126,7 +127,7 @@ class AOTrade(AOORM):
     def _aof(self, mkt_date : datetime.date) -> AirOptionFlights:
         """ AirOptionsFlight object extracted from it.
 
-        :return:
+        :return: air option flights object from the parameters
         """
 
         if self.__aof:
@@ -146,31 +147,28 @@ class AOTrade(AOORM):
     def PV(self, mkt_date : datetime.date) -> float:
         """ Computes the present value of the AO trade.
 
-        :return:
+        :param mkt_date: market date for the trade
+        :returns: present value of the trade, for a particular market date.
         """
 
-        ao = self._aof(mkt_date)
+        return self._aof(mkt_date).PV( option_start_date     = self.option_start_date.date()
+                                     , option_end_date       = self.option_end_date.date()
+                                     , option_ret_start_date = self.option_ret_start_date.date()
+                                     , option_ret_end_date   = self.option_ret_end_date.date()
+                                     , )
 
-        return ao.PV( option_start_date = self.option_start_date
-                    , option_end_date   = self.option_end_date
-                    , option_ret_start_date = self.option_ret_start_date
-                    , option_ret_end_date   = self.option_ret_end_date
-                    , )
+    def PV01(self, mkt_date : datetime.date) -> DeltaDict[int, float]:
+        """ Computes the PV01 of the trade for a particular market date.
 
-    def PV01(self, mkt_date : datetime.date) -> float:
-        """ Computes the PV01
-
-        :param mkt_date:
-        :return:
+        :param mkt_date: market date for which the delta is computed.
+        :returns: delta of the trade with respect to individual flights in the trade.
         """
 
-        ao = self._aof(mkt_date)
-
-        return ao.PV01(option_start_date=self.option_start_date
-                       , option_end_date = self.option_end_date
-                       , option_ret_start_date = self.option_ret_start_date
-                       , option_ret_end_date = self.option_ret_end_date
-                       , )
+        return self._aof(mkt_date).PV01( option_start_date     = self.option_start_date.date()
+                                       , option_end_date       = self.option_end_date.date()
+                                       , option_ret_start_date = self.option_ret_start_date.date()
+                                       , option_ret_end_date   = self.option_ret_end_date.date()
+                                       , )
 
 
 class AORegIds(AOORM):
@@ -253,9 +251,9 @@ def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 
 # print(tr2)
 
 # deleting trades:
-sess = create_session()
-trade1 = sess.query(AOTrade).filter_by(position_id=8)[0]
-print(trade1.PV(datetime.date(2016, 1, 1)))
-print(trade1.PV01(datetime.date(2016, 1, 1)))
+# sess = create_session()
+# trade1 = sess.query(AOTrade).filter_by(position_id=8)[0]
+# print(trade1.PV(datetime.date(2016, 1, 1)))
+# print(trade1.PV01(datetime.date(2016, 1, 1)))
 
 # sess.delete(trade1)
