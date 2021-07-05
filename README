@@ -1,0 +1,4 @@
+Overview of the AirOptions project:
+
+air_option.py: basic definition of the air option class.
+near_corr.py: the correlation structure of forward commodity contracts.
