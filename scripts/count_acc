@@ -1,4 +1,0 @@
-#! /bin/bash
-
-gawk '
-{ips[$1] += 1;} END { for(x in ips) { print x, "  ", ips[x]; }; }' /var/log/apache2/access.log
