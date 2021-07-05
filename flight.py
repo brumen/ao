@@ -157,11 +157,11 @@ class AOTrade(AOORM):
                                      , option_ret_end_date   = self.option_ret_end_date.date()
                                      , )
 
-    def PV01(self, mkt_date : datetime.date) -> DeltaDict[int, float]:
+    def PV01(self, mkt_date : datetime.date) -> DeltaDict:
         """ Computes the PV01 of the trade for a particular market date.
 
         :param mkt_date: market date for which the delta is computed.
-        :returns: delta of the trade with respect to individual flights in the trade.
+        :returns DeltaDict[int, float]: delta of the trade with respect to individual flights in the trade.
         """
 
         return self._aof(mkt_date).PV01( option_start_date     = self.option_start_date.date()
