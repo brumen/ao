@@ -6,14 +6,25 @@ import numpy as np
 
 from typing import Tuple, Optional
 
-from sqlalchemy                 import Column, Integer, String, DateTime, ForeignKey, BigInteger, Table, Float, SmallInteger, Enum, create_engine
+from sqlalchemy                 import ( Column
+                                       , Integer
+                                       , String
+                                       , DateTime
+                                       , ForeignKey
+                                       , BigInteger
+                                       , Table
+                                       , Float
+                                       , SmallInteger
+                                       , Enum
+                                       , create_engine
+                                       , )
 from sqlalchemy.orm             import relation, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
-from ao.ao_params import correct_drift_vol
-from ao.air_option import AirOptionFlights
-from ao.delta_dict import DeltaDict
-
+from ao.ao_params   import correct_drift_vol
+from ao.air_option  import AirOptionFlights
+from ao.delta_dict  import DeltaDict
+from ao.ao_estimate import drift_vol
 
 AOORM = declarative_base()  # common base class
 
@@ -59,7 +70,6 @@ class Flight(AOORM):
 
     prices = relationship('Prices')
 
-    # TODO: REWRITE THE WHOLE THING HERE
     def drift_vol( self
                  , default_drift_vol : Tuple[float, float] = (500., 501.)
                  , fwd_value                               = None ) -> Tuple[float, float]:
@@ -69,23 +79,18 @@ class Flight(AOORM):
         :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
         """
 
-        # the same as the function get_drift_vol_from_db in ao_params.py
-        session = create_session()
-        drift_vol_params = session.query(AOParam).filter_by(orig=self.orig, dest=self.dest, carrier=self.carrier).all()
-
-        if len(drift_vol_params) == 0:  # nothing in the list
+        if not self.prices:  # prices are empty
             return default_drift_vol
 
-        # at least one entry, check if there are many, select closest by as_of date
-        # entry in form (datetime.datetime, drift, vol, avg_price)
-        closest_date_params = sorted( drift_vol_params
-                                    , key = lambda drift_vol_param: abs((self.dep_date - drift_vol_param.as_of).days))[0]
+        # there are elements in self.prices
+        dates   = [price_entry.as_of for price_entry in self.prices]
+        prices_ = [price_entry.price for price_entry in self.prices]
+        drift, vol, avg_price = drift_vol(dates, prices_)
 
-        return correct_drift_vol( closest_date_params.drift
-                                , closest_date_params.vol
-                                , default_drift_vol
-                                , closest_date_params.avg_price
-                                , fwd_value)
+        if drift <= 0:  # wrong drift
+            return default_drift_vol
+
+        return drift, vol
 
 
 # in between table that links Flight and AOTrade.

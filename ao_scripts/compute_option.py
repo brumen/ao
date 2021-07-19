@@ -10,7 +10,7 @@ from dateutil.parser import parse
 from werkzeug.datastructures import ImmutableMultiDict
 
 from ao.air_option_derive import AirOptionMock
-from ao.iata.codes import get_airline_code, get_city_code
+from ao.iata.codes        import get_airline_code, get_city_code
 
 # logger declaration
 logger = logging.getLogger(__name__)

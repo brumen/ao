@@ -238,7 +238,7 @@ class AirOptionFlights:
           , option_end_date       : Union[None, datetime.date] = None
           , option_ret_start_date : Union[None, datetime.date] = None
           , option_ret_end_date   : Union[None, datetime.date] = None
-          , option_maturities     : Union[None, datetime.date] = None
+          , option_maturities     : Union[None, List[datetime.date]] = None  # TODO: option_maturities type IS NOT RIGHT
           , nb_sim                : int                        = 1000
           , dcf                   : float                      = 365.25
           , cuda_ind              : bool                       = False ):
