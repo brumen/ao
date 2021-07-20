@@ -1,10 +1,9 @@
 # flight class for ORM, trade access
 
 import datetime
-
 import numpy as np
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from sqlalchemy                 import ( Column
                                        , Integer
@@ -21,10 +20,9 @@ from sqlalchemy                 import ( Column
 from sqlalchemy.orm             import relation, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
-from ao.ao_params   import correct_drift_vol
+# from ao.ao_params   import correct_drift_vol
 from ao.air_option  import AirOptionFlights
 from ao.delta_dict  import DeltaDict
-from ao.ao_estimate import drift_vol
 
 AOORM = declarative_base()  # common base class
 
@@ -70,6 +68,38 @@ class Flight(AOORM):
 
     prices = relationship('Prices')
 
+    @staticmethod
+    def _drift_vol( date_l  : List[datetime.date]
+                  , price_l : List[float]
+                  , model   : str   = 'n'
+                  , dcf     : float = 385.25) -> Tuple[float, float, float]:
+        """ Compute the drift and volatility of the normal/lognormal model.
+
+        :param date_l:  list of dates
+        :param price_l: list of prices at those dates
+        :param model:   model selected: 'n' for normal, 'ln' for log-normal
+        :param dcf: day-count factor.
+        :returns: tuple of drift, vol, and average price.
+        """
+
+        date_diff = np.diff(np.array([(x - datetime.datetime.now()).seconds for x in date_l])) / (dcf * 86400)
+
+        price_l_diff = np.diff(np.array(price_l))
+        price_diff = price_l_diff / np.array(price_l[:-1]) if model == 'ln' else price_l_diff
+
+        drift_over_sqdate = price_diff / np.sqrt(date_diff)
+
+        drift_len = len(price_l)
+        drift = np.sum(price_diff / date_diff) / drift_len
+
+        vol_1 = np.sum(drift_over_sqdate ** 2)
+        vol_2 = np.sum(drift_over_sqdate)
+        vol = np.sqrt((vol_1 / drift_len - (vol_2 / drift_len) ** 2))
+
+        avg_price = np.double(np.sum(price_l)) / drift_len
+
+        return drift, vol, avg_price
+
     def drift_vol( self
                  , default_drift_vol : Tuple[float, float] = (500., 501.)
                  , fwd_value                               = None ) -> Tuple[float, float]:
@@ -85,7 +115,7 @@ class Flight(AOORM):
         # there are elements in self.prices
         dates   = [price_entry.as_of for price_entry in self.prices]
         prices_ = [price_entry.price for price_entry in self.prices]
-        drift, vol, avg_price = drift_vol(dates, prices_)
+        drift, vol, avg_price = self._drift_vol(dates, prices_)
 
         if drift <= 0:  # wrong drift
             return default_drift_vol
@@ -226,26 +256,28 @@ def select_random_flights( nb_flights : int = 10, db_session = None ):
     return session.query(Flight).filter(Flight.flight_id.in_(rand_flights)).all()  # all flights
 
 
-def insert_random_flights(nb_positions : int = 10, nb_flights : Optional[int] = 10, strike : float = 200. ):
+def insert_random_trades( nb_trades            : int = 10
+                        , nb_flights_per_trade : Optional[int] = 10
+                        , strike               : float = 200. ):
     """ Inserts number of positions in the database.
 
-    :param nb_positions: number of positions to be inserted in the database.
-    :param nb_flights: each position has this number of flights considered.
-    :param db: database where positions are inserted.
+    :param nb_trades: number of positions to be inserted in the database.
+    :param nb_flights_per_trade: number of flights to be used for each trade position.
+    :param strike: strike of the trade to be inserted.
+    :returns: nothing, just inserts the number of trades
     """
 
     session = create_session()
 
-    # start_pos_id = session.query(AOTrade).count() + 1
-
-    trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights, db_session=session)
+    trades = [ AOTrade( flights     = select_random_flights(nb_flights=nb_flights_per_trade, db_session=session)
                       , strike      = strike
                       , nb_adults   = 1
                       , cabinclass  = 'Economy' )
-               for _ in range(nb_positions) ]
+               for _ in range(nb_trades) ]
 
     for trade in trades:
         session.add(trade)
+
     session.commit()
 
 

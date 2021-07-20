@@ -10,9 +10,9 @@ from typing import List, Tuple, Optional
 import ao.ao_codes as ao_codes
 import ao.ds       as ds
 
-from ao.air_search import get_itins
+from ao.air_search          import get_itins
 from ao.mysql_connector_env import MysqlConnectorEnv
-
+from ao.flight              import Flight, create_session, Prices
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,48 @@ def find_location(loc_id : int, flights : List) -> str:
     return [place['Code'] for place in flights['Places'] if place['Id'] == loc_id][0]
 
 
+def create_flight( as_of : datetime.date
+                 , orig  : str
+                 , dest  : str
+                 , dep_date : datetime.date
+                 , arr_date : datetime.date
+                 , carrier  : str
+                 , price    : float
+                 , outbound_leg_id : int
+                 , flight_nb       : str ) -> Flight:
+    """ Creates a flight from the parameters given.
+
+    :param as_of: as-of date
+    :param orig: originating airport
+    :param dest: destination airport.
+    :param dep_date: departure date
+    :param arr_date: arrival date
+    :param carrier: carrier airline, like 'UA'
+    TODO:
+    """
+
+    # first check if flight already exists in the database
+    session = create_session()
+
+    flights = session.query(Flight).filter_by(orig=orig, dest=dest, dep_date=dep_date, arr_date=arr_date, carrier=carrier).all()
+
+    if flights:  # flights exist, just add prices
+
+        # there should be only 1 flight
+        assert len(flights) == 1, \
+            f'Multiple flights corresponding to the same search params {orig}, {dest}, {dep_date}, {arr_date}, {carrier}.'
+
+        flight = flights[0]
+
+    else:
+        flight = Flight(orig=orig, dest=dest, dep_date=dep_date, arr_date=arr_date, flight_id_long=outbound_leg_id)  # TODO: CHECK THESE STUFF
+
+    price_o = Prices(as_of=as_of, price=price, reg_id=TODO, flight_id = flight.flight_id)  # TODO: CHECK HERE
+    flight.prices.append(price_o)
+
+    session.commit()
+
+
 def accumulate_flights( origin          : str
                       , dest            : str
                       , outbound_date   : datetime.date
@@ -163,7 +205,7 @@ def accumulate_flights( origin          : str
             # find origin and destination of all legs, and add those
             for indiv_flights in flight_numbers:
                 # find this flight in segms
-                logger.debug('Considering flight ', indiv_flights)
+                logger.info(f'Considering flight {indiv_flights}')
                 carrier_id_2 = indiv_flights['CarrierId'   ]
                 flight_nb_2  = indiv_flights['FlightNumber']
                 for seg_2 in segments:
@@ -177,7 +219,7 @@ def accumulate_flights( origin          : str
                             break
                         else:
                             # TODO: this combination might exist in the database already
-                            logger.debug('Inserting flight from {0} to {1} on {2}'.format(leg_orig_2, leg_dest_2, dep_date_2))
+                            logger.debug(f'Inserting flight from {leg_orig_2} to {leg_dest_2} on {dep_date_2}')
 
                             acc_flight_l.extend(accumulate_flights( leg_orig_2
                                                                   , leg_dest_2
@@ -188,30 +230,6 @@ def accumulate_flights( origin          : str
                                                                   , depth_max       = depth_max ) )
 
     return acc_flight_l
-
-
-def commit_flights_to_live(flights_l : List):
-    """
-    Inserts flights_l into live table.
-
-    :param flights_l: list of (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id)
-                      types of these are:
-
-    :returns: None
-    """
-
-    with MysqlConnectorEnv() as conn:  # odroid db.
-        conn.cursor().executemany(
-            """INSERT INTO flights_live(as_of, orig, dest, price, flight_id, dep_date, dep_time,
-                                        arr_date, carrier, flight_nb, cabin_class)
-               VALUES( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )"""
-                                 , [( as_of, orig, dest, price, outbound_leg_id,
-                                      dep_date.split('T')[0]
-                                    , dep_date.split('T')[1]
-                                    , arr_date, carrier, flight_nb, 'economy')
-                                    for (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, flight_nb)
-                                    in flights_l ] )
-        conn.commit()
 
 
 def commit_flights_to_db( flights_l : List[Tuple[datetime.date, str, str, datetime.date, datetime.date, str, float, str]]

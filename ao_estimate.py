@@ -5,14 +5,14 @@ import logging
 import datetime
 import numpy as np
 
-from typing import List, Tuple
+from typing import List, Union
 
-from ao.ao_db  import run_db_mysql
-from ao.flight import Flight, create_session
-
+from ao.flight     import Flight, create_session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+SEASON_SUMMER = range(5, 10)
 
 
 class EmptyFlights(Exception):
@@ -22,156 +22,57 @@ class EmptyFlights(Exception):
     pass
 
 
-def date_in_season(date : [datetime.date, List[datetime.date]], season : str):
-    """
-    checks whether date is in season
-    :param date: given in date format, datetime format or any list related format 
+def date_in_season(date : Union[datetime.date, List[datetime.date]], season : str) -> Union[bool, List[bool]]:
+    """ Checks whether date is in season
+
+    :param date: date (or list of dates) to be checked whether they are in season.
     :param season: either 'summer' or 'winter'
+    :returns: indicator if date is in the given season.
     """
 
-    cnd_outer = isinstance(date, datetime.date) or isinstance(date, datetime.datetime)
+    summer_cond = lambda d_: (d_.month in SEASON_SUMMER) if (season == 'summer') else (d_.month not in SEASON_SUMMER)
 
-    if season == 'summer':
-        if cnd_outer:
-            return 5 <= date.month < 10
+    if isinstance(date, datetime.date) or isinstance(date, datetime.datetime):  # date not list
+        return summer_cond(date)
 
-        # it's a list type object
-        return [ 5 <= d.month < 10 for d in date]
-
-    else:  # season == winter
-        if cnd_outer: 
-            return date.month <= 4 or date.month >= 10
-
-        return [d.month <= 4 or d.month >= 10 for d in date]
+    # date is a list type object
+    return [ summer_cond(d) for d in date]
 
 
-def hour_in_section_atomic(hour_used, sect):
-    """
-    If ?? TODO: FINISH HERE
+def hour_in_section_atomic(hour : int, day_part : str) -> bool:
+    """ Checks if the hour of departure is in a specific part of the day.
 
+    :param hour: hour of departure, like 2, or something.
+    :param day_part: part of the day, either 'morning', 'afternoon', 'evening', 'night'
+    :returns: indicator whether the hour is in a specific part of the day.
     """
 
-    if sect == 'morning':
-        return 6 <= hour_used < 11
+    if day_part == 'morning':
+        return 6 <= hour < 11
 
-    if sect == 'afternoon':
-        return 11 <= hour_used < 18
+    if day_part == 'afternoon':
+        return 11 <= hour < 18
 
-    if sect == 'evening':
-        return 18 <= hour_used < 23
+    if day_part == 'evening':
+        return 18 <= hour < 23
 
-    return 23 <= hour_used <= 24 and hour_used < 6
+    return 23 <= hour <= 24 and hour < 6
 
 
-def hour_in_section(hour, section):
-    """
-    checks whether the hour is in specified section
+def hour_in_section(hour : Union[datetime.time, List[datetime.time]], section : str) -> Union[bool, List[bool]]:
+    """ Checks whether the hour is in specified section of the day
 
     :param hour:    hour in datetime format or a list format
-    :type hour:     dt.time or list[dt.time]
     :param section: either 'morning', 'afternoon', 'evening', 'night'
-    :type section:  str
     """
 
-    if type(hour) is datetime.time:
+    if isinstance(hour, datetime.time):
         return hour_in_section_atomic(hour.hour, section)
 
-    # a list, go over
     return [hour_in_section_atomic(h.hour, section) for h in hour]
 
 
-def drift_vol( date_l  : List[datetime.date]
-             , price_l : List[float]
-             , model   : str   = 'n'
-             , dcf     : float = 385.25 ) -> Tuple[float, float, float]:
-    """
-    Compute the drift and volatility of the normal/lognormal model.
-
-    :param date_l:  list of dates
-    :param price_l: list of prices at those dates
-    :param model:   model selected: 'n' for normal, 'ln' for log-normal
-    :param dcf: day-count factor.
-    :returns: tuple of drift, vol, and average price.
-    """
-
-    date_diff = np.diff(np.array([(x - datetime.datetime.now()).seconds for x in date_l])) / (dcf*86400)
-
-    price_l_diff = np.diff(np.array(price_l))
-    price_diff   = price_l_diff/np.array(price_l[:-1]) if model == 'ln' else price_l_diff
-
-    drift_over_sqdate = price_diff/np.sqrt(date_diff)
-
-    drift_len = len(price_l)
-    drift     = np.sum(price_diff/date_diff)/drift_len
-
-    vol_1     = np.sum(drift_over_sqdate**2)
-    vol_2     = np.sum(drift_over_sqdate)
-    vol       = np.sqrt((vol_1/drift_len - (vol_2/drift_len)**2))
-
-    avg_price = np.double(np.sum(price_l)) / drift_len
-
-    return drift, vol, avg_price
-
-
-def all_vols_by_airline( carrier : str
-                       , insert_into_db    = False
-                       , as_of_date        = None
-                       , model             = 'n'
-                       , correct_drift_vol = False) -> dict:
-    """ Estimates all drift/vol pairs for a particular airline.
-
-    :param carrier: airline, carrier ('UA')
-    :param insert_into_db: indicator whether to insert into db.
-    :param as_of_date: the date we are running the estimation, if None, today's date/time.
-    :param model: log-normal ('ln') or normal('n') model to estimate.
-    :param correct_drift_vol: indicator whether to correct drift/volatility w/ large/small values.
-    """
-
-    flight_session = create_session()
-    logger.info(f'Computing vols for carrier {carrier}')
-
-    result_dict = {}
-    for flight in flight_session.query(Flight).filter(Flight.carrier == carrier).all():
-        try:
-            orig = flight.orig
-            dest = flight.dest
-            result_dict[(orig, dest)] = flight_vol( orig
-                                                  , dest
-                                                  , carrier
-                                                  , insert_into_db    = insert_into_db
-                                                  , as_of_date        = as_of_date
-                                                  , model             = model
-                                                  , correct_drift_vol = correct_drift_vol)
-
-        except EmptyFlights:  # if fails return empty
-            logger.info(f'No flights between {orig} and {dest} for carrier {carrier}')
-
-        except Exception as e:
-            raise e
-
-    return result_dict
-
-
-def all_vols( insert_into_db    = False
-            , as_of_date        = None
-            , model             = 'n'
-            , correct_drift_vol = False ) -> dict:
-    """ Estimates all drift/vol pairs for all airlines.
-
-    :param insert_into_db: indicator whether to insert into db.
-    :param as_of_date: the date we are running the estimation, if None, today's date/time.
-    :param model: log-normal ('ln') or normal('n') model to estimate.
-    :param correct_drift_vol: indicator whether to correct drift/volatility w/ large/small values.
-    """
-
-    return {carrier: all_vols_by_airline( carrier           = str(carrier)
-                                        , insert_into_db    = insert_into_db
-                                        , as_of_date        = as_of_date
-                                        , model             = model
-                                        , correct_drift_vol = correct_drift_vol )
-            for carrier, _ in run_db_mysql("SELECT DISTINCT iata_code FROM iata_codes") }
-
-
+# TODO: CHECK THIS STUFF HERE!!
 def flight_corr( origins   : List[str]
                , dests     : List[str]
                , carriers  : List[str]

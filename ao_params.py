@@ -1,12 +1,14 @@
-# getting the params from the database
+""" getting the params from the database
+"""
+
 import datetime
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
-# air options modules
 from ao.ds                  import convert_datedash_date
 from ao.mysql_connector_env import MysqlConnectorEnv
 from ao.ao_codes            import day_str as all_ranks, get_tod, get_weekday_ind
+from ao.flight              import create_session, AOParam
 
 
 def get_drift_vol_from_db( dep_date : datetime.date
@@ -15,7 +17,7 @@ def get_drift_vol_from_db( dep_date : datetime.date
                          , carrier  : str
                          , default_drift_vol = (500., 501.)
                          , fwd_value         = None
-                         , db_host           = 'localhost' ) -> Tuple[float, float] :
+                         , session           = None ) -> Tuple[float, float] :
     """ Pulls the drift and vol from database for the selected flight.
 
     :param dep_date: departure date of the flight (datetime.date(2019, 7, 1) )
@@ -24,15 +26,16 @@ def get_drift_vol_from_db( dep_date : datetime.date
     :param carrier: airline carrier, e.g. 'UA'
     :param default_drift_vol: correct the drift, if negative make it positive 500, or so.
     :param fwd_value: forward value used in case we want to correct the drift. If None, take the original drift.
-    :param db_host: database host, e.g. 'localhost'
+    :param session: sqlalchemy session used for param retrieval.
     """
 
-    with MysqlConnectorEnv(host=db_host) as drift_connection:
-        drift_vol_c = drift_connection.cursor()
-        drift_vol_c.execute("SELECT as_of, drift, vol, avg_price FROM params WHERE orig= '{0}' AND dest = '{1}' AND carrier='{2}'".format(orig, dest, carrier))
-        drift_vol_params = drift_vol_c.fetchall()
+    session_used = create_session() if session is None else session
 
-    if len(drift_vol_params) == 0:  # nothing in the list
+    drift_vol_c = session_used.query(AOParam).filter_by(orig=orig, dest=dest, carrier=carrier).all()
+    drift_vol_params = [ (ao_param.as_of, ao_param.drift, ao_param.vol, ao_param.avg_price)
+                        for ao_param in drift_vol_c]
+
+    if not drift_vol_params:
         return default_drift_vol
 
     # at least one entry, check if there are many, select most important
@@ -51,7 +54,7 @@ def correct_drift_vol( drift_prelim      : float
                      , vol_prelim        : float
                      , default_drift_vol : Tuple[float, float]
                      , avg_price         : float
-                     , fwd_price = None ) -> Tuple[float, float]:
+                     , fwd_price         : Optional[float] = None ) -> Tuple[float, float]:
     """ Applies trivial corrections to the drift and vol in case of nonsensical results.
     The scaling factor is fwd_price/avg_price
 
@@ -220,10 +223,8 @@ def find_close_regid( month   : int
     :returns: information about reg_ids that is closest.
     """
 
-    # months allowed +/- 2
-    def rot_month(m, k):
-        # rotational month
-        return ((m - 1) + k) % 12 + 1
+    # rotational month, months allowed +/- 2
+    rot_month = lambda m, k: ((m - 1) + k) % 12 + 1
 
     # months considered
     month_ranks = ( month
