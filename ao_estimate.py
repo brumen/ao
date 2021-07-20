@@ -12,14 +12,8 @@ from ao.flight     import Flight, create_session
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# summer months indicator (10 is not in).
 SEASON_SUMMER = range(5, 10)
-
-
-class EmptyFlights(Exception):
-    """ Exception for empty flights identification.
-    """
-
-    pass
 
 
 def date_in_season(date : Union[datetime.date, List[datetime.date]], season : str) -> Union[bool, List[bool]]:

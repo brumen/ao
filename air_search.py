@@ -3,16 +3,16 @@
 import time
 import datetime
 
-from typing import Tuple, Union, List, Dict
+from typing import Tuple, Union, List, Dict, Optional
 
 from requests              import ConnectionError
-from skyscanner.skyscanner import Flights
-from skyscanner.skyscanner import FlightsCache
+from skyscanner.skyscanner import Flights, FlightsCache
+from sqlalchemy.orm.session import Session
 
-# AirOption files
 from ao.ds                  import convert_date_datedash, d2s
 from ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay, get_tod
 from ao.mysql_connector_env import MysqlConnectorEnv
+from ao.flight              import FlightLive, create_session
 
 
 def get_itins( origin_place    : str
@@ -213,9 +213,9 @@ def get_ticket_prices( origin_place  : str
                      , adults        : int      = 1
                      , use_cache     : bool     = False
                      , insert_into_livedb :bool = False
-                     , host : str               = 'localhost') -> Union[None, Tuple]:
-    """
-    Returns the ticket prices for a flight
+                     , session       : Optional[Session] = None
+                     , ) -> Union[None, Tuple]:
+    """ Returns the ticket prices for a flight.
 
     :param origin_place: IATA code of the origin airport 'SIN'
     :param dest_place: IATA code of the destination airport 'KUL'
@@ -225,24 +225,22 @@ def get_ticket_prices( origin_place  : str
     :param adults: number of adult tickets booked
     :param: use_cache: bool indicator to signal to SkyScanner api to use cache.
     :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
-    :param host: mysql host server name.
+    :param session: mysqlalchemy session, if None, one is made up directly in the function.
     :returns: None if no results, otherwise a tuple of forward prices, and itineraries.
     """
 
-    # first check the local database
-    flights_live_local = """
-    SELECT as_of, flight_id, dep_date, dep_time, arr_date, price, carrier, flight_nb 
-    FROM flights_live 
-    WHERE orig = '{0}' AND dest = '{1}' AND dep_date = '{2}' AND cabin_class = '{3}' AND as_of > '{4}' 
-    """.format(origin_place, dest_place, outbound_date, cabinclass, (datetime.datetime.now() - livedb_delay).isoformat())
+    session_used = session if session else create_session()
+
+    flights_in_ldb = session_used.query(FlightLive).filter_by( orig = origin_place
+                                                             , dest=dest_place
+                                                             , dep_date=outbound_date
+                                                             , cabinclass=cabinclass
+                                                             , as_of> (datetime.datetime.now() - livedb_delay).isoformat() )
 
     if include_carriers is not None:
-        flights_live_local += "  AND carrier = '{0}'".format(include_carriers)  # include_carriers is only 1 in this case
+        flights_in_ldb = flights_in_ldb.filter_by(carrier=include_carriers)
 
-    with MysqlConnectorEnv(host=host) as mysql_conn:
-        mysql_curr = mysql_conn.cursor()
-        mysql_curr.execute(flights_live_local)
-        flights_in_ldb = mysql_curr.fetchall()
+    flights_in_ldb = flights_in_ldb.all()
 
     if flights_in_ldb:  # we have this in the database
         return get_cached_flights(flights_in_ldb)
@@ -269,7 +267,7 @@ def get_ticket_prices( origin_place  : str
     return F_v, flights_v
 
 
-def reorganize_ticket_prices(itin) -> dict:
+def reorganize_ticket_prices(itin) -> Dict:
     """
     reorganize ticket prices by levels:
        day
@@ -303,20 +301,20 @@ def reorganize_ticket_prices(itin) -> dict:
     return reorg_tickets
 
 
-def get_all_carriers( origin_place  : str
-                    , dest_place    : str
+def get_all_carriers( origin        : str
+                    , dest          : str
                     , outbound_date : datetime.date
                     , cabinclass    = 'Economy') -> set:
     """ Gets all carriers for a selected route and selected date (direct flights only)
 
-    :param origin_place: IATA code of the origin airport
-    :param dest_place:   IATA code of the destination airport
+    :param origin: IATA code of the origin airport
+    :param dest:   IATA code of the destination airport
     :param outbound_date: date of the flights between origin, destination
     :returns: flights for the route selected.
     """
 
-    _, flights = get_ticket_prices( origin_place  = origin_place
-                                  , dest_place    = dest_place
+    _, flights = get_ticket_prices( origin_place  = origin
+                                  , dest_place    = dest
                                   , outbound_date = outbound_date
                                   , cabinclass    = cabinclass)
 

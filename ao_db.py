@@ -107,7 +107,10 @@ def create_flight( as_of : datetime.date
     :param dep_date: departure date
     :param arr_date: arrival date
     :param carrier: carrier airline, like 'UA'
-    TODO:
+    :param price: price of the flight
+    :param outbound_leg_id: outbound leg id.
+    :param flight_nb: flight nb
+    :returns: TODO
     """
 
     # first check if flight already exists in the database
@@ -129,7 +132,7 @@ def create_flight( as_of : datetime.date
     price_o = Prices(as_of=as_of, price=price, reg_id=TODO, flight_id = flight.flight_id)  # TODO: CHECK HERE
     flight.prices.append(price_o)
 
-    session.commit()
+    return flight
 
 
 def accumulate_flights( origin          : str
