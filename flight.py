@@ -124,17 +124,17 @@ class Flight(AOORM):
 
 
 # TODO: YOU CAN COMMENT THIS OUT UNTIL IT WORKS.
-class FlightLive(Flight):
-    """ Live version of the Flights.
-    """
-
-    __tablename__ = 'flight_live'
-
-    as_of = Column(DateTime)  # designates when the flight was inserted.
-
-    # TODO: CHECK THESE ENTRIES.
-    flight_id      = Column(Integer, primary_key=True)
-    flight_id_long = Column(String)
+# class FlightLive(Flight):
+#     """ Live version of the Flights.
+#     """
+#
+#     __tablename__ = 'flight_live'
+#
+#     as_of = Column(DateTime)  # designates when the flight was inserted.
+#
+#     # TODO: CHECK THESE ENTRIES.
+#     flight_id      = Column(Integer, primary_key=True)
+#     flight_id_long = Column(String)
 
 
 # in between table that links Flight and AOTrade.

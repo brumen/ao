@@ -12,7 +12,12 @@ from sqlalchemy.orm.session import Session
 from ao.ds                  import convert_date_datedash, d2s
 from ao.ao_codes            import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay, get_tod
 from ao.mysql_connector_env import MysqlConnectorEnv
-from ao.flight              import FlightLive, create_session, Prices
+from ao.flight              import create_session, Prices  # , FlightLive
+
+
+# TODO: REMOVE THIS BELOW
+class FlightLive:
+    pass
 
 
 def get_itins( origin          : str
