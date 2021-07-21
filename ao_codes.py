@@ -3,7 +3,8 @@
 
 import os
 import datetime
-import ao.ds as ds
+
+from ao.ds import convert_hour_time
 
 
 # mysql database setup
@@ -73,7 +74,7 @@ def get_tod(time_str):
     :param time_str:   TODO: time_str should be some time, not a string
     """
 
-    hour_dt = ds.convert_hour_time(time_str)
+    hour_dt = convert_hour_time(time_str)
 
     if morning[0] < hour_dt < morning[1]:
         return 'morning'

@@ -165,8 +165,8 @@ def accumulate_flights( origin          : str
         return acc_flight_l
 
     # fetch flights
-    flights = get_itins( origin_place    = origin
-                       , dest_place      = dest
+    flights = get_itins( origin          = origin
+                       , dest            = dest
                        , outbound_date   = outbound_date
                        , includecarriers = includecarriers
                        , adults          = 1 )

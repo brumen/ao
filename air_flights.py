@@ -127,8 +127,8 @@ def sort_all( F_v : np.array
     return zip(*sorted(zip(F_v, F_mat, s_v, d_v, fl_v)))
 
 
-def obtain_flights( origin_place : str
-                  , dest_place   : str
+def obtain_flights( origin : str
+                  , dest   : str
                   , carrier      : str
                   , in_out_date_range
                   , flights_include
@@ -139,15 +139,15 @@ def obtain_flights( origin_place : str
                   , correct_drift      = True):
     """ Get the flights for outbound and/or inbound flight.
 
-    :param origin_place:  origin of flights, IATA code (like 'EWR')
-    :param dest_place:    dest of flights, IATA code (like 'SFO')
-    :param carrier:       IATA code of the carrier considered
+    :param origin: origin airport of flights, IATA code (like 'EWR')
+    :param dest: dest airport of flights, IATA code (like 'SFO')
+    :param carrier: IATA code of the carrier considered
     :param in_out_date_range:   input/output date range _minus (with - sign)
                           output of function construct_date_range(outbound_date_start, outbound_date_end)
     :type in_out_date_range:    list of datetime.date
-    :param io_ind:        inbound/outbound indicator ('in', 'out')
+    :param io_ind: inbound/outbound indicator ('in', 'out')
     :param correct_drift: whether to correct the drift, as described in the documentation
-    :param cabinclass:    cabin class, one of 'Economy', ...
+    :param cabinclass: cabin class, one of 'Economy', ...
     """
 
     F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
@@ -155,20 +155,21 @@ def obtain_flights( origin_place : str
     reorg_flights_v = dict()
 
     # outbound, else inbound, reverse the origin, destination
-    origin_used, dest_used = (origin_place, dest_place) if io_ind == 'out' else (dest_place, origin_place)
+    origin_, dest_ = (origin, dest) if io_ind == 'out' else (dest, origin)
 
     for out_date in in_out_date_range:
 
         out_date_str = out_date.isoformat()
 
         yield out_date  # TODO: check this HERE
-        ticket_val, flights = get_ticket_prices( origin_place       = origin_used
-                                        , dest_place         = dest_used
-                                        , outbound_date      = out_date
-                                        , include_carriers   = carrier
-                                        , cabinclass         = cabinclass
-                                        , adults             = adults
-                                        , insert_into_livedb = insert_into_livedb)
+        flights = get_ticket_prices( origin             = origin_
+                                   , dest               = dest_
+                                   , outbound_date      = out_date
+                                   , include_carriers   = carrier
+                                   , cabinclass         = cabinclass
+                                   , adults             = adults
+                                   , insert_into_livedb = insert_into_livedb
+                                   , )
 
         reorg_flights = reorganize_ticket_prices(flights)
 
@@ -177,8 +178,8 @@ def obtain_flights( origin_place : str
 
             F_v.extend(ticket_val)
             io_dr_drift_vol = ao_params.get_drift_vol_from_db_precise( [x[1] for x in flights]  # just the departure time
-                                                                     , origin_used
-                                                                     , dest_used
+                                                                     , origin_
+                                                                     , dest_
                                                                      , carrier
                                                                      , correct_drift = correct_drift
                                                                      , fwd_value     = np.mean(ticket_val))
