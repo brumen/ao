@@ -1,8 +1,10 @@
-# codes used for the modules
+""" codes used for the modules
+"""
 
 import os
 import datetime
 import ao.ds as ds
+
 
 # mysql database setup
 DB_HOST           = 'localhost'  # 'odroid.local'  # db for service
@@ -33,24 +35,15 @@ airoptions_gmail_pass = 'PASSWORD1'
 airoptions_gmail_acct = 'airoptions.llc@gmail.com'
 
 # times of days
-# morning = '06:00:00', '11:00:00'
-morning   = '06:00:00', '10:40:00'
-# afternoon = '11:00:00', '18:00:00'
-afternoon = '10:41:00', '18:00:00'
-evening   = '18:00:00', '23:00:00'
-night     = '23:00:00', '06:00:00'
-
+morning = (datetime.time(6, 0, 0), datetime.time(10, 40, 0))
+afternoon = (datetime.time(10, 41, 0), datetime.time(18, 0, 0))
+evening   = (datetime.time(18, 0, 0), datetime.time(23, 0, 0))
+night = (datetime.time(23, 0, 0), datetime.time(6, 0, 0))
 
 day_str    = ('morning', 'afternoon', 'evening', 'night')
 summer     = '05-01', '09-30'
 winter     = '10-01', '04-30'
 season_str = ('summer', 'winter')
-
-# derived
-morning_dt   = ds.convert_hour_time(morning[0])  , ds.convert_hour_time(morning[1]  )
-afternoon_dt = ds.convert_hour_time(afternoon[0]), ds.convert_hour_time(afternoon[1])
-evening_dt   = ds.convert_hour_time(evening[0])  , ds.convert_hour_time(evening[1]  )
-night_dt     = ds.convert_hour_time(night[0])    , ds.convert_hour_time(night[1]    )
 
 weekday_days = [0, 1, 2, 3, 4]
 weekend_days = [5, 6]
@@ -82,13 +75,13 @@ def get_tod(time_str):
 
     hour_dt = ds.convert_hour_time(time_str)
 
-    if morning_dt[0] < hour_dt < morning_dt[1]:
+    if morning[0] < hour_dt < morning[1]:
         return 'morning'
 
-    if afternoon_dt[0] < hour_dt < afternoon_dt[1]:
+    if afternoon[0] < hour_dt < afternoon[1]:
         return 'afternoon'
 
-    if evening_dt[0] < hour_dt < evening_dt[1]:
+    if evening[0] < hour_dt < evening[1]:
         return 'evening'
 
     return 'night'

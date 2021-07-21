@@ -5,20 +5,35 @@ import logging
 import datetime
 
 from typing import List, Tuple, Optional
+from sqlalchemy.orm.session import Session
 
-# ao modules
-import ao.ao_codes as ao_codes
-import ao.ds       as ds
-
+from ao.ds                  import d2s, convert_datedash_date, convert_hour_time
 from ao.air_search          import get_itins
 from ao.mysql_connector_env import MysqlConnectorEnv
-from ao.flight              import Flight, create_session, Prices
+from ao.flight              import Flight, create_session, Prices, AORegIds
+from ao.ao_codes import ( weekday_days
+                        , weekend_days
+                        , morning
+                        , afternoon
+                        , evening
+                        , night
+                        , )
 
 logger = logging.getLogger(__name__)
 
 
-WEEKDAYS = range(5)  # 0, 1, 2, 3, 4
-WEEKEND  = range(5, 7)  # 5, 6
+def insert_into_reg_ids_db(session : Session = None) -> None:
+    """ Constructs table reg_ids, for historical reference
+
+    :param session: sqlalchemy session for usage.
+    """
+
+    for dep_tod in ['morning', 'afternoon', 'evening', 'night']:
+        for dep_weekday in ['weekday', 'weekend']:
+            for dep_month in range(1, 13):  # months
+                session.add(AORegIds(month=dep_month, tod=dep_tod, weekday_ind=dep_weekday))
+
+    session.commit()
 
 
 def find_dep_hour_day( dep_hour : str
@@ -30,20 +45,20 @@ def find_dep_hour_day( dep_hour : str
     :returns: a tuple with first elt being the time of day TODO
     """
 
-    dof_l = WEEKDAYS if dep_day == 'weekday' else WEEKEND
+    dof_l = weekday_days if dep_day == 'weekday' else weekend_days
 
     # hr: stands for hour_range, s for start, e for end
     if dep_hour == 'morning':
-        return ao_codes.morning_dt, dof_l
+        return morning, dof_l
 
     if dep_hour == 'afternoon':
-        return ao_codes.afternoon_dt, dof_l
+        return afternoon, dof_l
 
     if dep_hour == 'evening':
-        return ao_codes.evening_dt, dof_l
+        return evening, dof_l
 
     if dep_hour == 'night':
-        return ao_codes.night_dt, dof_l
+        return night, dof_l
 
 
 def find_dep_hour_day_inv( dep_date : datetime.date
@@ -55,15 +70,15 @@ def find_dep_hour_day_inv( dep_date : datetime.date
     :returns:   month, dayofweek of the date/time
     """
 
-    dof = 'weekday' if dep_date in ao_codes.weekday_days else 'weekend'
+    dof = 'weekday' if dep_date in weekday_days else 'weekend'
 
-    if ao_codes.morning_dt[0] <= dep_time < ao_codes.morning_dt[1]:
+    if morning[0] <= dep_time < morning[1]:
         return 'morning', dof
 
-    if ao_codes.afternoon_dt[0] <= dep_time < ao_codes.afternoon_dt[1]:
+    if afternoon[0] <= dep_time < afternoon[1]:
         return 'afternoon', dof
 
-    if ao_codes.evening_dt[0] <= dep_time < ao_codes.evening_dt[1]:
+    if evening[0] <= dep_time < evening[1]:
         return 'evening', dof
 
     return 'night', dof
@@ -116,7 +131,11 @@ def create_flight( as_of : datetime.date
         flight = flights[0]
 
     else:
-        flight = Flight(orig=orig, dest=dest, dep_date=dep_date, arr_date=arr_date, flight_id_long=outbound_leg_id)  # TODO: CHECK THESE STUFF
+        flight = Flight( orig           = orig
+                       , dest           = dest
+                       , dep_date       = dep_date
+                       , arr_date       = arr_date
+                       , flight_id_long = outbound_leg_id)  # TODO: CHECK THESE STUFF
 
     price_o = Prices(as_of=as_of, price=price, reg_id=TODO, flight_id = flight.flight_id)  # TODO: CHECK HERE
     flight.prices.append(price_o)
@@ -167,8 +186,8 @@ def accumulate_flights( origin          : str
     orig    = find_location(orig_id, flights)
     dest    = find_location(dest_id, flights)
 
-    as_of = str(lt.tm_year) + '-' + str(ds.d2s(lt.tm_mon)) + '-' + str(ds.d2s(lt.tm_mday)) + 'T' + \
-            str(ds.d2s(lt.tm_hour)) + ':' + str(ds.d2s(lt.tm_min)) + ':' + str(ds.d2s(lt.tm_sec))
+    as_of = str(lt.tm_year) + '-' + str(d2s(lt.tm_mon)) + '-' + str(d2s(lt.tm_mday)) + 'T' + \
+            str(d2s(lt.tm_hour)) + ':' + str(d2s(lt.tm_min)) + ':' + str(d2s(lt.tm_sec))
 
     for leg in legs:
         # checking if direct flights (accepts 1 or 0)
@@ -215,7 +234,7 @@ def accumulate_flights( origin          : str
 
                             acc_flight_l.extend(accumulate_flights( leg_orig_2
                                                                   , leg_dest_2
-                                                                  , ds.convert_datedash_date(dep_date_2)
+                                                                  , convert_datedash_date(dep_date_2)
                                                                   , includecarriers = None
                                                                   , acc_flight_l    = []  # THIS HERE IS ABSOLUTELY NECC.
                                                                   , curr_depth      = curr_depth + 1
@@ -253,8 +272,8 @@ def commit_flights_to_db( flights_l : List[Tuple[datetime.date, str, str, dateti
         for (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id) in flights_l:
 
             dep_date, dep_time = dep_date.split('T')  # departure date/time
-            dep_date_dt = ds.convert_datedash_date(dep_date)
-            dep_time_dt = ds.convert_hour_time(dep_time)
+            dep_date_dt = convert_datedash_date(dep_date)
+            dep_time_dt = convert_hour_time(dep_time)
 
             time_of_day, weekday_ind = find_dep_hour_day_inv(dep_date_dt, dep_time_dt)
 

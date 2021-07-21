@@ -3,7 +3,7 @@
 import time
 import datetime
 
-from typing import Tuple, Union, List, Dict, Optional
+from typing import Tuple, Union, List, Dict, Optional, Any
 
 from requests              import ConnectionError
 from skyscanner.skyscanner import Flights, FlightsCache
@@ -90,19 +90,15 @@ def get_itins( origin_place    : str
         return None  # this is handled appropriately in the get_ticket_prices
 
 
-def find_carrier(carrier_l, carrier_id):
-    """
-    Finds the carrier from the ID list
+def find_carrier(carriers : List[str], carrier_id : str) -> Optional[str]:
+    """ Finds the carrier from the ID list
 
-    :param carrier_l:  list of carriers
-    :type carrier_l:   list of str
+    :param carriers:  list of carriers
     :param carrier_id: carrier one is searching for
-    :type carrier_id:  str
-    :returns:          Code of the carrier info
-    :rtype:            None if failure; carrier_info if carrier is found
+    :returns:          Code of the carrier info if found, else None
     """
 
-    for carrier_info in carrier_l:
+    for carrier_info in carriers:
         if carrier_id == carrier_info['Id']:
             return carrier_info['Code']
 
@@ -135,8 +131,7 @@ def insert_into_flights_live( origin : str
                             , dest   : str
                             , flights
                             , cabinclass ):
-    """
-    Inserts the flights given in flights_v into the flights_live database
+    """ Inserts the flights given in flights_v into the flights_live database
 
     :param origin: IATA code of the origin airport
     :param dest: IATA code of the destination airport
@@ -169,7 +164,7 @@ def insert_into_flights_live( origin : str
         mysql_conn.commit()
 
 
-def extract_Fv_flights_from_results(result) -> Tuple:
+def extract_prices_flights(result : Dict[str, Any]) -> Tuple:
     """ Extracts the flight forward prices and flight data from the results provided
 
     :param result: result of output from SkyScanner, dictionary structure:
@@ -183,7 +178,6 @@ def extract_Fv_flights_from_results(result) -> Tuple:
                           'SessionKey'
                           'Legs'
                           'Status'
-    :type result: dict
     :returns:
     """
 
@@ -197,7 +191,7 @@ def extract_Fv_flights_from_results(result) -> Tuple:
         if len(flight_num_all) == 1:  # indicator if the flight is direct, the other test case is missing
             carrier = find_carrier(result['Carriers'], leg['Carriers'][0])  # carriers = all carriers, leg['carriers'] are id of carrier
             price = itinerary['PricingOptions'][0]['Price']  # TODO: THIS PRICE CAN BE DIFFERENT
-            flight_num = flight_num_all[0]['FlightNumber']
+            flight_num = flight_num_all[0]['FlightNumber']  # TODO: HOW DO WE KNOW THAT WE HAVE THIS??
             F_v.append(price)
             # leg['Departure'] is departure date
             flights_v.append((leg['Id'], leg['Departure'], leg['Arrival'], price, carrier + flight_num))
@@ -259,7 +253,7 @@ def get_ticket_prices( origin_place  : str
         return None
 
     # results are not empty
-    F_v, flights_v = extract_Fv_flights_from_results(result)
+    F_v, flights_v = extract_prices_flights(result)
 
     if insert_into_livedb:  # insert obtained flights into livedb
         insert_into_flights_live(origin_place, dest_place, flights_v, cabinclass)
