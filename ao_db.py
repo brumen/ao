@@ -17,6 +17,10 @@ from ao.flight              import Flight, create_session, Prices
 logger = logging.getLogger(__name__)
 
 
+WEEKDAYS = range(5)  # 0, 1, 2, 3, 4
+WEEKEND  = range(5, 7)  # 5, 6
+
+
 def find_dep_hour_day( dep_hour : str
                      , dep_day  : str ) -> tuple :
     """ Returns beg., end hours for dep_hours and dep_day
@@ -26,7 +30,7 @@ def find_dep_hour_day( dep_hour : str
     :returns: a tuple with first elt being the time of day TODO
     """
 
-    dof_l = [0, 1, 2, 3, 4] if dep_day == 'weekday' else [5, 6]  # weekend
+    dof_l = WEEKDAYS if dep_day == 'weekday' else WEEKEND
 
     # hr: stands for hour_range, s for start, e for end
     if dep_hour == 'morning':
