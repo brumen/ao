@@ -2,40 +2,7 @@
 import datetime
 import calendar as cal
 
-from typing import List, Union
-
-
-def conv_datestr_datetime(date_ : str) -> datetime.date:
-    """ Converts the string date into datetime for a single string
-
-    :param date_str: date in the form of '20170501'
-    :returns:     datetime.date version of the date
-    """
-
-    return datetime.date(int(date_[0:4]), int(date_[4:6]), int(date_[6:8]))
-
-
-def convert_str_datetime(date_ : Union[str, List[str]]) -> Union[datetime.date, List[datetime.date]]:
-    """ Converts date of yyyymmdd format into datetime.date format.
-    """
-
-    if isinstance(date_, list):
-        return [conv_datestr_datetime(d_elt) for d_elt in date_]
-
-    return conv_datestr_datetime(date_)  # str. case
-
-
-def convert_str_date(date_ : [str, List[str]]) -> Union[datetime.date, List[datetime.date]]:
-    """ Converts yyyymmdd into datetime.date format.
-
-    :param date_: date in yyyymmdd format. (or a list of them)
-    :returns:     date in datetime.date format (or a list of them)
-    """
-
-    if isinstance(date_, list):
-        return [datetime.date(int(d_elt[0:4]), int(d_elt[4:6]), int(d_elt[6:8])) for d_elt in date_]
-
-    return datetime.date(int(date_[0:4]), int(date_[4:6]), int(date_[6:8]))
+from typing import List
 
 
 def d2s(i : int) -> str:
@@ -46,16 +13,6 @@ def d2s(i : int) -> str:
     """
 
     return '0' + str(i) if i < 10 else str(i)
-
-
-def convert_datetime_str(date_ : datetime.date) -> str:
-    """ Converts the date in datetime format into string format
-
-    :param date_: date in datetime.date format
-    :returns:     same date in string format '20170502'
-    """
-
-    return str(date_.year) + d2s(date_.month) + d2s(date_.day)
 
 
 def convert_datedash_date(date_ : str) -> datetime.date:
@@ -177,17 +134,3 @@ def construct_date_range( date_b : datetime.date
                 T_l.extend(process_mm(mm, year, month, 1, 31))
 
     return T_l
-
-
-def time_diff( date_1 : [str, datetime.date], date_2 : [str, datetime.date], dcf = 365.25 ) -> float:
-    """ Computes numerical difference between date1 and date2 (date1 < date2)
-
-    :param date_1: first date (lower of the two dates), str in (20180105) format
-    :param date_2: second date (higher of the two), str in (20180509) format
-    :returns: difference in numerical form
-    """
-
-    if isinstance(date_1, datetime.datetime):
-        return (date_2 - date_1).days / dcf
-
-    return (convert_str_datetime(date_2) - convert_str_datetime(date_1)).days / dcf

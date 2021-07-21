@@ -17,21 +17,6 @@ from ao.flight              import Flight, create_session, Prices
 logger = logging.getLogger(__name__)
 
 
-def run_db_mysql(s : str, host = 'localhost') -> List:
-    """ Runs the query on the mysql database,
-
-    :param s: query to be executed
-    :param host: mysql db host.
-    :returns: list of results obtained.
-    """
-
-    with MysqlConnectorEnv(host=host) as new_mysql:
-        my_cursor = new_mysql.cursor()
-        my_cursor.execute(s)
-
-        return my_cursor.fetchall()
-
-
 def find_dep_hour_day( dep_hour : str
                      , dep_day  : str ) -> tuple :
     """ Returns beg., end hours for dep_hours and dep_day

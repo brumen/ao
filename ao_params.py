@@ -211,18 +211,17 @@ def get_drift_vol_from_db_precise( flight_dep   : List[Tuple[datetime.date, date
 
             else:  # correct the drift
                 drift_prelim, vol_prelim, avg_price = closest_drift_vol_res[0]  # take the first
-                drift_vol_corr = correct_drift_vol( drift_prelim
+                drift_vol_l.append(correct_drift_vol( drift_prelim
                                                   , vol_prelim
                                                   , default_drift_vol
                                                   , avg_price
-                                                  , fwd_value)
-                drift_vol_l.append(drift_vol_corr)
+                                                  , fwd_value))
 
         else:  # drift... has 1 entry
             drift_vol_l.append(correct_drift_vol( drift_vol_avgp_raw.drift
-                                              , drift_vol_avgp_raw.vol
-                                              , default_drift_vol
-                                              , drift_vol_avgp_raw.avg_price
-                                              , fwd_value))
+                                                , drift_vol_avgp_raw.vol
+                                                , default_drift_vol
+                                                , drift_vol_avgp_raw.avg_price
+                                                , fwd_value))
 
     return drift_vol_l
