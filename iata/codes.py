@@ -1,4 +1,5 @@
-# To handle IATA retrival from the database
+""" IATA airline codes & IATA cities.
+"""
 
 from typing import List
 

@@ -3,7 +3,6 @@
 import sqlite3
 from   ao.mysql_connector_env   import MysqlConnectorEnv
 from   ao.ao_codes              import SQLITE_FILE
-import aiomysql
 
 
 def insert_into_reg_ids_db() -> None:
@@ -20,26 +19,6 @@ def insert_into_reg_ids_db() -> None:
     with MysqlConnectorEnv() as mysql_conn:
         mysql_conn.cursor().executemany("INSERT INTO reg_ids (month, tod, weekday_ind) VALUES (%s, %s, %s)", ins_l)
         mysql_conn.commit()
-
-
-def create_ao_db():
-    """
-    creates the sqlite3 database for collecting Flights
-
-    """
-
-    create_flights = """
-            CREATE TABLE flights 
-                (as_of TEXT, orig TEXT, dest TEXT, 
-                 dep_date TEXT, arr_date TEXT, 
-                 carrier TEXT, price REAL,
-                 id TEXT, direct_flight INTEGER)
-    """
-
-    with sqlite3.connect(SQLITE_FILE) as conn:
-        c = conn.cursor()
-        c.execute(create_flights)
-        conn.commit()  # TODO: DO YOU NEED THIS
 
 
 def insert_into_itin( originplace      = 'SIN-sky'
@@ -174,34 +153,3 @@ def copy_sqlite_to_mysql_by_carrier( add_flight_ids           = True
     if delete_flights_in_sqlite:
         c_ao.execute("DELETE FROM flights")
         c_ao.close()
-
-
-async def calibrate_all_2(loop, flight_ids_fixed, batch_size):
-    """
-    Calibrates the parameters with multiple processing
-
-    """
-
-    nb_flight_ids = len(flight_ids_fixed)
-    pool = await aiomysql.create_pool( host     = 'localhost'
-                                     , port     = 3306
-                                     , user     = DB_USER
-                                     , password = ao_codes.brumen_mysql_pass
-                                     , db       = 'ao'
-                                     , loop     = loop)
-
-    curr_idx = 0
-    while curr_idx < nb_flight_ids:
-        batch_ids = flight_ids_fixed[curr_idx: (curr_idx+batch_size)]
-        print ('BS', batch_ids[0], batch_ids[-1], '\n')
-
-        batch_str = str(batch_ids)[1:-1]  # removing the [ and ]
-
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.callproc('calibrate_inner', args=(batch_str, ))
-
-        curr_idx += batch_size
-
-    pool.close()
-    await pool.wait_closed()
