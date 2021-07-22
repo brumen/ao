@@ -8,7 +8,7 @@ from typing import List, Tuple, Optional
 from sqlalchemy.orm.session import Session
 
 from ao.ds                  import d2s, convert_datedash_date, convert_hour_time
-from ao.air_search          import get_itins
+from ao.air_option_derive   import AirOptionSkyScanner
 from ao.mysql_connector_env import MysqlConnectorEnv
 from ao.flight              import Flight, create_session, Prices, AORegIds
 from ao.ao_codes import ( weekday_days
@@ -165,11 +165,11 @@ def accumulate_flights( origin          : str
         return acc_flight_l
 
     # fetch flights
-    flights = get_itins( origin          = origin
-                       , dest            = dest
-                       , outbound_date   = outbound_date
-                       , includecarriers = includecarriers
-                       , adults          = 1 )
+    flights = AirOptionSkyScanner.get_itins( origin          = origin
+                                           , dest            = dest
+                                           , outbound_date   = outbound_date
+                                           , includecarriers = includecarriers
+                                           , adults          = 1 )
 
     segments = flights['Segments']
     if not segments:  # if segments is empty

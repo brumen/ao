@@ -1,26 +1,25 @@
-# test cases for the ao_db module
+""" Test cases for manipulation of the AO database.
+"""
 
-import unittest
 import datetime
 import datetime as dt
 
-import ao_db
-import air_option as ao
+from unittest import TestCase
+
+# TODO: FIX THIS BELOW HERE
+import ao.ao_db      as ao_db
+import ao.air_option as ao
 
 
-class TestAoDb(unittest.TestCase):
-    """
-    Testing of the database aspects of the AO
-
+class TestAoDb(TestCase):
+    """ Testing of the database aspects of the AO
     """
 
     def setUp(self):
         self.today_date_plus_2m = ao.date_today() + dt.timedelta(days=60)
 
     def test_insert_flight(self):
-        """
-        Tests whether the insert flight executes.
-
+        """ Tests whether the insert flight executes.
         """
 
         res = ao_db.insert_flight( 'EWR'
@@ -33,9 +32,7 @@ class TestAoDb(unittest.TestCase):
         self.assertTrue(True)
 
     def test_commit_flights_to_live(self):
-        """
-        Tests the commit_flights_to_live function.
-
+        """ Tests the commit_flights_to_live function.
         """
 
         # flights_l = (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, flight_nb)
@@ -75,9 +72,7 @@ class TestAoDb(unittest.TestCase):
         self.assertTrue(True)
 
     def test_insert_into_db(self):
-        """
-        Test for insert_into_db function.
-
+        """ Test for insert_into_db function.
         """
 
         res = ao_db.accumulate_flights( 'EWR'
@@ -86,15 +81,5 @@ class TestAoDb(unittest.TestCase):
                                       , includecarriers= ['UA']
                                       , curr_depth = 0
                                       , depth_max  = 2 )
-
-        self.assertTrue(True)
-
-    def test_copy_flights_to_odroid(self):
-        """
-        Checks if one can execute the copy to prasic
-
-        """
-
-        ao_db.perform_db_maintenance(['copy_flights_live_odroid_to_prasic'])
 
         self.assertTrue(True)

@@ -5,11 +5,12 @@ import datetime
 from unittest import TestCase
 
 
-import ds
+from ao.ds import construct_date_range
+
 import air_option  as ao
 import ao_estimate as aoe
 
-from air_option_exchange import AirOptionFlightsExchange, AirOptionMockExchange
+from ao.air_option_exchange import AirOptionFlightsExchange, AirOptionMockExchange
 
 
 class TestAirOptionFlightsExchange(TestCase):
@@ -141,7 +142,7 @@ class TestAirOption(TestCase):
         self.optionRetDateStart = datetime.date.today() + datetime.timedelta ( days = 1 )
         self.optionRetDateEnd   = self.outDate - datetime.timedelta ( days = 1 )
 
-        self.io_dr = ds.construct_date_range( self.outDate
+        self.io_dr = construct_date_range( self.outDate
                                             , self.outDatePlusOne)
 
     def test_ao_2( self

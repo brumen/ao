@@ -11,10 +11,15 @@ from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.delta_dict  import DeltaDict
+from ao.flight      import AOTrade, Flight, create_session
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
+
+
+class AOTradeException(Exception):
+    pass
 
 
 class AirOptionFlights:
@@ -52,6 +57,84 @@ class AirOptionFlights:
         # caching variables
         self.__recompute_option_value = True  # indicator whether the option should be recomputed
         self.__option_value = None
+
+    @classmethod
+    def from_flights( cls
+                    , mkt_date         : datetime.date
+                    , ao_flights       : List[Flight]
+                    , strike           : float
+                    , rho              : float = 0.95
+                    , simplify_compute : str   = 'take_last_only'
+                    , underlyer        : str   = 'n'):
+        """ Computes the air option from the database.
+
+        :param mkt_date: market date
+        :param ao_flights: flights corresponding to the AOTrade.
+        :param strike: strike for the AOTrade
+        :param rho: correlation between flights parameter
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :param underlyer: underlying model to use.
+        """
+
+        return cls( mkt_date
+                  , [cls.extract_prices(ao_flight) for ao_flight in ao_flights]
+                  , K                = strike
+                  , rho              = rho
+                  , simplify_compute = simplify_compute
+                  , underlyer        = underlyer )
+
+    @staticmethod
+    def extract_prices(ao_flight : Flight) -> Tuple[float, datetime.date, str]:
+        """ Gets the prices and other data from the flight.
+
+        :param ao_flight: flight information that you want info from.
+        :returns: triple of price, datetime.date and flight id.
+        """
+
+        found_prices = ao_flight.prices  # prices found in the database
+        if not found_prices:  # no prices found
+            flight_price = 200.  # TODO: Some random price for now
+        else:
+            flight_price = found_prices[-1].price  # find the last price
+
+        return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
+
+    @classmethod
+    def from_db ( cls
+                , mkt_date         : datetime.date
+                , ao_trade_id      : str
+                , rho              : float = 0.95
+                , simplify_compute : str   = 'take_last_only'
+                , underlyer        : str   = 'n'
+                , session         : Optional[str] = None):
+        """ Computes the air option from the database.
+
+        :param mkt_date: market date
+        :param ao_trade_id: trade id for a particular AO trade we want.
+        :param rho: correlation between flights parameter
+        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+                                 options are: "take_last_only", "all_sim_dates"
+        :param underlyer: underlying model to use.
+        :param session: session used for the fetching of trades database from where the AOTrade is fetched.
+        """
+
+        # database session
+        session_used = create_session() if session is None else session
+
+        ao_trade = session_used.query(AOTrade)\
+                               .filter_by(position_id=ao_trade_id)\
+                               .first()  # AOFlight object
+
+        if ao_trade is None:
+            raise AOTradeException(f'Trade number {ao_trade_id} could not be found.')
+
+        return cls.from_flights( mkt_date
+                               , ao_trade.flights
+                               , strike           = ao_trade.strike
+                               , rho              = rho
+                               , simplify_compute = simplify_compute
+                               , underlyer        = underlyer )
 
     @property
     def flights(self):
@@ -493,16 +576,16 @@ class AirOptionFlights:
                 for sim_time, F_max_at_time in F_max}
 
     @staticmethod
-    def compute_date_by_fraction( dt_today : datetime.date
-                                , dt_final : datetime.date
+    def compute_date_by_fraction( date_today : datetime.date
+                                , date_final : datetime.date
                                 , fract    : int
                                 , total_fraction : int ) -> datetime.date:
         """
         Computes the date between dt_today and dt_final where the days between
         dt_today is the fract of dates between dt_today and dt_final
 
-        :param dt_today: "today's" date in datetime.date format
-        :param dt_final: final date that one considers for excersing the option
+        :param date_today: "today's" date in datetime.date format
+        :param date_final: final date that one considers for excersing the option
         :param fract: the fraction of the days between dt_today and dt_final (usually 3)
         :param total_fraction: total number of options that one considers (usually 3)
         :returns: outbound date fract/total_fraction between dt_today and dt_final
@@ -510,4 +593,12 @@ class AirOptionFlights:
 
         # fraction needs to be an integer
         # - 3 ... no change in the last 3 days
-        return dt_today + datetime.timedelta(days= (dt_final - dt_today).days * fract/total_fraction - 3)
+        return date_today + datetime.timedelta(days= (date_final - date_today).days * fract/total_fraction - 3)
+
+
+def main():
+    """ Example usage of some of the functions.
+    """
+
+    ao1 = AirOptionFlights.from_db(datetime.date(2016, 1, 1), 1)
+    print(ao1.PV())

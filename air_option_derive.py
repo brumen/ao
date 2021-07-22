@@ -1,28 +1,41 @@
-# air option computation file
+""" Basic AirOption computation class.
+"""
+
 import datetime
 import numpy as np
 import logging
 import functools
+import time
 
-from typing import List, Tuple, Optional
+from time                   import sleep
+from typing                 import List, Tuple, Optional, Union, Dict
+from sqlalchemy.orm.session import Session
+from skyscanner.skyscanner  import Flights, FlightsCache
 
-from ao.air_flights import get_flight_data
-from ao.ao_params   import get_drift_vol_from_db
-from ao.flight      import AOTrade, Flight, create_session
+from ao.mysql_connector_env import MysqlConnectorEnv
+
+from ao.ao_params   import get_drift_vol_from_db, get_drift_vol_from_db_precise
+from ao.flight      import Flight, create_session, Prices  # , FlightLive
 from ao.air_option  import AirOptionFlights
+from ao.ds          import construct_date_range, convert_datedash_date, convert_date_datedash, d2s
+from ao.ao_codes    import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay, get_tod
+
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
 
 
-class AOTradeException(Exception):
+# TODO: REMOVE THIS BELOW AFTER THE COMPLETION OF THE FlightLive class in ao.flight
+class FlightLive:
     pass
 
 
 class AirOptionSkyScanner(AirOptionFlights):
     """ Class for handling the air options from SkyScanner inputs.
     """
+
+    WAIT_BTW_RETRIES = 5  # 5 seconds wait between retries of skyscanner calls.
 
     def __init__( self
                 , mkt_date  : datetime.date
@@ -77,29 +90,613 @@ class AirOptionSkyScanner(AirOptionFlights):
         self.__recompute_ind       = recompute_ind
         self.db_host               = db_host
 
+        # TODO: MAKE SURE TO DO THIS LAZILY
+        flights = self.get_flight_data( origin_place        = self.__origin
+                                      , dest_place          = self.__dest
+                                      , outbound_date_start = self.__outbound_date_start
+                                      , outbound_date_end   = self.__outbound_date_end
+                                      , inbound_date_start  = self.__inbound_date_start
+                                      , inbound_date_end    = self.__inbound_date_end
+                                      , carrier             = self.__carrier
+                                      , cabinclass          = self.__cabinclass
+                                      , adults              = self.__adults
+                                      , return_flight       = self.__return_flight
+                                      , recompute_ind       = self.__recompute_ind
+                                      , correct_drift       = self.__correct_drift )
+
         super().__init__( mkt_date
-                        , list(self.get_flights())
+                        , flights
                         , K                = K
                         , rho              = rho
                         , simplify_compute = simplify_compute
                         , underlyer        = underlyer )
 
-    def get_flights(self):
-        """ Returns the flights from SkyScanner.
+    @classmethod
+    def get_flight_data ( cls
+                        , flights_include: Optional[List] = None
+                        , origin_place: str = 'SFO'
+                        , dest_place: str = 'EWR'
+                        , outbound_date_start: Optional[datetime.date] = None
+                        , outbound_date_end: Optional[datetime.date] = None
+                        , inbound_date_start: Optional[datetime.date] = None
+                        , inbound_date_end: Optional[datetime.date] = None
+                        , carrier: str = 'UA'
+                        , cabinclass: str = 'Economy'
+                        , adults: int = 1
+                        , return_flight: bool = False
+                        , recompute_ind: bool = False
+                        , correct_drift: bool = True
+                        , insert_into_livedb: bool = True):
+        """ Get flight data for the parameters specified
+
+        :param flights_include:      if None - include all
+                                     if specified, then only consider the flights in flights_include
+        :param origin_place:         IATA code of the origin airport, e.g.  'SFO'
+        :param dest_place:           IATA code of the destination airport, e.g.  'SFO'
+        :param outbound_date_start:  start date of the outbound flights
+        :param outbound_date_end:    end date of the outbound flights
+        :param inbound_date_start:   start date of the inbound (return) flights
+        :param inbound_date_end:     end date of the inbound (return) flights
+        :param carrier:              IATA code of the carrier, e.g. 'UA'
         """
 
-        return get_flight_data( origin_place        = self.__origin
-                              , dest_place          = self.__dest
-                              , outbound_date_start = self.__outbound_date_start
-                              , outbound_date_end   = self.__outbound_date_end
-                              , inbound_date_start  = self.__inbound_date_start
-                              , inbound_date_end    = self.__inbound_date_end
-                              , carrier             = self.__carrier
-                              , cabinclass          = self.__cabinclass
-                              , adults              = self.__adults
-                              , return_flight       = self.__return_flight
-                              , recompute_ind       = self.__recompute_ind
-                              , correct_drift       = self.__correct_drift )
+        # outbound data range
+        outbound_date_range = construct_date_range(outbound_date_start, outbound_date_end)
+
+        if return_flight:
+            inbound_date_range = construct_date_range(inbound_date_start, inbound_date_end)
+
+        obtain_flights_f = cls._obtain_flights_recompute if recompute_ind else cls._obtain_flights
+
+        if not return_flight:  # departure flights, always establish
+
+            obtained_flights = obtain_flights_f(origin_place
+                                                , dest_place
+                                                , carrier
+                                                , outbound_date_range
+                                                , flights_include
+                                                , cabinclass=cabinclass
+                                                , adults=adults
+                                                , insert_into_livedb=insert_into_livedb
+                                                , io_ind='out'
+                                                , correct_drift=correct_drift)
+
+            if not obtained_flights:  # if None, flights are not obtained.
+                return None
+
+            F_v_dep, F_mat_dep, s_v_dep, d_v_dep, flights_v_dep = cls._sort_flights_by_prices(*obtained_flights)
+
+        else:  # return flights handling
+
+            # we have a restriction on which flights to include
+            flights_include_dep, flights_include_ret = flights_include if flights_include else (None, None)
+
+            obtained_flights_ret2 = obtain_flights_f(origin_place
+                                                     , dest_place
+                                                     , carrier
+                                                     , outbound_date_range
+                                                     , flights_include_dep
+                                                     , io_ind='out'
+                                                     , correct_drift=correct_drift)
+
+            if not obtained_flights_ret2:  # not valid, return immediately
+                return None
+
+            F_v_dep, F_mat_dep, s_v_dep_raw, d_v_dep_raw, flights_v_dep = cls._sort_flights_by_prices(*obtained_flights_ret2)
+
+            obtained_flights_ret = obtain_flights_f(origin_place
+                                                    , dest_place
+                                                    , carrier
+                                                    , inbound_date_range
+                                                    , flights_include_ret
+                                                    , io_ind='in'
+                                                    , correct_drift=correct_drift)
+
+            if not obtained_flights_ret:  # not valid, return immediately
+                return None
+
+            F_v_ret, F_mat_ret, s_v_ret_raw, d_v_ret_raw, flights_v_ret = cls._sort_flights_by_prices(*obtained_flights_ret)
+
+            valid_check = obtained_flights and obtained_flights_ret
+
+            if valid_check:
+                s_v_dep = s_v_dep_raw
+                d_v_dep = d_v_dep_raw
+                s_v_ret = s_v_ret_raw
+                d_v_ret = d_v_ret_raw
+
+        # TODO: reorg_flights_v_dep is in obtained_flights
+        if valid_check:
+            if not return_flight:
+                return F_v_dep, F_mat_dep, flights_v_dep, reorg_flights_v_dep, s_v_dep, d_v_dep
+
+            return (F_v_dep, F_v_ret), \
+                   (F_mat_dep, F_mat_ret), \
+                   (flights_v_dep, flights_v_ret), \
+                   (reorg_flights_v_dep, reorg_flights_v_ret), \
+                   (s_v_dep, s_v_ret), \
+                   (d_v_dep, d_v_ret)
+
+        return None  # not valid
+
+    @classmethod
+    def _find_carrier(cls, carriers: List[str], carrier_id: str) -> Optional[str]:
+        """ Finds the carrier from the ID list
+
+        :param carriers: list of carriers
+        :param carrier_id: carrier one is searching for
+        :returns: Code of the carrier info if found, else None
+        """
+
+        for carrier_info in carriers:
+            if carrier_id == carrier_info['Id']:
+                return carrier_info['Code']
+
+        return None  # None indicates failure
+
+    @classmethod
+    def _obtain_flights_recompute ( cls
+                                  , origin: str
+                                  , dest: str
+                                  , carrier: str
+                                  , io_dr_minus
+                                  , flights_include
+                                  , cabinclass: str = 'Economy'
+                                  , adults: int = 1
+                                  , insert_into_livedb: bool = True
+                                  , io_ind: str = 'out'
+                                  , correct_drift: bool = True):
+        """ Get the flights for recompute method.
+        IMPORTANT: cabinclass, adults, insert_into_livedb HAVE TO BE THERE, to correspond to obtain_flights fct.
+
+        :param origin: origin IATA airport
+        :param dest: destination IATA airport
+        :param io_dr_minus: input/output date range _minus (with - sign)
+        :param flights_include: flights to be considered for recomputation
+        :param io_ind:          inbound/outbound indicator ('in', or 'out')
+        """
+
+        origin_used, dest_used = (origin, dest) if io_ind == 'out' else (dest, origin)
+
+        F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
+        reorg_flights_v = dict()
+        for outbound_date in io_dr_minus:  # io_dr_minus ... date range in datetime.date format
+            # fliter prices from flights_include
+            ticket_val = []
+            flights = []  # (id, dep, arr, price, flight_id)
+            reorg_flight = {}
+            od_iso = outbound_date.isoformat()
+            for tod in flights_include[od_iso]:  # iterating over time of day
+                reorg_flight[tod] = {}
+                for dep_time in flights_include[od_iso][tod]:
+                    res = flights_include[od_iso][tod][dep_time]
+                    if dep_time != 'min_max':
+                        flight_id, _, dep_time, arr_date, arr_time, flight_price, flight_id, flight_included = res
+                        carrier_tmp = flight_id[:2]  # first two letters of id - somewhat redundant
+                        if flight_included:
+                            ticket_val.append(flight_price)
+                            flights.append((flight_id,
+                                            od_iso + 'T' + dep_time,
+                                            arr_date + 'T' + arr_time,
+                                            flight_price,
+                                            flight_id))
+                            reorg_flight[tod][dep_time] = flights_include[od_iso][tod][dep_time]
+
+            # add together
+            F_v.extend(ticket_val)
+            flight_dep_time_added = [x[1] for x in flights]  # just the departure time
+            io_dr_drift_vol = get_drift_vol_from_db_precise( flight_dep_time_added
+                                                           , origin_used
+                                                           , dest_used
+                                                           , carrier
+                                                           , correct_drift=correct_drift
+                                                           , fwd_value=np.mean(ticket_val))
+
+            s_v_obtain.extend([x[0] for x in io_dr_drift_vol])  # adding the vols
+            d_v_obtain.extend([x[1] for x in io_dr_drift_vol])  # adding the drifts
+            flights_v.extend(flights)
+            F_mat.extend(cls._obtain_flights_mat(flights
+                                            , flights_include
+                                            , datetime.date.today()))  # maturity of forwards
+            reorg_flights_v[od_iso] = reorg_flight
+
+        return F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
+
+    @classmethod
+    def get_itins ( cls
+                  , origin: str
+                  , dest: str
+                  , outbound_date: datetime.date
+                  , includecarriers: Union[List[str], None] = None
+                  , cabinclass: str = 'Economy'
+                  , adults: int = 1
+                  , use_cache: bool = False
+                  , nb_tries: int = 1
+                  , max_nb_tries: int = 5) -> Union[Dict, None]:
+        """ Returns itineraries for the selection from the Skyscanner API.
+
+        :param origin: IATA code of the flight origin airport (e.g. 'SIN', or 'SFO')
+        :param dest: IATA code of the flight destination airport (e.g. 'KUL', or 'EWR')
+        :param outbound_date: date for flights to fetch
+        :param includecarriers: IATA code of the airlines to use, if None, all airlines
+        :param cabinclass: one of the following: Economy*, PremiumEconomy, Business, First
+        :param adults: number of adults to get
+        :param use_cache: whether to use Skyscanner cache for ticket pricer. This is not the local db, just cache part of Skyscanner
+        :param nb_tries: number of tries that one tries to get a connection to SkyScanner
+        :param max_nb_tries: max number of tries that it attempts.
+        :returns:             Resulting flights from SkyScanner, dictionary structure:
+                              'Itineraries'
+                              'Currencies'
+                              'Agents'
+                              'Carriers'
+                              'Query'
+                              'Segments'
+                              'Places'
+                              'SessionKey'
+                              'Legs'
+                              'Status'
+                   if no flights could be found, return None
+        """
+
+        params_all = dict(country=COUNTRY
+                          , currency=CURRENCY
+                          , locale=LOCALE
+                          , originplace=f'{origin}-sky'
+                          , destinationplace=f'{dest}-sky'
+                          , outbounddate=convert_date_datedash(outbound_date)
+                          , cabinclass=cabinclass
+                          , adults=adults
+                          , stops=0)  # only direct flights
+
+        if includecarriers is not None:
+            params_all['includecarriers'] = includecarriers
+
+        if not use_cache:
+            flights_service = Flights(skyscanner_api_key)
+            query_fct = flights_service.get_result
+        else:
+            flights_service = FlightsCache(skyscanner_api_key)
+            query_fct = flights_service.get_cheapest_price_by_route
+            # query_fct = flights_service.get_cheapest_quotes
+            # query_fct = flights_service.get_cheapest_price_by_date
+            # query_fct = flights_service.get_grid_prices_by_date
+            params_all['market'] = COUNTRY  # add this field
+
+        try:
+            return query_fct(**params_all).parsed
+
+        except (ConnectionError, AttributeError):
+            sleep(cls.WAIT_BTW_RETRIES)  # wait 5 secs
+            if nb_tries <= max_nb_tries:
+                return cls.get_itins(origin=origin
+                                 , dest=dest
+                                 , outbound_date=outbound_date
+                                 , includecarriers=includecarriers
+                                 , cabinclass=cabinclass
+                                 , adults=adults
+                                 , nb_tries=nb_tries + 1
+                                 , max_nb_tries=max_nb_tries)
+
+            return None  # this is handled appropriately in the get_ticket_prices
+
+    @classmethod
+    def get_ticket_prices ( cls
+                          , origin: str
+                          , dest: str
+                          , outbound_date: datetime.date
+                          , include_carriers=None
+                          , cabinclass: str = 'Economy'
+                          , adults: int = 1
+                          , use_cache: bool = False
+                          , insert_into_livedb: bool = False
+                          , session: Optional[Session] = None
+                          , ) -> Union[None, List[FlightLive]]:
+        """ Returns the list of live flights.
+
+        :param origin: IATA code of the origin airport 'SIN'
+        :param dest: IATA code of the destination airport 'KUL'
+        :param outbound_date: outbound date # TODO: remove: in dash format '2017-02-15'
+        :param include_carriers: IATA code of a _SINGLE_ airline code
+        :param cabinclass: cabin class of the flight ticket (one of 'Economy', 'Business')
+        :param adults: number of adult tickets booked
+        :param: use_cache: bool indicator to signal to SkyScanner api to use cache.
+        :param insert_into_livedb: indicator whether to insert the fetched flight into the livedb
+        :param session: mysqlalchemy session, if None, one is made up directly in the function.
+        :returns: None if no results, otherwise a list of FlightLive objects
+        """
+
+        session_used = session if session else create_session()
+
+        flights_in_ldb = session_used.query(FlightLive) \
+            .filter_by(orig=origin
+                       , dest=dest
+                       , dep_date=outbound_date
+                       , cabinclass=cabinclass) \
+            .filter(FlightLive.as_of > (datetime.datetime.now() - livedb_delay).isoformat())
+
+        if include_carriers is not None:
+            flights_in_ldb = flights_in_ldb.filter_by(carrier=include_carriers)
+
+        flights_in_ldb = flights_in_ldb.all()
+
+        if flights_in_ldb:  # we have this in the database
+            return flights_in_ldb
+
+        # If flights not found in the cached db, continue with skyscanner fetch
+        result = cls.get_itins( origin=origin
+                              , dest=dest
+                              , outbound_date=outbound_date
+                              , includecarriers=include_carriers
+                              , cabinclass=cabinclass
+                              , adults=adults
+                              , use_cache=use_cache)
+
+        # returns all one ways on that date
+        if not result:  # nothing out
+            return None
+
+        # results are not empty
+        # F_v = []
+        # flights_v = []
+
+        flights = []
+        for itinerary, leg in zip(result['Itineraries'], result['Legs']):
+
+            flight_num_all = leg['FlightNumbers']
+
+            if len(flight_num_all) == 1:  # indicator if the flight is direct, the other test case is missing
+                carrier = cls._find_carrier(result['Carriers'], leg['Carriers'][0])  # carriers = all carriers, leg['carriers'] are id of carrier
+                price = itinerary['PricingOptions'][0]['Price']  # TODO: THIS PRICE CAN BE DIFFERENT
+                flight_num = flight_num_all[0]['FlightNumber']  # TODO: HOW DO WE KNOW THAT WE HAVE THIS??
+
+                # leg['Departure'] is departure date
+                flights_v.append((leg['Id'], leg['Departure'], leg['Arrival'], price, carrier + flight_num))
+
+                # prices
+                price = Prices(as_of=now()
+                               , price=price
+                               , reg_id=TODO
+                               , flight_id=carrier + flight_num)  # TODO: FIX THIS
+
+                flights.append(FlightLive(as_of=now()
+                                          , flight_id=leg['Id']
+                                          , prices=Price()  # TODO - FIX HERE
+                                          , dep_date=leg['Departure']  # leg['Departure'] is departure date
+                                          , ))
+
+        #     return F_v, flights_v
+        if insert_into_livedb:  # insert obtained flights into livedb
+            for flight in flights:
+                session.add(flight)
+
+            session.commit()
+
+        #         insert_into_flights_live(origin, dest, flights_v, cabinclass)
+
+        return flights
+
+    @classmethod
+    def _reorganize_ticket_prices(cls, flights: List[FlightLive]) -> Dict[datetime.date, Dict[str, Dict[str, FlightLive]]]:
+        """ Reorganize the flights by levels:
+           day (datetime.date)
+             time of day (morning, afternoon)
+                hour (datetime.time)
+
+            insert ((date, hour), (arr_date, arr_hour), price, flight_id) into dict d
+
+        :param flights: Itinerary in the form of a list of ((u'2016-10-28', u'19:15:00'), 532.),
+                       where the first is the departure date, second departure time, third flight price
+        :returns: multiple level dictionary
+        """
+
+        # get the days from the list of
+        # TODO: CHECK ITINERARIES IN THE UPSTREAM FUNCTION
+        # dep_day_hour = [(x[1].split('T'), x[2].split('T'), x[3], x[0], x[4]) for x in itin]
+
+        reorg_tickets = dict()
+
+        # for (date_dt, hour), (arr_date, arr_hour), price, flight_id, flight_num in dep_day_hour:
+        for flight in flights:
+            hour = flight.as_of.time()
+            time_of_day = get_tod(hour)
+            date_ = flight.as_of.date()
+
+            # part to insert into dict d
+            if date_ not in reorg_tickets.keys():
+                reorg_tickets[date_] = dict()
+
+            if time_of_day not in reorg_tickets[date_].keys():
+                reorg_tickets[date_][time_of_day] = dict()
+
+            # TODO: MISSING STUFF
+            price = None
+            arr_hour = None
+            reorg_tickets[date_][time_of_day][hour] = (
+            flight.flight_id, date_, hour, flight.arr_date, arr_hour, price, flight.flight_id, True)
+
+        return reorg_tickets
+
+    @classmethod
+    def get_all_carriers ( cls
+                         , origin: str
+                         , dest: str
+                         , outbound_date: datetime.date
+                         , cabinclass: str = 'Economy') -> set:
+        """ Gets all carriers for a selected route and selected date (direct flights only)
+
+        :param origin: IATA code of the origin airport
+        :param dest:   IATA code of the destination airport
+        :param outbound_date: date of the flights between origin, destination
+        :param cabinclass: cabin class.
+        :returns: flights for the route selected.
+        """
+
+        _, flights = cls.get_ticket_prices( origin=origin
+                                          , dest=dest
+                                          , outbound_date=outbound_date
+                                          , cabinclass=cabinclass
+                                          , )
+
+        return set([flight[4][:2] for flight in flights])  # carrier names, a set
+
+    @classmethod
+    def _obtain_flights ( cls
+                       , origin: str
+                       , dest: str
+                       , carrier: str
+                       , in_out_date_range
+                       , flights_include
+                       , cabinclass='Economy'
+                       , adults=1
+                       , insert_into_livedb=True
+                       , io_ind='out'
+                       , correct_drift=True):
+        """ Get the flights for outbound and/or inbound flight.
+
+        :param origin: origin airport of flights, IATA code (like 'EWR')
+        :param dest: dest airport of flights, IATA code (like 'SFO')
+        :param carrier: IATA code of the carrier considered
+        :param in_out_date_range:   input/output date range _minus (with - sign)
+                              output of function construct_date_range(outbound_date_start, outbound_date_end)
+        :type in_out_date_range:    list of datetime.date
+        :param io_ind: inbound/outbound indicator ('in', 'out')
+        :param correct_drift: whether to correct the drift, as described in the documentation
+        :param cabinclass: cabin class, one of 'Economy', ...
+        """
+
+        F_v, flights_v, F_mat, s_v_obtain, d_v_obtain = [], [], [], [], []
+
+        reorg_flights_v = dict()
+
+        # outbound, else inbound, reverse the origin, destination
+        origin_, dest_ = (origin, dest) if io_ind == 'out' else (dest, origin)
+
+        for out_date in in_out_date_range:
+
+            out_date_str = out_date.isoformat()
+
+            yield out_date  # TODO: check this HERE
+            flights = cls.get_ticket_prices( origin=origin_
+                                           , dest=dest_
+                                           , outbound_date=out_date
+                                           , include_carriers=carrier
+                                           , cabinclass=cabinclass
+                                           , adults=adults
+                                           , insert_into_livedb=insert_into_livedb
+                                           , )
+
+            reorg_flights = cls._reorganize_ticket_prices(flights)
+
+            # does the flight exist for that date??
+            if out_date_str in reorg_flights:  # reorg_flights has string keys
+
+                F_v.extend(ticket_val)
+                io_dr_drift_vol = get_drift_vol_from_db_precise( [x[1] for x in flights]
+                                                               # just the departure time
+                                                               , origin_
+                                                               , dest_
+                                                               , carrier
+                                                               , correct_drift=correct_drift
+                                                               , fwd_value=np.mean(ticket_val) )
+
+                s_v_obtain.extend([x[0] for x in io_dr_drift_vol])  # adding the vols
+                d_v_obtain.extend([x[1] for x in io_dr_drift_vol])  # adding the drifts
+                flights_v.extend(flights)
+                F_mat.extend(
+                    cls._obtain_flights_mat(flights, flights_include, datetime.date.today()))  # maturity of forwards
+
+                reorg_flights_v[out_date_str] = reorg_flights[out_date_str]
+
+        if len(F_v) > 0:  # there are actual flights
+            yield F_v, F_mat, s_v_obtain, d_v_obtain, flights_v, reorg_flights_v
+
+        yield None  # no flights
+
+    @classmethod
+    def _obtain_flights_mat ( cls
+                            , flights: List[Tuple[int, datetime.date, datetime.date, float, str]]
+                            , flights_include
+                            , date_today_dt: datetime.date
+                            , ):
+        """ Constucting the flight maturity, with censoring the flights that are not included in the flights_include list
+
+        :param flights: list of flights to be included in the construction of flights maturity
+        :param flights_include: flights to be included in the TODO:
+        :type flights_include: dict of flights as in reorg_flights,
+        :param date_today_dt: today's date in datetime format
+        """
+
+        flights_mat = []
+
+        for dd in flights:
+
+            dd_day, dd_time = dd[1].split('T')
+            dd_tod = get_tod(dd_time)
+            flight_mat_res = (convert_datedash_date(dd_day) - date_today_dt).days / 365.
+
+            if flights_include is None:
+                flights_mat.append(flight_mat_res)
+
+            else:
+                if flights_include[dd_day][dd_tod][dd_time][-1]:
+                    flights_mat.append(flight_mat_res)
+
+        return flights_mat
+
+    @classmethod
+    def insert_into_flights_live ( cls
+                                 , origin : str
+                                 , dest   : str
+                                 , flights
+                                 , cabinclass):
+        """ Inserts the flights given in flights_v into the flights_live database
+
+        :param origin: IATA code of the origin airport
+        :param dest: IATA code of the destination airport
+        :param flights: flights to be insterted
+        :param cabinclass: cabin class ('economy',...)
+        """
+
+        # construct ins_fl_l
+        lt = time.localtime()
+        as_of = str(lt.tm_year) + '-' + str(d2s(lt.tm_mon)) + '-' + str(d2s(lt.tm_mday)) + 'T' + \
+                str(d2s(lt.tm_hour)) + ':' + str(d2s(lt.tm_min)) + ':' + str(d2s(lt.tm_sec))
+
+        live_flight_l = []
+
+        for it in flights:
+            dep_date, dep_time = it[1].split('T')
+            # arr_date = it[2]
+            carrier = it[4][:2]  # first 2 letters of this string
+            flight_nb = it[4][3:]  # next letters for flight_nb
+            live_flight_l.append(
+                (as_of, origin, dest, it[3], it[0], dep_date, dep_time, it[2], carrier, flight_nb, cabinclass))
+
+        insert_str = """INSERT INTO flights_live (as_of, orig, dest, price, flight_id, dep_date, dep_time, 
+                                                  arr_date, carrier, flight_nb, cabin_class) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
+        with MysqlConnectorEnv() as mysql_conn:
+            mysql_conn.cursor().executemany(insert_str, live_flight_l)
+            mysql_conn.commit()
+
+    @classmethod
+    def _sort_flights_by_prices(cls
+                                 , F_v: np.array
+                                 , F_mat
+                                 , s_v
+                                 , d_v
+                                 , fl_v
+                                 , reorg_flights_v):
+        """ Sorts the flights according to the F_v,
+            _Important_ assmption being that similar flights by values are most correlated.
+
+        regorg_flights_v is useless TODO: FIX LATER.
+
+        :param F_v: vector of flight prices
+        """
+
+        return zip(*sorted(zip(F_v, F_mat, s_v, d_v, fl_v)))
 
     @functools.lru_cache(maxsize=128)
     def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:
@@ -122,7 +719,22 @@ class AirOptionMock(AirOptionSkyScanner):
         IMPORTANT: JUST USED FOR TESTING.
     """
 
-    def get_flights(self):
+    @classmethod
+    def get_flight_data( cls
+                        , flights_include: Optional[List] = None
+                        , origin_place: str = 'SFO'
+                        , dest_place: str = 'EWR'
+                        , outbound_date_start: Optional[datetime.date] = None
+                        , outbound_date_end: Optional[datetime.date] = None
+                        , inbound_date_start: Optional[datetime.date] = None
+                        , inbound_date_end: Optional[datetime.date] = None
+                        , carrier: str = 'UA'
+                        , cabinclass: str = 'Economy'
+                        , adults: int = 1
+                        , return_flight: bool = False
+                        , recompute_ind: bool = False
+                        , correct_drift: bool = True
+                        , insert_into_livedb: bool = True):
         """ Generates mock flight data - used for testing. Is a generator.
         """
 
@@ -141,111 +753,28 @@ class AirOptionMock(AirOptionSkyScanner):
         return 100., 100.
 
 
-class AirOptionFlightsExplicit(AirOptionFlights):
-    """ Class that prices the AOTrade associated with list of flights.
-
-    SOME GUIDANCE: use mkt_date: datetime.date(2016, 1, 1)
-    """
-
-    def __init__(self
-                , mkt_date         : datetime.date
-                , ao_flights       : List[Flight]
-                , strike           : float
-                , rho              : float = 0.95
-                , simplify_compute : str   = 'take_last_only'
-                , underlyer        : str   = 'n'):
-        """ Computes the air option from the database.
-
-        :param mkt_date: market date
-        :param ao_flights: flights corresponding to the AOTrade.
-        :param strike: strike for the AOTrade
-        :param rho: correlation between flights parameter
-        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
-                                 options are: "take_last_only", "all_sim_dates"
-        :param underlyer: underlying model to use.
-        """
-
-        super().__init__( mkt_date
-                        , [self.extract_prices(ao_flight) for ao_flight in ao_flights]
-                        , K                = strike
-                        , rho              = rho
-                        , simplify_compute = simplify_compute
-                        , underlyer        = underlyer )
-
-    @staticmethod
-    def extract_prices(ao_flight : Flight) -> Tuple[float, datetime.date, str]:
-        """ Gets the prices and other data from the flight.
-
-        :param ao_flight: flight information that you want info from.
-        :returns: triple of price, datetime.date and flight id.
-        """
-
-        found_prices = ao_flight.prices  # prices found in the database
-        if not found_prices:  # no prices found
-            flight_price = 200.  # TODO: Some random price for now
-        else:
-            flight_price = found_prices[-1].price  # find the last price
-
-        return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
-
-
-class AirOptionsFlightsExplicitSky(AirOptionFlightsExplicit):
+class AirOptionsFlightsExplicitSky(AirOptionSkyScanner):
     """ Computes the air option from the data in the database, in particular
-    flights between outbound_start and outbound_end, for the particular origin and destination.
+        flights between outbound_start and outbound_end, for the particular origin and destination.
     """
 
-    def __init__( self
-                , mkt_date  : datetime.date
-                , origin    : str = 'SFO'
-                , dest      : str = 'EWR'
-                # next 4 - when do the (changed) flights occur
-                , outbound_date_start : Optional[datetime.date] = None
-                , outbound_date_end   : Optional[datetime.date] = None
-                , inbound_date_start  : Optional[datetime.date] = None
-                , inbound_date_end    : Optional[datetime.date] = None
-                , K                   : float = 1600.
-                , carrier             : str   = 'UA'
-                , rho                 : float = 0.95
-                , adults              : int   = 1
-                , cabinclass          : str   = 'Economy'
-                , simplify_compute    : str   = 'take_last_only'
-                , underlyer           : str   = 'n'
-                , return_flight       : bool  = False
-                , recompute_ind       : bool  = False
-                , correct_drift       : bool  = True
-                , db_host             : str   = 'localhost' ):
-        """
-        :param origin: IATA code of the origin airport ('SFO')
-        :param dest: IATA code of the destination airport ('EWR')
-        :param outbound_date_start: start date for outbound flights to change to
-        :param outbound_date_end: end date for outbound flights to change to
-        :param inbound_date_start: start date for inbound flights to change to
-        :param inbound_date_end: end date for inbound flights to change to
-        :param K: option strike
-        :param carrier: IATA code of the carrier
-        :param rho: correlation between flights parameter
-        :param adults: nb. of people on this ticket
-        :param cabinclass: class of flight ticket
-        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
-                                 options are: "take_last_only", "all_sim_dates"
-        :param db_host: database host, where the market & flight data is located.
-        """
 
-        super().__init__( mkt_date
-                        , self._get_flights(origin, dest, outbound_date_start, outbound_date_end, carrier)  # List[Flight]
-                        , K
-                        , rho
-                        , simplify_compute = simplify_compute
-                        , underlyer = underlyer)
-
-    @staticmethod
-    def _get_flights( origin              : str
-                    , dest                : str
-                    , outbound_date_start : datetime.date
-                    , outbound_date_end   : datetime.date
-                    , carrier             : str
-                    , cabinclass          : str = 'economy'
-                    , adults              : int = 1) -> List[Flight]:
+    @classmethod
+    def get_flight_data( cls
+                        , flights_include: Optional[List] = None
+                        , origin_place: str = 'SFO'
+                        , dest_place: str = 'EWR'
+                        , outbound_date_start: Optional[datetime.date] = None
+                        , outbound_date_end: Optional[datetime.date] = None
+                        , inbound_date_start: Optional[datetime.date] = None
+                        , inbound_date_end: Optional[datetime.date] = None
+                        , carrier: str = 'UA'
+                        , cabinclass: str = 'Economy'
+                        , adults: int = 1
+                        , return_flight: bool = False
+                        , recompute_ind: bool = False
+                        , correct_drift: bool = True
+                        , insert_into_livedb: bool = True):
         """ Get flights corresponding to the data that exist in the db.
 
         :param origin: IATA origin.
@@ -259,56 +788,6 @@ class AirOptionsFlightsExplicitSky(AirOptionFlightsExplicit):
         session = create_session()
 
         return session.query(Flight)\
-                      .filter_by(orig=origin, dest=dest, carrier=carrier)\
+                      .filter_by(orig=origin_place, dest=dest_place, carrier=carrier)\
                       .filter(Flight.dep_date.between(outbound_date_start, outbound_date_end))\
                       .all()
-
-
-class AirOptionFlightsFromDB(AirOptionFlightsExplicit):
-    """ Class to fetch the trade from the database.
-
-    SOME GUIDANCE: use mkt_date: datetime.date(2016, 1, 1)
-    """
-
-    def __init__(self
-                , mkt_date         : datetime.date
-                , ao_trade_id      : str
-                , rho              : float = 0.95
-                , simplify_compute : str   = 'take_last_only'
-                , underlyer        : str   = 'n'
-                , session         : Optional[str] = None):
-        """ Computes the air option from the database.
-
-        :param mkt_date: market date
-        :param ao_trade_id: trade id for a particular AO trade we want.
-        :param rho: correlation between flights parameter
-        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
-                                 options are: "take_last_only", "all_sim_dates"
-        :param underlyer: underlying model to use.
-        :param session: session used for the fetching of trades database from where the AOTrade is fetched.
-        """
-
-        # database session
-        session_used = create_session() if session is None else session
-
-        ao_trade = session_used.query(AOTrade)\
-                          .filter_by(position_id=ao_trade_id)\
-                          .first()  # AOFlight object
-
-        if ao_trade is None:
-            raise AOTradeException(f'Trade number {ao_trade_id} could not be found.')
-
-        super().__init__( mkt_date
-                        , ao_trade.flights
-                        , strike           = ao_trade.strike
-                        , rho              = rho
-                        , simplify_compute = simplify_compute
-                        , underlyer        = underlyer )
-
-
-def main():
-    """ Example usage of some of the functions.
-    """
-
-    ao1 = AirOptionFlightsFromDB(datetime.date(2016, 1, 1), 1)
-    print(ao1.PV())
