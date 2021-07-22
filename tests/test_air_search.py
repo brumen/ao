@@ -21,16 +21,6 @@ class TestAirSearch(TestCase):
 
         self.assertTrue(True)
 
-    def test_get_all_carriers(self):
-        """ Tests whether the get_all_carriers function runs.
-        """
-
-        res = AirOptionSkyScanner.get_all_carriers( 'EWR'
-                                                  , 'SFO'
-                                                  ,  datetime.date.today() + dt.timedelta(days=30) )
-
-        self.assertTrue(True)
-
     def test_get_ticket_prices(self):
         """ TODO
         """
