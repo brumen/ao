@@ -22,14 +22,17 @@ class AOTradeException(Exception):
     pass
 
 
+FLIGHT_TYPE = Tuple[float, datetime.date, str]
+
+
 class AirOptionFlights:
     """ Handles the air option for a particular set of flights.
     """
 
     def __init__( self
                 , mkt_date : datetime.date
-                , flights  : Union[ List[Tuple[float, datetime.date, str]]
-                                  , Tuple[List[Tuple[float, datetime.date, str]], List[Tuple[float, datetime.date, str]]]]
+                , flights  : Union[ List[FLIGHT_TYPE]
+                                  , Tuple[List[FLIGHT_TYPE], List[FLIGHT_TYPE]]]
                 , K                : float = 1600.
                 , rho              : float = 0.95
                 , simplify_compute : str   = 'take_last_only'
