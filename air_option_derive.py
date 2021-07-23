@@ -15,7 +15,7 @@ from ao.ao_params   import get_drift_vol_from_db
 from ao.flight      import Flight, create_session, Prices  # , FlightLive
 from ao.air_option  import AirOptionFlights, FLIGHT_TYPE
 from ao.ds          import construct_date_range, convert_date_datedash
-from ao.ao_codes    import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay, get_tod
+from ao.ao_codes    import COUNTRY, CURRENCY, LOCALE, skyscanner_api_key, livedb_delay
 
 
 logging.basicConfig(filename='/tmp/air_option.log')
