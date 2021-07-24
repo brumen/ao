@@ -454,8 +454,8 @@ class AirOptionsFlightsExplicitSky(AirOptionSkyScanner):
 
     def get_flight_data( self
                         , flights_include: Optional[List] = None
-                        , origin_place: str = 'SFO'
-                        , dest_place: str = 'EWR'
+                        , origin: str = 'SFO'
+                        , dest: str = 'EWR'
                         , outbound_date_start: Optional[datetime.date] = None
                         , outbound_date_end: Optional[datetime.date] = None
                         , inbound_date_start: Optional[datetime.date] = None
@@ -479,10 +479,19 @@ class AirOptionsFlightsExplicitSky(AirOptionSkyScanner):
 
         session = create_session()
 
-        return session.query(Flight)\
-                      .filter_by(orig=origin_place, dest=dest_place, carrier=carrier)\
+        flights =  session.query(Flight)\
+                      .filter_by(orig=origin, dest=dest, carrier=carrier)\
                       .filter(Flight.dep_date.between(outbound_date_start, outbound_date_end))\
                       .all()
+
+        for flight in flights:
+            flight_id = flight.flight_id
+
+            prices = flight.prices
+            if not prices:  # list is empty
+                raise RuntimeError(f'Cant find price for flight {flight_id}.')
+
+            yield prices[-1].price, flight.dep_date.date(), flight.flight_id
 
 
 # def _reorganize_ticket_prices(cls, flights: List[FlightLive]) -> Dict[datetime.date, Dict[str, Dict[str, FlightLive]]]:

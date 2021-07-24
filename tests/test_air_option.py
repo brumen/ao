@@ -17,8 +17,8 @@ class TestAirOptionFlights(TestCase):
         flights = [(100., datetime.date(2019, 7, 15), 'UA70'), (200., datetime.date(2019, 7, 20), 'UA71')]
 
         airof = AirOptionFlights( datetime.date(2019, 6, 28)
-                              , flights
-                              , K=200. )
+                                , flights
+                                , K = 200. )
 
         airof_pv01 = airof.PV01()  # TODO: DO A TEST w/ this
         self.assertGreater(airof.PV(), 0.)  # air option value > 0 test, silly test
@@ -30,16 +30,14 @@ class TestAirOptionFlights(TestCase):
         airof2_pv01 = airof2.PV01()
         self.assertGreater(airof2.PV(), 0.)
 
-        # option times
-        # option_range_1 = airof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
-
         # call w/ option_times
         option_range_2 = airof.PV(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
         option_range_3 = airof2.PV(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
         option_range_4 = airof.PV(option_maturities=[datetime.date(2019, 8, 1)])
 
-        # TODO: MORE HERE!!!
-        self.assertTrue(True)
+        # option values are increasing in maturity
+        self.assertGreaterEqual(option_range_2[datetime.date(2019, 6, 30)], option_range_2[datetime.date(2019, 7, 2)])
+        self.assertGreaterEqual(option_range_3[datetime.date(2019, 6, 30)], option_range_2[datetime.date(2019, 7, 2)])
 
     def test_extreme(self):
         """ Tests if AirOptionFlights runs with multiple flights.
@@ -81,6 +79,7 @@ class TestAirOptionSkyscanner(TestCase):
 
 
 class TestAirOptionsFlightsExplicitSky(TestCase):
+
     def test_1(self):
         ao_ss = AirOptionsFlightsExplicitSky( datetime.date(2016, 9, 25)
                                    , origin = 'SFO'
