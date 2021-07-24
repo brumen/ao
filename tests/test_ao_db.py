@@ -31,46 +31,6 @@ class TestAoDb(TestCase):
 
         self.assertTrue(True)
 
-    def test_commit_flights_to_live(self):
-        """ Tests the commit_flights_to_live function.
-        """
-
-        # flights_l = (as_of, orig, dest, dep_date, arr_date, carrier, price, outbound_leg_id, flight_nb)
-        flights_l = [( datetime.datetime.now()
-                    , 'SFO'
-                    , 'EWR'
-                    , '2018-03-14T22:04:12'
-                    , '2018-03-15T08:00:00'
-                    , 'UA'
-                    , 150.
-                    , 'id_here'
-                    , 110 )]
-
-        ao_db.commit_flights_to_live(flights_l)
-
-        flights_l_2 = [(datetime.datetime.now()
-                      , 'SFO'
-                      , 'EWR'
-                      , '2018-03-14T22:04:12'
-                      , '2018-03-15T08:00:00'
-                      , 'UA'
-                      , 150.
-                      , 'id_here'
-                      , 110)
-                     , (datetime.datetime.now()
-                      , 'SFO'
-                      , 'EWR'
-                      , '2018-04-14T22:04:12'
-                      , '2018-04-15T08:00:00'
-                      , 'UA'
-                      , 250.
-                      , 'id_here'
-                      , 110)]
-
-        ao_db.commit_flights_to_live(flights_l_2)
-
-        self.assertTrue(True)
-
     def test_insert_into_db(self):
         """ Test for insert_into_db function.
         """

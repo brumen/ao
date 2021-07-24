@@ -2,7 +2,7 @@
 import unittest
 
 
-from iata.codes import get_airline_code
+from ao.iata.codes import get_airline_code
 
 
 class TestAoCodes(unittest.TestCase):

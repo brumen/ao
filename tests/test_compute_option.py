@@ -3,7 +3,7 @@
 from unittest                import TestCase
 from werkzeug.datastructures import ImmutableMultiDict
 
-from ao_scripts.compute_option import compute_option
+from ao.ao_scripts.compute_option import compute_option
 
 
 class TestComputeOption(TestCase):

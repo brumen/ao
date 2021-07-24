@@ -2,8 +2,8 @@
 import unittest
 import numpy as np
 
-import mc
-from vols.vols import corr_hyp_sec_mat
+import ao.mc as mc
+from ao.vols.vols import corr_hyp_sec_mat
 
 
 class TestMC(unittest.TestCase):

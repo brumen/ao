@@ -1,6 +1,6 @@
 """ Display the trades and PV
-
 """
+
 import datetime
 import tkinter as tk
 import numpy   as np
@@ -9,7 +9,7 @@ import pandas  as pd
 from pandastable import Table
 from typing      import List, Union
 
-from ao.flight import AOTrade, create_session
+from ao.trade import AOTrade, create_session
 
 
 # compute the pvs
