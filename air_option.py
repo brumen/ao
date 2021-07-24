@@ -293,40 +293,40 @@ class AirOptionFlights:
         """
 
         if option_start_date or option_end_date:
-            dep_sim_times_num = AirOptionFlights.construct_sim_times( option_start_date
-                                                                    , option_end_date
-                                                                    , self.mkt_date
-                                                                    , simplify_compute = self.__simplify_compute )
+            dep_sim_times_num = self.construct_sim_times( option_start_date
+                                                        , option_end_date
+                                                        , self.mkt_date
+                                                        , simplify_compute = self.__simplify_compute )
         else:
             dep_flights = self.flights if not self.return_flight else self.flights[0]
-            dep_sim_times_num = AirOptionFlights.construct_sim_times( self.mkt_date
-                                                              , min([dep_time for _, dep_time, _ in dep_flights])
-                                                              , self.mkt_date
-                                                              , simplify_compute=self.__simplify_compute)
+            dep_sim_times_num = self.construct_sim_times( self.mkt_date
+                                                        , min([dep_time for _, dep_time, _ in dep_flights])
+                                                        , self.mkt_date
+                                                        , simplify_compute=self.__simplify_compute)
 
         # all simulation times
         if self.return_flight:
             if option_ret_start_date or option_ret_end_date:
-                ret_sim_times_num = AirOptionFlights.construct_sim_times( option_ret_start_date
-                                                                        , option_ret_end_date
-                                                                        , self.mkt_date
-                                                                        , simplify_compute = self.__simplify_compute )
+                ret_sim_times_num = self.construct_sim_times( option_ret_start_date
+                                                            , option_ret_end_date
+                                                            , self.mkt_date
+                                                            , simplify_compute = self.__simplify_compute )
             else:
-                ret_sim_times_num = AirOptionFlights.construct_sim_times( self.mkt_date
-                                                                        , min([dep_time for _, dep_time, _ in self.flights[1]])
-                                                                        , self.mkt_date
-                                                                        , simplify_compute = self.__simplify_compute )
+                ret_sim_times_num = self.construct_sim_times( self.mkt_date
+                                                            , min([dep_time for _, dep_time, _ in self.flights[1]])
+                                                            , self.mkt_date
+                                                            , simplify_compute = self.__simplify_compute )
 
             return dep_sim_times_num, ret_sim_times_num
 
         return dep_sim_times_num
 
     def PV( self
-          , option_start_date     : Union[None, datetime.date] = None
-          , option_end_date       : Union[None, datetime.date] = None
-          , option_ret_start_date : Union[None, datetime.date] = None
-          , option_ret_end_date   : Union[None, datetime.date] = None
-          , option_maturities     : Union[None, List[datetime.date]] = None  # TODO: option_maturities type IS NOT RIGHT
+          , option_start_date     : Optional[datetime.date] = None
+          , option_end_date       : Optional[datetime.date] = None
+          , option_ret_start_date : Optional[datetime.date] = None
+          , option_ret_end_date   : Optional[datetime.date] = None
+          , option_maturities     : Optional[List[datetime.date]] = None
           , nb_sim                : int                        = 1000
           , dcf                   : float                      = 365.25
           , cuda_ind              : bool                       = False ):
