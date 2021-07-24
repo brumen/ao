@@ -1,4 +1,6 @@
-# air option computation file
+""" Air option computation file
+"""
+
 import datetime
 import numpy as np
 import logging
@@ -11,7 +13,7 @@ from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.delta_dict  import DeltaDict
-from ao.flight      import AOTrade, Flight, create_session
+from ao.flight      import Flight
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
@@ -72,8 +74,8 @@ class AirOptionFlights:
         """ Computes the air option from the database.
 
         :param mkt_date: market date
-        :param ao_flights: flights corresponding to the AOTrade.
-        :param strike: strike for the AOTrade
+        :param ao_flights: flights for which air_option is computed.
+        :param strike: strike for the air option.
         :param rho: correlation between flights parameter
         :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
                                  options are: "take_last_only", "all_sim_dates"
@@ -103,41 +105,41 @@ class AirOptionFlights:
 
         return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
 
-    @classmethod
-    def from_db ( cls
-                , mkt_date         : datetime.date
-                , ao_trade_id      : str
-                , rho              : float = 0.95
-                , simplify_compute : str   = 'take_last_only'
-                , underlyer        : str   = 'n'
-                , session         : Optional[str] = None):
-        """ Computes the air option from the database.
-
-        :param mkt_date: market date
-        :param ao_trade_id: trade id for a particular AO trade we want.
-        :param rho: correlation between flights parameter
-        :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
-                                 options are: "take_last_only", "all_sim_dates"
-        :param underlyer: underlying model to use.
-        :param session: session used for the fetching of trades database from where the AOTrade is fetched.
-        """
-
-        # database session
-        session_used = create_session() if session is None else session
-
-        ao_trade = session_used.query(AOTrade)\
-                               .filter_by(position_id=ao_trade_id)\
-                               .first()  # AOFlight object
-
-        if ao_trade is None:
-            raise AOTradeException(f'Trade number {ao_trade_id} could not be found.')
-
-        return cls.from_flights( mkt_date
-                               , ao_trade.flights
-                               , strike           = ao_trade.strike
-                               , rho              = rho
-                               , simplify_compute = simplify_compute
-                               , underlyer        = underlyer )
+    # @classmethod
+    # def from_db ( cls
+    #             , mkt_date         : datetime.date
+    #             , ao_trade_id      : str
+    #             , rho              : float = 0.95
+    #             , simplify_compute : str   = 'take_last_only'
+    #             , underlyer        : str   = 'n'
+    #             , session         : Optional[str] = None):
+    #     """ Computes the air option from the database.
+    #
+    #     :param mkt_date: market date
+    #     :param ao_trade_id: trade id for a particular AOTrade we want.
+    #     :param rho: correlation between flights parameter
+    #     :param simplify_compute: simplifies the computation in that it only simulates the last simulation date,
+    #                              options are: "take_last_only", "all_sim_dates"
+    #     :param underlyer: underlying model to use.
+    #     :param session: session used for the fetching of trades database from where the AOTrade is fetched.
+    #     """
+    #
+    #     # database session
+    #     session_used = create_session() if session is None else session
+    #
+    #     ao_trade = session_used.query(AOTrade)\
+    #                            .filter_by(position_id=ao_trade_id)\
+    #                            .first()  # AOFlight object
+    #
+    #     if ao_trade is None:
+    #         raise AOTradeException(f'Trade number {ao_trade_id} could not be found.')
+    #
+    #     return cls.from_flights( mkt_date
+    #                            , ao_trade.flights
+    #                            , strike           = ao_trade.strike
+    #                            , rho              = rho
+    #                            , simplify_compute = simplify_compute
+    #                            , underlyer        = underlyer )
 
     @property
     def flights(self):
@@ -603,5 +605,6 @@ def main():
     """ Example usage of some of the functions.
     """
 
-    ao1 = AirOptionFlights.from_db(datetime.date(2016, 1, 1), 1)
-    print(ao1.PV())
+    #ao1 = AirOptionFlights.from_db(datetime.date(2016, 1, 1), 1)
+    # print(ao1.PV())
+    pass

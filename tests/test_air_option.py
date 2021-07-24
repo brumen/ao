@@ -34,8 +34,9 @@ class TestAirOptionFlights(TestCase):
         # option_range_1 = airof.option_range([datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
 
         # call w/ option_times
-        option_range_2 = airof.PV(option_maturities=(datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
-        option_range_3 = airof2.PV(option_maturities= (datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)))
+        option_range_2 = airof.PV(option_maturities=[datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_3 = airof2.PV(option_maturities= [datetime.date(2019, 6, 30), datetime.date(2019, 7, 2)])
+        option_range_4 = airof.PV(option_maturities=[datetime.date(2019, 8, 1)])
 
         # TODO: MORE HERE!!!
         self.assertTrue(True)
@@ -57,7 +58,7 @@ class TestAirOptionFlights(TestCase):
                               , (dep_flights, ret_flights)
                               , K=300. )
 
-        res1 = airof.PV(option_maturities=(datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)))  # air option value
+        res1 = airof.PV(option_maturities=[datetime.date(2019, 6, 10), datetime.date(2019, 6, 15), datetime.date(2019, 6, 20)])  # air option value
 
         self.assertTrue(True)
 
@@ -76,7 +77,7 @@ class TestAirOptionSkyscanner(TestCase):
                                    , K                   = 100.
                                    , carrier='UA' )
 
-        self.assertGreater(ao_ss.PV(), 0.)
+        self.assertGreaterEqual(ao_ss.PV(), 0.)
 
 
 class TestAirOptionsFlightsExplicitSky(TestCase):
@@ -91,7 +92,7 @@ class TestAirOptionsFlightsExplicitSky(TestCase):
 
         pv = ao_ss.PV()
 
-        self.assertGreater(pv, 0.)
+        self.assertGreaterEqual(pv, 0.)
 
 
 class TestAirOptionMock(TestCase):

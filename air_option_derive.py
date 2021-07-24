@@ -106,7 +106,7 @@ class AirOptionSkyScanner(AirOptionFlights):
                                       , correct_drift       = self.__correct_drift )
 
         super().__init__( mkt_date
-                        , list(flights) if self.return_flight else (list(flights[0]), list(flights[1]))
+                        , list(flights) if not self.__return_flight else (list(flights[0]), list(flights[1]))
                         , K                = K
                         , rho              = rho
                         , simplify_compute = simplify_compute
@@ -125,7 +125,7 @@ class AirOptionSkyScanner(AirOptionFlights):
                         , adults: int = 1
                         , return_flight: bool = False
                         , correct_drift: bool = True
-                        , insert_into_livedb: bool = True) -> Union[ Generator[FLIGHT_TYPE], Tuple[Generator[FLIGHT_TYPE], Generator[FLIGHT_TYPE]]]:
+                        , insert_into_livedb: bool = True) -> Union[ Generator[FLIGHT_TYPE, None, None], Tuple[Generator[FLIGHT_TYPE, None, None], Generator[FLIGHT_TYPE, None, None]]]:
         """ Get flight data for the parameters specified
 
         :param flights_include:      if None - include all flights
@@ -361,7 +361,7 @@ class AirOptionSkyScanner(AirOptionFlights):
                        , cabinclass        : str = 'Economy'
                        , adults            : int = 1
                        , insert_into_livedb : bool = True
-                       , correct_drift      : bool = True ) -> Generator[FLIGHT_TYPE]:
+                       , correct_drift      : bool = True ) -> Generator[FLIGHT_TYPE, None, None]:
         """ Get the flights for outbound and/or inbound flight.
 
         :param origin: origin airport of flights, IATA code (like 'EWR')
