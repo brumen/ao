@@ -13,13 +13,10 @@ from sqlalchemy                 import ( Column
                                        , Float
                                        , )
 from sqlalchemy.orm             import relation
-from sqlalchemy.ext.declarative import declarative_base
 
 from ao.air_option  import AirOptionFlights
 from ao.delta_dict  import DeltaDict
-from ao.flight      import t_trades_flights, create_session, Flight
-
-AOORM = declarative_base()  # common base class
+from ao.flight      import t_trades_flights, create_session, Flight, AOORM
 
 
 logging.basicConfig(filename='/tmp/air_option.log')

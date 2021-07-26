@@ -10,14 +10,13 @@ from ao.air_option_derive import AirOptionSkyScanner
 
 class TestAirSearch(TestCase):
 
-    def setUp(self):
-        self.today_date_plus_2m = datetime.date.today() + dt.timedelta(days=60)
+    DATE_TODAY = datetime.date(2017, 3, 1)
 
     def test_get_itins(self):
         """ Checks if the get_itins functions run at all
         """
 
-        res = AirOptionSkyScanner.get_itins(outbound_date = self.today_date_plus_2m)
+        res = AirOptionSkyScanner.get_itins('EWR', 'SFO', outbound_date = self.DATE_TODAY)
 
         self.assertTrue(True)
 
@@ -25,13 +24,8 @@ class TestAirSearch(TestCase):
         """ TODO
         """
 
-        res1 = AirOptionSkyScanner.get_ticket_prices( 'SIN'
-                                                    , 'KUL'
-                                                    , self.today_date_plus_2m)
-
-        res2 = AirOptionSkyScanner.get_ticket_prices( 'EWR'
-                                                    , 'SFO'
-                                                    , self.today_date_plus_2m)
+        res1 = AirOptionSkyScanner.get_ticket_prices( 'SIN', 'KUL', self.DATE_TODAY)
+        res2 = AirOptionSkyScanner.get_ticket_prices( 'EWR', 'SFO', self.DATE_TODAY)
 
         self.assertTrue(True)
 
