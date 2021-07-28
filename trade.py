@@ -82,10 +82,10 @@ class AOTrade(AOORM):
         :returns: present value of the trade, for a particular market date.
         """
 
-        return self._aof(mkt_date).PV( option_start_date     = self.option_start_date.date()
-                                     , option_end_date       = self.option_end_date.date()
-                                     , option_ret_start_date = self.option_ret_start_date.date()
-                                     , option_ret_end_date   = self.option_ret_end_date.date()
+        return self._aof(mkt_date).PV( option_start_date     = None if self.option_start_date     is None else self.option_start_date.date()
+                                     , option_end_date       = None if self.option_end_date       is None else self.option_end_date.date()
+                                     , option_ret_start_date = None if self.option_ret_start_date is None else self.option_ret_start_date.date()
+                                     , option_ret_end_date   = None if self.option_ret_end_date   is None else self.option_ret_end_date.date()
                                      , )
 
     def PV01(self, mkt_date : datetime.date) -> DeltaDict:
@@ -95,10 +95,10 @@ class AOTrade(AOORM):
         :returns DeltaDict[int, float]: delta of the trade with respect to individual flights in the trade.
         """
 
-        return self._aof(mkt_date).PV01( option_start_date     = self.option_start_date.date()
-                                       , option_end_date       = self.option_end_date.date()
-                                       , option_ret_start_date = self.option_ret_start_date.date()
-                                       , option_ret_end_date   = self.option_ret_end_date.date()
+        return self._aof(mkt_date).PV01( option_start_date     = None if self.option_start_date     is None else self.option_start_date.date()
+                                       , option_end_date       = None if self.option_end_date       is None else self.option_end_date.date()
+                                       , option_ret_start_date = None if self.option_ret_start_date is None else self.option_ret_start_date.date()
+                                       , option_ret_end_date   = None if self.option_ret_end_date   is None else self.option_ret_end_date.date()
                                        , )
 
 
