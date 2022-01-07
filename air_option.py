@@ -13,7 +13,7 @@ from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.delta_dict  import DeltaDict
-from ao.flight      import Flight
+from ao.flight      import Flight, FlightLive
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class AirOptionFlights:
 
     def __init__( self
                 , mkt_date : datetime.date
-                , flights  : Union[ List[FLIGHT_TYPE]
+                , flights  : Union[ None, List[FLIGHT_TYPE]
                                   , Tuple[List[FLIGHT_TYPE], List[FLIGHT_TYPE]]]
                 , K                : float = 1600.
                 , rho              : float = 0.95
@@ -51,7 +51,7 @@ class AirOptionFlights:
         """
 
         self.mkt_date  = mkt_date
-        self.__flights = flights
+        self._flights = flights
         self.return_flight = True if isinstance(flights, tuple) else False  # return flight indicator
 
         self.K = K  # strike price or strike "flight"
@@ -94,7 +94,7 @@ class AirOptionFlights:
         """ Gets the prices and other data from the flight.
 
         :param ao_flight: flight information that you want info from.
-        :returns: triple of price, datetime.date and flight id.
+        :returns: triple of price, flight forward time (term) and flight id.
         """
 
         found_prices = ao_flight.prices  # prices found in the database
@@ -143,12 +143,12 @@ class AirOptionFlights:
 
     @property
     def flights(self):
-        return self.__flights
+        return self._flights
 
     @flights.setter
     def flights(self, new_flights):
         self.__recompute_option_value = True  # recompute everything
-        self.__flights = new_flights
+        self._flights = new_flights
 
     @staticmethod
     def construct_sim_times( date_start    : datetime.date
@@ -201,14 +201,32 @@ class AirOptionFlights:
 
         return self._drift_vol_for_flight(flight_nb)[1]  # Important: this is cached, so no double getting.
 
-    def _get_origin_dest_carrier_from_flight(self, flight_id) -> Tuple[str, str, str]:
+    @staticmethod
+    def _get_origin_dest_carrier_from_flight(flight_id : str, session = None ) -> Tuple[str, str, str]:
         """ Gets origin, destination, carrier from flight_id, e.g. 'UA70' is 'SFO', 'EWR', 'UA'
+            TODO: THIS IS ONLY PARTIALLY, HACK IMPLEMENTED, IMPLEMENT HERE IF YOU CAN!!!
 
-        :param flight_id: flight id
+        :param flight_id: flight id, in the form 'UA70'
+        :param flight_session session: session for the database query, if None, one is created on the fly
         :returns: origin airport, destination airport, carrier
         """
 
-        # TODO: IMPLEMENT HERE IF YOU CAN!!!
+        try:
+            carrier   = flight_id[:2]  #  iata code is 2 digit.
+            flight_nb = flight_id[2:]  # a string, flight nb, like 70
+
+            session_used = create_session() if session is None else session
+
+            ao_flight = session_used.query(FlightLive)\
+                                    .filter_by(carrier=carrier, flight_nb=flight_nb)\
+                                    .first()  # FlightLive object
+
+            return ao_flight.orig, ao_flight.dest, carrier
+
+        # TODO: THIS IS TO BE IMPROVED HERE.
+        except Exception as e:
+            logger.warning(f'Could not locate flight {flight_id}: {e}')
+
         return 'SFO', 'EWR', 'UA'
 
     @property

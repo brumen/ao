@@ -1,13 +1,10 @@
-#
-# a widget for air option
-#
+""" A widget for Air Option.
+"""
 
 import datetime
 import tkinter as tk
 import logging
-
 import sys
-sys.path.append('/home/brumen/work/')
 
 from typing import Optional
 
@@ -15,7 +12,7 @@ from ao.air_option_derive     import AirOptionsFlightsExplicitSky as AOS
 from ao.ui.autocomplete_combo import AutocompleteCombobox
 from ao.iata.codes            import get_airline_code, get_city_code
 
-# example:
+# example:https://www.airbnb.com/rooms/39180555/photos/903261901?adults=1&check_in=2022-01-04&check_out=2022-01-12&federated_search_id=c9a07d9e-9a0d-47f1-afa8-574867e02b86&source_impression_id=p3_1640278809_H%2FmmGni7K6uLAMeu&guests=1
 #ao = AOS(datetime.date(2016, 9, 25), origin='SFO', dest='EWR', outbound_date_start=datetime.date(2016, 10, 1), outbound_date_end=datetime.date(2016, 10, 4), K = 100., carrier='UA')
 # ao.PV()
 
@@ -83,6 +80,7 @@ carrier        = combo_field('carrier'       , 4, default_val='UA', completion_l
 outbound_start = entry_field('outbound start', 5, '2016-10-1')
 outbound_end   = entry_field('outbound end'  , 6, '2016-10-4')
 
+
 # result field
 tk.Label(top, text='result').grid(row=7, column=0)
 res_var = tk.StringVar()
@@ -104,30 +102,32 @@ def compute_ao(market_date : str, origin : str, dest : str, strike : str, carrie
     try:
         md = datetime.datetime.strptime(market_date, '%Y-%m-%d').date()
     except ValueError as ve:
-        logger.error(f'Market date {market_date} could not be converted to date: {e}, {type(e)}')
-        return None
+        logger.error(f'Market date {market_date} could not be converted to date: {ve}, {type(ve)}')
+        return
 
     except Exception as e:
         logger.error(f'Market date {market_date} could not be converted to date: {e}, {type(e)}')
-        return None
+        return
 
     try:
         os = datetime.datetime.strptime(outbound_start, '%Y-%m-%d').date()
     except Exception as e:
         logger.error(f'Outbound start date {outbound_start} could not be converted to date: {e}, {type(e)}')
-        return None
+        return
 
     try:
         oe = datetime.datetime.strptime(outbound_end, '%Y-%m-%d').date()
     except Exception as e:
         logger.error(f'Outbound end date {outbound_end} could not be converted to date: {e}, {type(e)}')
-        return None
+        res_var.set(f'Outbound end date {outbound_end} not a date')
+        return
 
     try:
         st = float(strike)
     except Exception as e:
         logger.error(f'Strike {strike} could not be converted to float: {e}, {type(e)}')
-        return None
+        res_var.set(f'Strike {strike} not float')
+        return
 
     aos = AOS( md
                 , origin = origin

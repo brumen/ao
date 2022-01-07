@@ -50,7 +50,7 @@ weekday_days = [0, 1, 2, 3, 4]
 weekend_days = [5, 6]
 
 # livedb prices should only be used if within the livedb_delay of being logged
-livedb_delay = datetime.timedelta(hours=1)
+livedb_delay = datetime.timedelta(days=2)
 
 # working directory
 tmp_dir = 'tmp'

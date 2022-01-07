@@ -6,13 +6,8 @@ import numpy as np
 
 from typing import Optional
 
-from sqlalchemy                 import ( Column
-                                       , Integer
-                                       , String
-                                       , DateTime
-                                       , Float
-                                       , )
-from sqlalchemy.orm             import relation
+from sqlalchemy     import Column, Integer, String, DateTime, Float
+from sqlalchemy.orm import relation
 
 from ao.air_option  import AirOptionFlights
 from ao.delta_dict  import DeltaDict

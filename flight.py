@@ -4,6 +4,9 @@
 import datetime
 import numpy as np
 
+import pymysql
+pymysql.install_as_MySQLdb()  # TODO: After a successful MySQLdb installation, both these lines should go
+
 from typing import Tuple, List
 
 from sqlalchemy                 import ( Column
@@ -16,6 +19,8 @@ from sqlalchemy                 import ( Column
                                        , Float
                                        , SmallInteger
                                        , Enum
+                                       , Date
+                                       , Time
                                        , create_engine
                                        , )
 from sqlalchemy.orm             import sessionmaker, relationship
@@ -121,18 +126,24 @@ class Flight(AOORM):
         return drift, vol
 
 
-# TODO: YOU CAN COMMENT THIS OUT UNTIL IT WORKS.
-# class FlightLive(Flight):
-#     """ Live version of the Flights.
-#     """
-#
-#     __tablename__ = 'flight_live'
-#
-#     as_of = Column(DateTime)  # designates when the flight was inserted.
-#
-#     # TODO: CHECK THESE ENTRIES.
-#     flight_id      = Column(Integer, primary_key=True)
-#     flight_id_long = Column(String)
+class FlightLive(AOORM):
+    """ Live version of the Flights.
+    """
+
+    __tablename__ = 'flights_live'
+
+    as_of       = Column(DateTime)  # designates when the flight was inserted.
+    orig        = Column(String)
+    dest        = Column(String)
+    price       = Column(Float)
+    flight_id   = Column(String)
+    dep_date    = Column(Date)
+    dep_time    = Column(Time)
+    arr_date    = Column(DateTime)
+    carrier     = Column(String)
+    flight_nb   = Column(String)
+    cabin_class = Column(Enum('economy', 'premium', 'business', 'first'))
+    flights_primary_id = Column(BigInteger, primary_key=True)
 
 
 # in between table that links Flight and AOTrade.

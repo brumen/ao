@@ -77,6 +77,18 @@ class TestAirOptionSkyscanner(TestCase):
 
         self.assertGreaterEqual(ao_ss.PV(), 0.)
 
+    def test_2(self):
+        ao_ss = AirOptionSkyScanner( datetime.date(2017, 4, 26)
+                                   , origin = 'SFO'
+                                   , dest   = 'EWR'
+                                   , outbound_date_start = datetime.date(2017, 5, 10)
+                                   , outbound_date_end   = datetime.date(2017, 5, 15)
+                                   , K                   = 100.
+                                   , carrier='UA' )
+
+        self.assertIsNotNone(ao_ss.flights)  # this should not be empty with the current database.
+        self.assertGreaterEqual(ao_ss.PV(), 0.)
+
 
 class TestAirOptionsFlightsExplicitSky(TestCase):
 
