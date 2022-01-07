@@ -56,7 +56,13 @@ def get_airline_name( iata_code : str, session = None):
             for x in session_used.query(IATACodes).filter(IATACodes.iata_code.like(f'%{iata_code}%')).all()]
 
 
-def get_city_code(city_name : str, session=None ):
+def get_city_code(city_name : str, session=None ) -> List[str]:
+    """ Gets the city code for the city name, e.g. 'SFO' for 'San Francisco'
+
+    :param city_name: name of the airport we are searching for.
+    :param session: SQLAlchemy session to be used, if None, create a new one.
+    :returns: list of airports which could be appropriate for the city_name
+    """
 
     session_used = session if session else create_session()
 
