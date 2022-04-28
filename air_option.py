@@ -13,7 +13,7 @@ from ao.ds          import construct_date_range
 from ao.vols.vols   import corr_hyp_sec_mat
 from ao.ao_codes    import MIN_PRICE, reserves, tax_rate, ref_base_F
 from ao.delta_dict  import DeltaDict
-from ao.flight      import Flight, FlightLive
+from ao.flight      import Flight, FlightLive, create_session
 
 logging.basicConfig(filename='/tmp/air_option.log')
 logger = logging.getLogger(__name__)
@@ -90,18 +90,18 @@ class AirOptionFlights:
                   , underlyer        = underlyer )
 
     @staticmethod
-    def extract_prices(ao_flight : Flight) -> Tuple[float, datetime.date, str]:
+    def extract_prices(ao_flight : Flight, default_price : float = 200.) -> Tuple[float, datetime.date, str]:
         """ Gets the prices and other data from the flight.
 
         :param ao_flight: flight information that you want info from.
-        :returns: triple of price, flight forward time (term) and flight id.
+        :param default_price: default price if the flight is not obtained.
+        :returns: triple of (price, flight forward time (term), flight id)
         """
 
         found_prices = ao_flight.prices  # prices found in the database
-        if not found_prices:  # no prices found
-            flight_price = 200.  # TODO: Some random price for now
-        else:
-            flight_price = found_prices[-1].price  # find the last price
+
+        # find the last price, otherwise report a random price
+        flight_price = found_prices[-1].price if found_prices else default_price
 
         return flight_price, ao_flight.dep_date.date(), ao_flight.flight_id_long
 
@@ -151,28 +151,28 @@ class AirOptionFlights:
         self._flights = new_flights
 
     @staticmethod
-    def construct_sim_times( date_start    : datetime.date
-                           , date_end      : datetime.date
-                           , date_today_dt : datetime.date
-                           , simplify_compute = 'take_last_only'
-                           , dcf              = 365.25 ) -> List[datetime.date]:
-        """ Constructs the simulation times used for air options.
+    def construct_sim_times( date_start       : datetime.date
+                           , date_end         : datetime.date
+                           , mkt_date         : datetime.date
+                           , simplify_compute : str   = 'take_last_only'
+                           , dcf              : float = 365.25 ) -> List[float]:
+        """ Constructs the simulation times used for air options, simulation times are floats as dcf from
+            date_today.
 
         :param date_start: date start of simulated times
         :param date_end: date end of simulated times
-        :param date_today_dt: reference date, mostly today's date
+        :param mkt_date: market date
         :param dcf: day count factor
-        :type dcf: double
         :returns: list of simulated dates
         """
 
         date_range = construct_date_range(date_start, date_end)
 
         if simplify_compute == 'all_sim_dates':
-            return [(date_sim - date_today_dt).days / dcf for date_sim in date_range]
+            return [(date_sim - mkt_date).days / dcf for date_sim in date_range]
 
         # elif simplify_compute == 'take_last_only':
-        return [(date_range[-1] - date_today_dt).days / dcf]
+        return [(date_range[-1] - mkt_date).days / dcf]
 
     @functools.lru_cache(maxsize=128)
     def _drift_vol_for_flight(self, flight_nb: Tuple[datetime.date, str]) -> Tuple[float, float]:

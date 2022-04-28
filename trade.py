@@ -4,7 +4,7 @@ import logging
 import datetime
 import numpy as np
 
-from typing import Optional
+from typing import Optional, Set
 
 from sqlalchemy     import Column, Integer, String, DateTime, Float
 from sqlalchemy.orm import relation
@@ -103,9 +103,19 @@ def select_random_flights( nb_flights : int = 10, db_session = None ):
     """
 
     session = db_session if db_session is not None else create_session()
-    rand_flights = set(np.random.randint(1, 1000, nb_flights))  # remove duplicates
+    rand_flights = set(np.random.randint(1, 1000, nb_flights).tolist())  # remove duplicates
 
     return session.query(Flight).filter(Flight.flight_id.in_(rand_flights)).all()  # all flights
+
+
+def select_exact_flights( flights_to_add : Set, db_session = None ):
+    """ Selects exact flights to add to the database.
+
+    """
+
+    session = db_session if db_session is not None else create_session()
+
+    return session.query(Flight).filter(Flight.flight_id.in_(flights_to_add)).all()  # all flights
 
 
 def insert_random_trades( nb_trades            : int = 10
@@ -130,6 +140,27 @@ def insert_random_trades( nb_trades            : int = 10
     for trade in trades:
         session.add(trade)
 
+    session.commit()
+
+
+def insert_trade( flights_in_trade : Set
+                , strike           : float = 200.
+                , session                  = None):
+    """ Inserts number of positions in the database.
+
+    :param flights_in_trade: flight_id of flights that you want to insert.
+    :param strike: strike of the trade to be inserted.
+    :returns: nothing, just inserts the number of trades
+    """
+
+    session = create_session() if session is None else session
+
+    trade = AOTrade( flights     = select_exact_flights(flights_in_trade, db_session=session)
+                   , strike      = strike
+                   , nb_adults   = 1
+                   , cabinclass  = 'Economy' )
+
+    session.add(trade)
     session.commit()
 
 

@@ -198,26 +198,24 @@ def compute_option_all():
     return Response(compute_for_response(arguments, market_date=market_date), mimetype='text/event-stream')
 
 
-@ao_rester.route('/ao/ao_auto_fill_origin')
-def ao_auto_fill_origin():
+@ao_rester.route('/ao/fill_origin')
+def ao_fill_origin():
     """ Returns the auto fill of the IATA origin airports
     """
 
     airports = get_city_code(request.args.get("term"))
 
-    return Response( json.dumps(airports)  # jsonify doesnt work
-                   , mimetype = 'application/json')
+    return Response( json.dumps(airports), mimetype = 'application/json')
 
 
-@ao_rester.route('/ao/ao_auto_fill_airline')
-def ao_auto_fill_airline():
+@ao_rester.route('/ao/fill_airline')
+def ao_fill_airline():
     """ Returns the auto fill of the IATA airline codes.
     """
 
     airline_l = get_airline_code(request.args.get("term"))
 
-    return Response( json.dumps(airline_l)
-                   , mimetype = 'application/json' )
+    return Response( json.dumps(airline_l), mimetype = 'application/json' )
 
 
 # @ao_rester.route('/ao_payment', methods = ['GET'])
