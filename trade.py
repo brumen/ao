@@ -70,10 +70,11 @@ class AOTrade(AOORM):
         self.__aof = AirOptionFlights(mkt_date, flights=unpack_flights, K=self.strike)
         return self.__aof
 
-    def PV(self, mkt_date : datetime.date) -> float:
+    def PV(self, mkt_date : datetime.date, nb_sim : int = 1000) -> float:
         """ Computes the present value of the AO trade.
 
         :param mkt_date: market date for the trade
+        :param nb_sim: number of simulations to compute the PV.
         :returns: present value of the trade, for a particular market date.
         """
 
@@ -81,9 +82,10 @@ class AOTrade(AOORM):
                                      , option_end_date       = None if self.option_end_date       is None else self.option_end_date.date()
                                      , option_ret_start_date = None if self.option_ret_start_date is None else self.option_ret_start_date.date()
                                      , option_ret_end_date   = None if self.option_ret_end_date   is None else self.option_ret_end_date.date()
+                                     , nb_sim                = nb_sim
                                      , )
 
-    def PV01(self, mkt_date : datetime.date) -> DeltaDict:
+    def PV01(self, mkt_date : datetime.date, nb_sim : int = 1000) -> DeltaDict:
         """ Computes the PV01 of the trade for a particular market date.
 
         :param mkt_date: market date for which the delta is computed.
@@ -94,6 +96,7 @@ class AOTrade(AOORM):
                                        , option_end_date       = None if self.option_end_date       is None else self.option_end_date.date()
                                        , option_ret_start_date = None if self.option_ret_start_date is None else self.option_ret_start_date.date()
                                        , option_ret_end_date   = None if self.option_ret_end_date   is None else self.option_ret_end_date.date()
+                                       , nb_sim                = nb_sim
                                        , )
 
 

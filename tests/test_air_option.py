@@ -2,7 +2,11 @@
 """
 
 import datetime
+import sys
 from unittest import TestCase
+
+if '/home/brumen/work/' not in sys.path:
+    sys.path.append('/home/brumen/work/')
 
 from ao.air_option        import AirOptionFlights
 from ao.air_option_derive import AirOptionMock, AirOptionSkyScanner, AirOptionsFlightsExplicitSky
