@@ -63,6 +63,10 @@ class AirOptionFlights:
         self.__recompute_option_value = True  # indicator whether the option should be recomputed
         self.__option_value = None
 
+        # other cached vals.
+        self.__outbound_flights = None
+        self.__inbound_flights  = None
+
     @classmethod
     def from_flights( cls
                     , mkt_date         : datetime.date
@@ -142,13 +146,29 @@ class AirOptionFlights:
     #                            , underlyer        = underlyer )
 
     @property
-    def flights(self):
+    def flights(self) -> List:
         return self._flights
 
     @flights.setter
     def flights(self, new_flights):
         self.__recompute_option_value = True  # recompute everything
         self._flights = new_flights
+
+    @property
+    def outbound_flights(self) -> List:
+        if self.__outbound_flights:
+            return self.__outbound_flights
+
+        self.__outbound_flights = self.flights if not self.return_flight else self.flights[0]
+        return self.__outbound_flights
+
+    @property
+    def inbound_flights(self) -> List:
+        if self.__inbound_flights is not None:
+            return self.__inbound_flights
+
+        self.__inbound_flights = self.flights[1] if self.return_flight else []
+        return self.__inbound_flights
 
     @staticmethod
     def construct_sim_times( date_start       : datetime.date
@@ -347,7 +367,7 @@ class AirOptionFlights:
           , option_maturities     : Optional[List[datetime.date]] = None
           , nb_sim                : int                        = 1000
           , dcf                   : float                      = 365.25
-          , cuda_ind              : bool                       = False ):
+          , cuda_ind              : bool                       = False ) -> float:
         """ Computes the value of the option for obtained flights in self.__flights
         If none of the inputs provided, use the default ones.
 
@@ -444,13 +464,8 @@ class AirOptionFlights:
                     , nb_sim                = nb_sim
                     , dcf                   = dcf)  # original PV
 
-        for flight_idx, (flight_value, flight_date, flight_nb) \
-          in enumerate(self.flights if not self.return_flight else self.flights[0]):
-            # new flight element
-            if not self.return_flight:
-                self.flights[flight_idx] = (flight_value + bump_value, flight_date, flight_nb)
-            else:
-                self.flights[0][flight_idx] = (flight_value + bump_value, flight_date, flight_nb)
+        for flight_idx, (flight_value, flight_date, flight_nb) in enumerate(self.outbound_flights):
+            self.outbound_flights[flight_idx] = (flight_value + bump_value, flight_date, flight_nb)
 
             new_value = self.PV( option_start_date     = option_start_date
                                  , option_end_date       = option_end_date
@@ -462,18 +477,15 @@ class AirOptionFlights:
             delta_dict[flight_nb] = (new_value -pv) / bump_value
 
             # setting the flight element back, after it was bumped above.
-            if not self.return_flight:
-                self.flights[flight_idx] = (flight_value, flight_date, flight_nb)
-            else:
-                self.flights[0][flight_idx] = (flight_value, flight_date, flight_nb)
+            self.outbound_flights[flight_idx] = (flight_value, flight_date, flight_nb)
 
         if not self.return_flight:
             return DeltaDict(delta_dict)
 
         # return flights
-        for flight_idx, (flight_value, flight_date, flight_nb) in enumerate(self.flights[1]):
+        for flight_idx, (flight_value, flight_date, flight_nb) in enumerate(self.inbound_flights):  # enumerate(self.flights[1]):
             new_flight_elt = (flight_value + bump_value, flight_date, flight_nb)  # bumping the flight element.
-            self.flights[1][flight_idx] = new_flight_elt
+            self.inbound_flights[flight_idx] = new_flight_elt
 
             delta_diff = self.PV( option_start_date     = option_start_date
                                 , option_end_date       = option_end_date
@@ -485,7 +497,7 @@ class AirOptionFlights:
             delta_dict[flight_nb] = delta_diff / bump_value
 
             # setting the flight element back, after it was bumped above.
-            self.flights[1][flight_idx] = (flight_value, flight_date, flight_nb)
+            self.inbound_flights[flight_idx] = (flight_value, flight_date, flight_nb)
 
         return DeltaDict(delta_dict)
 
