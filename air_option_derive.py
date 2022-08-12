@@ -585,21 +585,23 @@ class AirOptionMock(AirOptionSkyScanner):
         IMPORTANT: JUST USED FOR TESTING.
     """
 
-    def get_flight_data( self
-                        , flights_include: Optional[List] = None
-                        , origin_place: str = 'SFO'
-                        , dest_place: str = 'EWR'
-                        , outbound_date_start: Optional[datetime.date] = None
-                        , outbound_date_end: Optional[datetime.date] = None
-                        , inbound_date_start: Optional[datetime.date] = None
-                        , inbound_date_end: Optional[datetime.date] = None
-                        , carrier: str = 'UA'
-                        , cabinclass: str = 'Economy'
-                        , adults: int = 1
-                        , return_flight: bool = False
-                        , recompute_ind: bool = False
-                        , correct_drift: bool = True
-                        , insert_into_livedb: bool = True):
+    # TODO: this method should be class method, but it is regular for convenience - this is
+    #       used for testing only.
+    def get_flight_data ( self
+                        , flights_include     : Optional[List] = None
+                        , origin              : str = 'SFO'
+                        , dest                : str = 'EWR'
+                        , outbound_date_start : Optional[datetime.date] = None
+                        , outbound_date_end   : Optional[datetime.date] = None
+                        , inbound_date_start  : Optional[datetime.date] = None
+                        , inbound_date_end    : Optional[datetime.date] = None
+                        , carrier             : str = 'UA'
+                        , cabinclass          : str = 'Economy'
+                        , adults              : int = 1
+                        , return_flight       : bool = False
+                        , correct_drift       : bool = True
+                        , insert_into_livedb  : bool = True
+                        , curr_time           : Optional[datetime.datetime] = None ) -> Union[ List[FLIGHT_TYPE], Tuple[List[FLIGHT_TYPE], List[FLIGHT_TYPE]]]:
         """ Generates mock flight data - used for testing. Is a generator.
         """
 
@@ -633,21 +635,22 @@ class AirOptionsFlightsExplicitSky(AirOptionSkyScanner):
         flights between outbound_start and outbound_end, for the particular origin and destination.
     """
 
-    def get_flight_data( self
-                        , flights_include: Optional[List] = None
-                        , origin: str = 'SFO'
-                        , dest: str = 'EWR'
-                        , outbound_date_start: Optional[datetime.date] = None
-                        , outbound_date_end: Optional[datetime.date] = None
-                        , inbound_date_start: Optional[datetime.date] = None
-                        , inbound_date_end: Optional[datetime.date] = None
-                        , carrier: str = 'UA'
-                        , cabinclass: str = 'Economy'
-                        , adults: int = 1
-                        , return_flight: bool = False
-                        , recompute_ind: bool = False
-                        , correct_drift: bool = True
-                        , insert_into_livedb: bool = True):
+    @classmethod
+    def get_flight_data ( cls
+                        , flights_include     : Optional[List] = None
+                        , origin              : str = 'SFO'
+                        , dest                : str = 'EWR'
+                        , outbound_date_start : Optional[datetime.date] = None
+                        , outbound_date_end   : Optional[datetime.date] = None
+                        , inbound_date_start  : Optional[datetime.date] = None
+                        , inbound_date_end    : Optional[datetime.date] = None
+                        , carrier             : str = 'UA'
+                        , cabinclass          : str = 'Economy'
+                        , adults              : int = 1
+                        , return_flight       : bool = False
+                        , correct_drift       : bool = True
+                        , insert_into_livedb  : bool = True
+                        , curr_time           : Optional[datetime.datetime] = None ) -> Union[ List[FLIGHT_TYPE], Tuple[List[FLIGHT_TYPE], List[FLIGHT_TYPE]]]:
         """ Get flights corresponding to the data that exist in the db.
 
         :param origin: IATA origin.

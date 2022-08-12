@@ -306,10 +306,11 @@ class AirOptionFlights:
                [self._drift_for_flight((F_dep_maturity, flight_nb)) for _, F_dep_maturity, flight_nb in ret_flights]
 
     def __dep_ret_sim_times_num( self
-                               , option_start_date     = None
-                               , option_end_date       = None
-                               , option_ret_start_date = None
-                               , option_ret_end_date   = None ):
+                               , option_start_date     : Optional[datetime.date] = None
+                               , option_end_date       : Optional[datetime.date] = None
+                               , option_ret_start_date : Optional[datetime.date] = None
+                               , option_ret_end_date   : Optional[datetime.date] = None
+                               , ):
         """ Same as extract_prices_maturities, just that it considers both departing, returning flights
             Returns the following tuple:
                a. In case of departing flights:
@@ -342,22 +343,22 @@ class AirOptionFlights:
                                                         , self.mkt_date
                                                         , simplify_compute=self.__simplify_compute)
 
-        # all simulation times
-        if self.return_flight:
-            if option_ret_start_date or option_ret_end_date:
-                ret_sim_times_num = self.construct_sim_times( option_ret_start_date
-                                                            , option_ret_end_date
-                                                            , self.mkt_date
-                                                            , simplify_compute = self.__simplify_compute )
-            else:
-                ret_sim_times_num = self.construct_sim_times( self.mkt_date
-                                                            , min([dep_time for _, dep_time, _ in self.flights[1]])
-                                                            , self.mkt_date
-                                                            , simplify_compute = self.__simplify_compute )
+        if not self.return_flight:
+            return dep_sim_times_num
 
-            return dep_sim_times_num, ret_sim_times_num
+        # return flight, add return simulations
+        if option_ret_start_date or option_ret_end_date:
+            ret_sim_times_num = self.construct_sim_times( option_ret_start_date
+                                                          , option_ret_end_date
+                                                          , self.mkt_date
+                                                          , simplify_compute = self.__simplify_compute )
+        else:
+            ret_sim_times_num = self.construct_sim_times( self.mkt_date
+                                                          , min([dep_time for _, dep_time, _ in self.flights[1]])
+                                                          , self.mkt_date
+                                                          , simplify_compute = self.__simplify_compute )
 
-        return dep_sim_times_num
+        return dep_sim_times_num, ret_sim_times_num
 
     def PV( self
           , option_start_date     : Optional[datetime.date] = None
@@ -406,7 +407,7 @@ class AirOptionFlights:
         option_value = self.air_option_with_markup(sim_times if not option_maturities else sim_time_maturities  # simulation times
                                                    , self.K
                                                    , self.__rho
-                                                   , nb_sim    = nb_sim
+                                                   , nb_sim        = nb_sim
                                                    , cuda_ind      = cuda_ind
                                                    , underlyer     = self.__underlyer
                                                    , keep_all_sims = False if not option_maturities else True)
@@ -576,7 +577,7 @@ class AirOptionFlights:
             rho_m = corr_hyp_sec_mat(rho, range(len(F_v)))
 
         # which monte-carlo method to use.
-        mc_used = self.mc_mult_steps if not return_flight_ind else self.mc_mult_steps_ret
+        mc_used = self._mc_mult_steps if not return_flight_ind else self._mc_mult_steps_ret
 
         return mc_used( F_v
                       , self._s_v
@@ -590,10 +591,10 @@ class AirOptionFlights:
 
     @functools.lru_cache
     def _generate_rn( self
-                      , T_curr : float
-                      , rho_m : Tuple[float]  # np.ndarray
+                      , T_curr  : float
+                      , rho_m   : Tuple[float]  # np.ndarray
                       , nb_fwds : int
-                      , nb_sim : int ):
+                      , nb_sim  : int ):
 
         if nb_fwds == 1:
             return np.random.normal(size=(1, nb_sim))
@@ -602,17 +603,17 @@ class AirOptionFlights:
 
         return np.random.multivariate_normal(np.zeros(nb_fwds), rho_m_np, size=nb_sim)  # if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
 
-    def mc_mult_steps( self
+    def _mc_mult_steps( self
                        , F_v     : [List, np.array]
-                       , s_v     : np.array
-                       , d_v     : np.array
-                       , T_l     : np.array
-                       , rho_m   : np.array
-                       , T_v_exp: np.array
-                       , nb_sim  = 1000
-                       , model    = 'n'
-                       , F_ret    = None
-                       , keep_all_sims = False  ):  # -> [np.array, Dict[np.array]]:
+                       , s_v     : np.ndarray
+                       , d_v     : np.ndarray
+                       , T_l     : np.ndarray
+                       , rho_m   : np.ndarray
+                       , T_v_exp : np.ndarray
+                       , nb_sim  : int = 1000
+                       , model   : str = 'n'
+                       , F_ret   : Optional[np.ndarray] = None
+                       , keep_all_sims : bool = False  ):  # -> [np.array, Dict[np.array]]:
         """ Multi-step monte-carlo integration of the ticket prices for one way Air options.
 
         :param F_v: list of forward values
@@ -647,8 +648,8 @@ class AirOptionFlights:
             s_v_used, d_v_used = vol_drift_vec(T_curr, T_diff, s_v, d_v, ttm_used)
 
             if nb_fwds == 1:
-                rn_sim_l = self._generate_rn(T_curr, (), 1, nb_sim)  #    np.random.normal(size=(1, nb_sim))
-            else:  # TODO: THIS LINE BELOW SHOULD BE IMPROVED
+                rn_sim_l = self._generate_rn(T_curr, (), 1, nb_sim)
+            else:  # TODO: tuple BELOW SHOULD BE IMPROVED
                 rn_sim_l = self._generate_rn(T_curr, tuple([tuple(x) for x in rho_m]), nb_fwds, nb_sim)  #   np.random.multivariate_normal(np.zeros(nb_fwds), rho_m, size=nb_sim)  # if not cuda_ind else mn_gpu(0, rho_m, size=nb_sim)
 
             F_sim_next = one_step_model( F_sim if not keep_all_sims else F_prev
@@ -677,7 +678,7 @@ class AirOptionFlights:
             yield T_curr, F_sim  # last value in T_curr
 
     @staticmethod
-    def add_zero_to_Tl(T_list : List[float]) -> np.array:
+    def add_zero_to_Tl(T_list : List[float]) -> np.ndarray:
         """ Prepends a zero to sim_times if sim_times doesnt already have it.
 
         :param T_list:  list of simulation times
@@ -691,16 +692,17 @@ class AirOptionFlights:
 
         return T_list
 
-    def mc_mult_steps_ret( self
-                           , F_v     : Tuple[np.array, np.array]
-                           , s_v     : Tuple[np.array, np.array]
-                           , d_v     : Tuple[np.array, np.array]
+    def _mc_mult_steps_ret( self
+                           , F_v     : Tuple[np.ndarray, np.ndarray]
+                           , s_v     : Tuple[np.ndarray, np.ndarray]
+                           , d_v     : Tuple[np.ndarray, np.ndarray]
                            , T_l     : Tuple[List[float], List[float]]
-                           , rho_m   : Tuple[np.array, np.array]
-                           , T_v_exp : Tuple[np.array, np.array]
-                           , nb_sim        = 1000
-                           , model         = 'n'
-                           , keep_all_sims = False ):
+                           , rho_m   : Tuple[np.ndarray, np.ndarray]
+                           , T_v_exp : Tuple[np.ndarray, np.ndarray]
+                           , nb_sim  : int        = 1000
+                           , model   : str        = 'n'
+                           , keep_all_sims : bool = False
+                           , ):
         """ Simulates ticket prices for a return flight.
 
         :param F_v: tuple of list of forward values, first for departure, second for return (arrays in tuple are 1-dim)
@@ -711,7 +713,7 @@ class AirOptionFlights:
         :param rho_m: correlation matrix (2-dim array)
         :param nb_sim: number of sims
         :param T_v_exp: expiry of forward contracts, expiry in numerical terms.
-        :param model: model 'ln' or 'n' for normal
+        :param model: model 'ln' for log-normal or 'n' for normal
         :param keep_all_sims: whether to keep the simulations
         :returns: matrix [time_step, simulation, fwd] or ticket prices
         """
@@ -724,7 +726,7 @@ class AirOptionFlights:
         rho_m_dep,   rho_m_ret   = rho_m
 
         # mc_mult_steps is a generator and has exactly _0_ elements for keep_all_sims=False
-        _, F_ret_realized = list(self.mc_mult_steps( F_v_ret
+        _, F_ret_realized = list(self._mc_mult_steps( F_v_ret
                                                      , s_v_ret
                                                      , d_v_ret
                                                      , T_l_ret
@@ -733,7 +735,7 @@ class AirOptionFlights:
                                                      , nb_sim   = nb_sim
                                                      , model    = model ))[0]
 
-        return self.mc_mult_steps( F_v_dep
+        return self._mc_mult_steps( F_v_dep
                                    , s_v_dep
                                    , d_v_dep
                                    , T_l_dep
@@ -745,13 +747,14 @@ class AirOptionFlights:
                                    , keep_all_sims=keep_all_sims)
 
     def air_option(self
-                   , sim_times : Union[np.array, Tuple[np.array, np.array]]
-                   , K         : float
-                   , nb_sim    = 1000
-                   , rho       = 0.9
-                   , cuda_ind  = False
-                   , underlyer ='n'
-                   , keep_all_sims = False) -> Union[float, Dict[str, float]]:
+                   , sim_times     : Union[np.array, Tuple[np.array, np.array]]
+                   , K             : float
+                   , nb_sim        : int   = 1000
+                   , rho           : float = 0.9
+                   , cuda_ind      : bool  = False
+                   , underlyer     : str   = 'n'
+                   , keep_all_sims : bool = False
+                   , ) -> Union[float, Dict[str, float]]:
         """ Computes the value of the air option with low memory impact.
 
         :param sim_times: simulation list, same as s_v
@@ -784,9 +787,9 @@ class AirOptionFlights:
                 for sim_time, F_max_at_time in F_max}
 
     @staticmethod
-    def compute_date_by_fraction( date_today : datetime.date
-                                , date_final : datetime.date
-                                , fract    : int
+    def compute_date_by_fraction( date_today     : datetime.date
+                                , date_final     : datetime.date
+                                , fract          : int
                                 , total_fraction : int ) -> datetime.date:
         """
         Computes the date between dt_today and dt_final where the days between

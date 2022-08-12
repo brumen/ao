@@ -117,8 +117,9 @@ class TestAirOptionMock(TestCase):
         """
 
         airom = AirOptionMock( datetime.date(2019, 7, 2)
-                           , origin = 'SFO'
-                           , dest = 'EWR'
-                           , K = 1600.)
+                               , origin = 'SFO'
+                               , dest = 'EWR'
+                               , K = 1600.
+                               , )
 
         self.assertGreaterEqual(airom.PV(), 0.)
